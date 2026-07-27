@@ -150,13 +150,33 @@ public class GlobalExceptionHandler {
                                 .body(error);
         }
 
-        @ExceptionHandler(InvalidCredentialsException.class)
-        public ResponseEntity<ApiError> handleInvalidCredentials(InvalidCredentialsException ex) {
-                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(new ApiError(ex.getMessage()));
+                @ExceptionHandler(InvalidCredentialsException.class)
+        public ResponseEntity<ApiError> handleInvalidCredentials(
+                InvalidCredentialsException ex,
+                HttpServletRequest request) {
+
+        ApiError error = new ApiError(
+                LocalDateTime.now(),
+                HttpStatus.UNAUTHORIZED.value(),
+                HttpStatus.UNAUTHORIZED.getReasonPhrase(),
+                ex.getMessage(),
+                request.getRequestURI()
+        );
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(error);
         }
 
         @ExceptionHandler(InvalidOrExpiredResetTokenException.class)
-        public ResponseEntity<ApiError> handleInvalidResetToken(InvalidOrExpiredResetTokenException ex) {
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new ApiError(ex.getMessage()));
+        public ResponseEntity<ApiError> handleInvalidResetToken(
+                InvalidOrExpiredResetTokenException ex,
+                HttpServletRequest request) {
+
+        ApiError error = new ApiError(
+                LocalDateTime.now(),
+                HttpStatus.BAD_REQUEST.value(),
+                HttpStatus.BAD_REQUEST.getReasonPhrase(),
+                ex.getMessage(),
+                request.getRequestURI()
+        );
+        return ResponseEntity.badRequest().body(error);
         }
 }
