@@ -1,7 +1,3 @@
-public interface MailSender {
-    void sendPasswordResetEmail(String toEmail, String resetToken);
-}
-
 @Service
 @Slf4j
 public class LoggingMailSender implements MailSender {
