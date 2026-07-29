@@ -1,3 +1,31 @@
+package br.com.churchhub.api.service;
+
+import br.com.churchhub.api.dto.ForgotPasswordRequest;
+import br.com.churchhub.api.dto.ForgotPasswordResponse;
+import br.com.churchhub.api.dto.LoginRequest;
+import br.com.churchhub.api.dto.LoginResponse;
+import br.com.churchhub.api.dto.ResetPasswordRequest;
+import br.com.churchhub.api.entity.PasswordResetToken;
+import br.com.churchhub.api.entity.Usuario;
+import br.com.churchhub.api.exception.InvalidCredentialsException;
+import br.com.churchhub.api.exception.InvalidOrExpiredResetTokenException;
+import br.com.churchhub.api.repository.PasswordResetTokenRepository;
+import br.com.churchhub.api.repository.UsuarioRepository;
+import br.com.churchhub.api.security.JwtService;
+import br.com.churchhub.api.security.UsuarioDetailsImpl;
+import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.AuthenticationException;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDateTime;
+import java.util.UUID;
+
 @Service
 @RequiredArgsConstructor
 public class AuthService {
@@ -38,7 +66,6 @@ public class AuthService {
             mailSender.sendPasswordResetEmail(usuario.getEmail(), resetToken.getToken());
         });
 
-        // Resposta genérica sempre - não confirma nem nega existência do e-mail (07-API.md)
         return new ForgotPasswordResponse(
                 "Se o e-mail existir em nossa base, um link de redefinição foi enviado.");
     }

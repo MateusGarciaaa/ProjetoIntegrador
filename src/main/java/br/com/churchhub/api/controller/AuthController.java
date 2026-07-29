@@ -1,3 +1,19 @@
+package br.com.churchhub.api.controller;
+
+import br.com.churchhub.api.dto.ForgotPasswordRequest;
+import br.com.churchhub.api.dto.ForgotPasswordResponse;
+import br.com.churchhub.api.dto.LoginRequest;
+import br.com.churchhub.api.dto.LoginResponse;
+import br.com.churchhub.api.dto.ResetPasswordRequest;
+import br.com.churchhub.api.service.AuthService;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
 @RestController
 @RequestMapping("/api/v1/auth")
 @RequiredArgsConstructor

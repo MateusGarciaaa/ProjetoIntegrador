@@ -1,3 +1,14 @@
+package br.com.churchhub.api.security;
+
+import br.com.churchhub.api.entity.Usuario;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.userdetails.UserDetails;
+
+import java.util.Collection;
+import java.util.List;
+import java.util.UUID;
+
 public class UsuarioDetailsImpl implements UserDetails {
 
     private final Usuario usuario;
