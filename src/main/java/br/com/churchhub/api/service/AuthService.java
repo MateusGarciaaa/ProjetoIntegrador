@@ -13,7 +13,6 @@ import br.com.churchhub.api.repository.PasswordResetTokenRepository;
 import br.com.churchhub.api.repository.UsuarioRepository;
 import br.com.churchhub.api.security.JwtService;
 import br.com.churchhub.api.security.UsuarioDetailsImpl;
-import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -27,7 +26,6 @@ import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Service
-@RequiredArgsConstructor
 public class AuthService {
 
     private final AuthenticationManager authenticationManager;
@@ -36,9 +34,24 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final MailSender mailSender;
+    private final long resetTokenExpirationMinutes;
 
-    @Value("${app.jwt.reset-token-expiration-minutes}")
-    private long resetTokenExpirationMinutes;
+    public AuthService(
+            AuthenticationManager authenticationManager,
+            UsuarioRepository usuarioRepository,
+            PasswordResetTokenRepository resetTokenRepository,
+            PasswordEncoder passwordEncoder,
+            JwtService jwtService,
+            MailSender mailSender,
+            @Value("${app.jwt.reset-token-expiration-minutes}") long resetTokenExpirationMinutes) {
+        this.authenticationManager = authenticationManager;
+        this.usuarioRepository = usuarioRepository;
+        this.resetTokenRepository = resetTokenRepository;
+        this.passwordEncoder = passwordEncoder;
+        this.jwtService = jwtService;
+        this.mailSender = mailSender;
+        this.resetTokenExpirationMinutes = resetTokenExpirationMinutes;
+    }
 
     public LoginResponse login(LoginRequest request) {
         try {
