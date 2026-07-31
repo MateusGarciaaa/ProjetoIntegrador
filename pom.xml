@@ -95,6 +95,26 @@
 			<artifactId>spring-boot-starter-webmvc-test</artifactId>
 			<scope>test</scope>
 		</dependency>
+		<!-- Swagger / OpenAPI -->
+		<dependency>
+			<groupId>org.springdoc</groupId>
+			<artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+			<version>3.0.3</version>
+		</dependency>
+
+		<!--
+		O springdoc-openapi 3.x ainda usa Jackson 2 internamente, mesmo rodando em cima do
+		Spring Boot 4 (que usa Jackson 3 por padrão e não traz mais o Jackson 2 nas
+		dependências gerenciadas). Sem isso, a aplicação pode falhar ao subir com
+		ClassNotFoundException apontando para classes do pacote com.fasterxml.jackson.databind.
+		Referência: https://github.com/springdoc/springdoc-openapi/issues/3200
+		Se numa atualização futura do springdoc isso deixar de ser necessário, pode remover.
+		-->
+		<dependency>
+			<groupId>com.fasterxml.jackson.core</groupId>
+			<artifactId>jackson-databind</artifactId>
+			<version>2.22.1</version>
+		</dependency>
 	</dependencies>
 
 	<build>
