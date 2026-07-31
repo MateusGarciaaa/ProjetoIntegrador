@@ -7,7 +7,11 @@ import io.swagger.v3.oas.models.security.SecurityRequirement;
 import io.swagger.v3.oas.models.security.SecurityScheme;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-
+/**
+Isso adiciona o botão "Authorize" no Swagger UI — você faz
+login em /api/v1/auth/login, pega o token da resposta, cola lá (só o token, sem Bearer ),
+ e todos os endpoints protegidos passam a ser testáveis direto pela interface.
+*/
 @Configuration
 public class OpenApiConfig {
 
