@@ -1,0 +1,23 @@
+.badge {
+  display: inline-block;
+  padding: 0.125rem var(--space-3);
+  border-radius: 999px;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.ATIVO {
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+}
+
+.AFASTADO {
+  background: var(--color-neutral-soft);
+  color: var(--color-text-muted);
+}
+
+.VISITANTE {
+  background: var(--color-accent-soft);
+  color: var(--color-accent);
+}

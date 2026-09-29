@@ -1,0 +1,44 @@
+.title {
+  font-family: var(--font-display);
+  font-size: var(--text-2xl);
+  font-weight: 600;
+}
+
+.subtitle {
+  margin-top: var(--space-2);
+  color: var(--color-text-muted);
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  margin-top: var(--space-6);
+}
+
+.formError {
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-sm);
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
+  font-weight: 500;
+}
+
+.passwordField {
+  position: relative;
+}
+
+.passwordField input {
+  padding-right: calc(var(--control-height) + var(--space-1));
+}
+
+.passwordToggle {
+  position: absolute;
+  top: calc(var(--text-sm) * 1.5 + var(--space-1));
+  right: 0;
+}
+
+.submit {
+  width: 100%;
+  margin-top: var(--space-2);
+}

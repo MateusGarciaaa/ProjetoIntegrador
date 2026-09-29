@@ -1,0 +1,61 @@
+# =============================================================================
+# ChurchHub - Infraestrutura de DESENVOLVIMENTO
+# -----------------------------------------------------------------------------
+# Sobe apenas os serviços de apoio (banco e ferramentas). A aplicação Spring
+# Boot continua rodando pela IDE/Maven, conforme a Fase 1 do
+# 20-PlanoDeImplantacao.md. A containerização da aplicação fica para a Fase 5.
+#
+# Uso:
+#   docker compose up -d                   -> sobe o banco
+#   docker compose --profile tools up -d   -> sobe banco + pgAdmin
+#   docker compose down                    -> para (dados preservados)
+#   docker compose down -v                 -> para e APAGA os dados (reset)
+# =============================================================================
+
+name: churchhub
+
+services:
+  postgres:
+    image: postgres:17-alpine          # versão fixada: evita quebra silenciosa
+    container_name: churchhub-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USERNAME}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8"
+      TZ: America/Sao_Paulo            # 06-Database.md
+      PGTZ: America/Sao_Paulo
+    ports:
+      # Exposto somente em localhost: ninguém da rede acessa seu banco.
+      - "127.0.0.1:${DB_PORT:-5432}:5432"
+    volumes:
+      # Volume nomeado: os dados sobrevivem a "docker compose down".
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    # IMPORTANTE: nenhuma tabela é criada aqui. O Docker entrega um banco
+    # vazio; quem cria e evolui o esquema é o Flyway (V1__..., V2__...).
+
+  pgadmin:
+    image: dpage/pgadmin4:8
+    container_name: churchhub-pgadmin
+    profiles: ["tools"]                # só sobe quando pedido explicitamente
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:-admin@churchhub.local}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-admin}
+      PGADMIN_CONFIG_SERVER_MODE: "False"
+    ports:
+      - "127.0.0.1:${PGADMIN_PORT:-5050}:80"
+    volumes:
+      - pgadmindata:/var/lib/pgadmin
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  pgdata:
+  pgadmindata:
