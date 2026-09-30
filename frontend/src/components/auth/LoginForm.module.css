@@ -1,0 +1,8 @@
+.formulario {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.enviar {
+  margin-top: var(--space-2);
+}

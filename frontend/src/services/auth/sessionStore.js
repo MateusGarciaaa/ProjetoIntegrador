@@ -1,43 +1,58 @@
-const STORAGE_KEY = 'churchhub.session';
-const MILLISECONDS_PER_SECOND = 1000;
+import { isSessaoExpirada, restaurarSessao } from './sessao';
 
-function isExpired(session) {
-  return Date.now() >= session.expiresAt;
+const CHAVE = 'churchhub.sessao';
+
+export const MOTIVOS_FIM_SESSAO = Object.freeze({
+  EXPIRADA: 'expirada',
+  RECUSADA: 'recusada',
+});
+
+/**
+ * sessionStorage: o token some ao fechar o navegador e não é compartilhado entre abas.
+ * É um meio-termo; o ideal (cookie httpOnly + refresh token) depende do backend.
+ */
+function armazenamento() {
+  try {
+    return window.sessionStorage;
+  } catch {
+    return null;
+  }
 }
 
-function isValidShape(session) {
-  return typeof session?.token === 'string' && typeof session?.expiresAt === 'number';
+const ouvintes = new Set();
+
+export function lerSessao() {
+  const bruto = armazenamento()?.getItem(CHAVE);
+  if (!bruto) return null;
+
+  let sessao = null;
+  try {
+    sessao = restaurarSessao(JSON.parse(bruto));
+  } catch {
+    sessao = null;
+  }
+  if (!sessao || isSessaoExpirada(sessao)) {
+    limparSessao();
+    return null;
+  }
+  return sessao;
 }
 
-export const sessionStore = {
-  save(token, expiresInSeconds) {
-    const session = { token, expiresAt: Date.now() + expiresInSeconds * MILLISECONDS_PER_SECOND };
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(session));
-    } catch {
-      // Sem armazenamento disponível (ex.: navegação privada): a sessão vale só nesta aba.
-    }
-    return session;
-  },
+export function salvarSessao(sessao) {
+  armazenamento()?.setItem(CHAVE, JSON.stringify({ token: sessao.token, expiresAt: sessao.expiresAt }));
+}
 
-  read() {
-    try {
-      const session = JSON.parse(localStorage.getItem(STORAGE_KEY));
-      if (!isValidShape(session) || isExpired(session)) {
-        this.clear();
-        return null;
-      }
-      return session;
-    } catch {
-      return null;
-    }
-  },
+export function limparSessao() {
+  armazenamento()?.removeItem(CHAVE);
+}
 
-  clear() {
-    try {
-      localStorage.removeItem(STORAGE_KEY);
-    } catch {
-      // Nada a limpar.
-    }
-  },
-};
+/** Canal entre a camada HTTP e o AuthProvider, sem que um importe o outro. */
+export function aoEncerrarSessao(ouvinte) {
+  ouvintes.add(ouvinte);
+  return () => ouvintes.delete(ouvinte);
+}
+
+export function encerrarSessao(motivo) {
+  limparSessao();
+  ouvintes.forEach((ouvinte) => ouvinte(motivo));
+}

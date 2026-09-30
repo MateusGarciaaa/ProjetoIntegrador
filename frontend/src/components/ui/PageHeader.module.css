@@ -1,0 +1,17 @@
+.cabecalho {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-4);
+  margin-bottom: var(--space-5);
+}
+
+.titulo {
+  font-size: var(--text-2xl);
+}
+
+.descricao {
+  margin-top: var(--space-1);
+  color: var(--color-ink-muted);
+}

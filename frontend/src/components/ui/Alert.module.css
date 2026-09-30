@@ -1,0 +1,33 @@
+.alerta {
+  display: flex;
+  gap: var(--space-3);
+  align-items: flex-start;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-sm);
+  border-left: 3px solid currentColor;
+  font-size: var(--text-sm);
+}
+
+.alerta svg {
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.texto {
+  color: var(--color-ink);
+}
+
+.erro {
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
+}
+
+.aviso {
+  background: var(--color-warning-soft);
+  color: var(--color-warning);
+}
+
+.info {
+  background: var(--color-info-soft);
+  color: var(--color-info);
+}

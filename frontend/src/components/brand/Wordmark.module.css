@@ -1,0 +1,19 @@
+.marca {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-family: var(--font-display);
+  font-weight: var(--weight-bold);
+  font-size: var(--text-xl);
+  letter-spacing: -0.02em;
+  color: var(--color-primary);
+  text-decoration: none;
+}
+
+.claro {
+  color: #fff;
+}
+
+.selo {
+  flex-shrink: 0;
+}

@@ -1,0 +1,56 @@
+.formulario {
+  display: grid;
+  gap: var(--space-5);
+}
+
+.secao {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: var(--space-4);
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+
+.secao + .secao {
+  padding-top: var(--space-5);
+  border-top: 1px solid var(--color-line);
+}
+
+/* float tira a legenda de cima da borda do fieldset e a devolve ao fluxo do grid. */
+.legenda {
+  float: left;
+  width: 100%;
+  grid-column: 1 / -1;
+  padding: 0;
+  margin-bottom: var(--space-1);
+  font-family: var(--font-display);
+  font-size: var(--text-md);
+  font-weight: var(--weight-bold);
+  color: var(--color-primary);
+}
+
+.inteiro {
+  grid-column: 1 / -1;
+}
+
+.metade {
+  grid-column: span 3;
+}
+
+.terco {
+  grid-column: span 2;
+}
+
+.nota {
+  font-size: var(--text-sm);
+  color: var(--color-ink-muted);
+}
+
+@media (max-width: 599px) {
+  .metade,
+  .terco {
+    grid-column: 1 / -1;
+  }
+}

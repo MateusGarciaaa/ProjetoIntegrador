@@ -1,0 +1,98 @@
+.cabecalho {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  height: var(--header-height);
+  padding: 0 var(--space-5);
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-line);
+}
+
+.botaoMenu {
+  margin-left: calc(-1 * var(--space-2));
+}
+
+.marcaMovel {
+  font-size: var(--text-lg);
+}
+
+.usuario {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-left: auto;
+  min-width: 0;
+}
+
+.avatar {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 50%;
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+  font-weight: var(--weight-semibold);
+  font-size: var(--text-sm);
+}
+
+.identificacao {
+  display: grid;
+  min-width: 0;
+  line-height: 1.25;
+}
+
+.nome {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+}
+
+.perfil {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--text-xs);
+  color: var(--color-accent);
+  font-weight: var(--weight-semibold);
+}
+
+.divisor {
+  width: 1px;
+  height: 1.75rem;
+  background: var(--color-line);
+}
+
+@media (min-width: 960px) {
+  .botaoMenu,
+  .marcaMovel {
+    display: none;
+  }
+}
+
+@media (max-width: 599px) {
+  .cabecalho {
+    padding: 0 var(--space-4);
+  }
+
+  .avatar,
+  .identificacao .nome,
+  .divisor {
+    display: none;
+  }
+
+  .textoSair {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+  }
+}

@@ -1,10 +1,27 @@
-.pagination {
+.paginacao {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
+  justify-content: space-between;
   gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-top: 1px solid var(--color-line);
+  font-size: var(--text-sm);
+  color: var(--color-ink-muted);
 }
 
-.status {
-  font-size: var(--text-sm);
-  color: var(--color-text-muted);
+.controles {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.pagina {
+  min-width: 7rem;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.resumo {
+  font-variant-numeric: tabular-nums;
 }

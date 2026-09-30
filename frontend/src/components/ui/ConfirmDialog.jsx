@@ -1,19 +1,30 @@
+import { Alert } from './Alert';
 import { Button } from './Button';
 import { Modal } from './Modal';
 import styles from './ConfirmDialog.module.css';
 
-export function ConfirmDialog({ isOpen, title, message, confirmLabel, isConfirming, onConfirm, onCancel }) {
+/** Confirmação de ação destrutiva. O foco inicial fica em "Cancelar", a opção segura. */
+export function ConfirmDialog({ aberto, titulo, rotuloConfirmar, processando = false, erro, onConfirmar, onCancelar, children }) {
   return (
-    <Modal isOpen={isOpen} title={title} onClose={onCancel} size="small">
-      <p className={styles.message}>{message}</p>
-      <div className={styles.actions}>
-        <Button variant="secondary" onClick={onCancel} disabled={isConfirming}>
-          Cancelar
-        </Button>
-        <Button variant="danger" onClick={onConfirm} isLoading={isConfirming}>
-          {confirmLabel}
-        </Button>
-      </div>
+    <Modal
+      aberto={aberto}
+      titulo={titulo}
+      tamanho="pequeno"
+      onFechar={onCancelar}
+      podeFechar={!processando}
+      rodape={
+        <>
+          <Button variante="secundario" onClick={onCancelar} disabled={processando} data-autofocus>
+            Cancelar
+          </Button>
+          <Button variante="perigo" onClick={onConfirmar} carregando={processando}>
+            {rotuloConfirmar}
+          </Button>
+        </>
+      }
+    >
+      {erro && <Alert className={styles.erro}>{erro}</Alert>}
+      {children}
     </Modal>
   );
 }

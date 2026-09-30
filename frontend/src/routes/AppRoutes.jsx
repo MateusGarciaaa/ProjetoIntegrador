@@ -1,32 +1,52 @@
-import { Route, Routes } from 'react-router-dom';
+import { Navigate, Route, Routes } from 'react-router-dom';
+import { PERMISSOES } from '../constants/permissoes';
+import { ROTAS, ROTA_PADRAO_AUTENTICADA } from '../constants/rotas';
+import { useAuth } from '../hooks/useAuth';
 import { AppLayout } from '../layouts/AppLayout';
-import { LoginPage } from '../pages/auth/LoginPage';
-import { MembersPage } from '../pages/members/MembersPage';
-import { NotFoundPage } from '../pages/errors/NotFoundPage';
-import { PERMISSIONS } from '../constants/permissions';
-import { HomeRedirect, RequireAuth, RequireGuest, RequirePermission } from './guards';
-import { ROUTE_PATHS } from './routePaths';
+import { AuthLayout } from '../layouts/AuthLayout';
+import { LoginPage } from '../pages/LoginPage';
+import { MembrosPage } from '../pages/MembrosPage';
+import { NotFoundPage } from '../pages/NotFoundPage';
+import { GuestRoute } from './GuestRoute';
+import { ProtectedRoute } from './ProtectedRoute';
+import { RequirePermission } from './RequirePermission';
+
+function RedirecionamentoInicial() {
+  const { autenticado } = useAuth();
+  return <Navigate to={autenticado ? ROTA_PADRAO_AUTENTICADA : ROTAS.LOGIN} replace />;
+}
 
 export function AppRoutes() {
   return (
     <Routes>
-      <Route element={<RequireGuest />}>
-        <Route path={ROUTE_PATHS.LOGIN} element={<LoginPage />} />
+      <Route path={ROTAS.INICIO} element={<RedirecionamentoInicial />} />
+
+      <Route
+        element={
+          <GuestRoute>
+            <AuthLayout />
+          </GuestRoute>
+        }
+      >
+        <Route path={ROTAS.LOGIN} element={<LoginPage />} />
       </Route>
 
-      <Route element={<RequireAuth />}>
-        <Route element={<AppLayout />}>
-          <Route path={ROUTE_PATHS.HOME} element={<HomeRedirect />} />
-          <Route
-            path={ROUTE_PATHS.MEMBERS}
-            element={
-              <RequirePermission permission={PERMISSIONS.MEMBERS_VIEW}>
-                <MembersPage />
-              </RequirePermission>
-            }
-          />
-          <Route path="*" element={<NotFoundPage />} />
-        </Route>
+      <Route
+        element={
+          <ProtectedRoute>
+            <AppLayout />
+          </ProtectedRoute>
+        }
+      >
+        <Route
+          path={ROTAS.MEMBROS}
+          element={
+            <RequirePermission permissao={PERMISSOES.MEMBROS_VISUALIZAR} area="membros">
+              <MembrosPage />
+            </RequirePermission>
+          }
+        />
+        <Route path="*" element={<NotFoundPage />} />
       </Route>
     </Routes>
   );

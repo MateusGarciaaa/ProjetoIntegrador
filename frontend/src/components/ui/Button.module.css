@@ -1,4 +1,4 @@
-.button {
+.botao {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -7,55 +7,88 @@
   padding: 0 var(--space-4);
   border: 1px solid transparent;
   border-radius: var(--radius-sm);
-  font-weight: 600;
+  font-weight: var(--weight-semibold);
+  font-size: var(--text-sm);
+  line-height: 1;
   white-space: nowrap;
   cursor: pointer;
-  transition: background-color 120ms ease, border-color 120ms ease;
+  transition:
+    background-color var(--duration-fast) var(--easing),
+    border-color var(--duration-fast) var(--easing),
+    color var(--duration-fast) var(--easing);
 }
 
-.button:disabled {
+.botao:disabled {
   cursor: not-allowed;
   opacity: 0.6;
 }
 
-.primary {
+.botao[aria-busy='true'] {
+  cursor: progress;
+}
+
+.primario {
   background: var(--color-primary);
   color: var(--color-on-primary);
 }
 
-.primary:hover:not(:disabled) {
+.primario:hover:not(:disabled) {
   background: var(--color-primary-hover);
 }
 
-.secondary {
+.secundario {
   background: var(--color-surface);
-  border-color: var(--color-border-strong);
+  border-color: var(--color-line-strong);
+  color: var(--color-ink);
 }
 
-.secondary:hover:not(:disabled) {
-  background: var(--color-surface-muted);
+.secundario:hover:not(:disabled) {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
 }
 
-.danger {
+.fantasma {
+  background: transparent;
+  color: var(--color-ink-muted);
+}
+
+.fantasma:hover:not(:disabled) {
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+}
+
+.perigo {
   background: var(--color-danger);
-  color: var(--color-on-primary);
+  color: #fff;
 }
 
-.danger:hover:not(:disabled) {
+.perigo:hover:not(:disabled) {
   background: var(--color-danger-hover);
 }
 
-.ghost {
+.perigoSuave {
   background: transparent;
-  color: var(--color-text-muted);
+  color: var(--color-danger);
 }
 
-.ghost:hover:not(:disabled) {
-  background: var(--color-neutral-soft);
-  color: var(--color-text);
+.perigoSuave:hover:not(:disabled) {
+  background: var(--color-danger-soft);
 }
 
-.iconOnly {
+.pequeno {
+  min-height: 2.125rem;
+  padding: 0 var(--space-3);
+}
+
+.blocoInteiro {
+  width: 100%;
+}
+
+.apenasIcone {
   width: var(--control-height);
   padding: 0;
+}
+
+.apenasIcone.pequeno {
+  width: 2.125rem;
 }

@@ -1,36 +1,59 @@
+/*
+ * Identidade visual do ChurchHub.
+ * Verde-nave como cor de trabalho, latão como acento raro, fundo cor de pedra.
+ */
 :root {
-  --color-bg: #f3f5f4;
-  --color-surface: #ffffff;
-  --color-surface-muted: #f8faf9;
-  --color-text: #1d2521;
-  --color-text-muted: #5a6660;
-  --color-border: #d5ddd8;
-  --color-border-strong: #b7c3bc;
+  /* Tipografia */
+  --font-display: 'Bricolage Grotesque', 'Segoe UI', system-ui, sans-serif;
+  --font-body: 'Public Sans', 'Segoe UI', system-ui, -apple-system, 'Helvetica Neue', Arial, sans-serif;
 
-  --color-primary: #2f5d46;
-  --color-primary-hover: #244a37;
-  --color-primary-soft: #e3ede7;
+  --text-xs: 0.75rem;
+  --text-sm: 0.875rem;
+  --text-md: 1rem;
+  --text-lg: 1.125rem;
+  --text-xl: 1.375rem;
+  --text-2xl: 1.75rem;
+  --text-3xl: 2.5rem;
+
+  --leading-tight: 1.2;
+  --leading-normal: 1.5;
+
+  --weight-regular: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+  --weight-bold: 700;
+
+  /* Cores base */
+  --color-ink: #1c2b27;
+  --color-ink-muted: #52615c;
+  --color-ink-subtle: #75827d;
+  --color-canvas: #f3f4f1;
+  --color-surface: #ffffff;
+  --color-surface-sunken: #f8f9f7;
+  --color-line: #dfe3de;
+  --color-line-strong: #c4cbc5;
+
+  --color-primary: #1f4d43;
+  --color-primary-hover: #173c34;
+  --color-primary-soft: #e4eeea;
   --color-on-primary: #ffffff;
 
-  --color-accent: #9a6f17;
-  --color-accent-soft: #f6eedb;
+  --color-accent: #b0873a;
+  --color-accent-light: #d9b56a;
+  --color-focus: #8d6a26;
 
-  --color-danger: #b3261e;
-  --color-danger-hover: #93201a;
-  --color-danger-soft: #fbe9e7;
+  --color-danger: #a3392b;
+  --color-danger-hover: #86291d;
+  --color-danger-soft: #f9e6e2;
 
-  --color-neutral-soft: #eceeed;
-  --color-focus: #9a6f17;
+  --color-success: #2e6a3e;
+  --color-success-soft: #e3f0e6;
+  --color-warning: #82560a;
+  --color-warning-soft: #faefd8;
+  --color-info: #2b5878;
+  --color-info-soft: #e3edf5;
 
-  --font-body: 'Public Sans', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
-  --font-display: 'Literata', Georgia, 'Times New Roman', serif;
-
-  --text-sm: 0.875rem;
-  --text-base: 1rem;
-  --text-lg: 1.125rem;
-  --text-xl: 1.5rem;
-  --text-2xl: 2rem;
-
+  /* Espaçamento (base 4px) */
   --space-1: 0.25rem;
   --space-2: 0.5rem;
   --space-3: 0.75rem;
@@ -38,12 +61,28 @@
   --space-5: 1.5rem;
   --space-6: 2rem;
   --space-7: 3rem;
+  --space-8: 4rem;
 
+  /* Raios por hierarquia: controles < cartões < janelas */
   --radius-sm: 6px;
   --radius-md: 10px;
-  --radius-arch: 999px 999px 12px 12px;
+  --radius-lg: 16px;
+  --radius-pill: 999px;
 
-  --shadow-dialog: 0 18px 48px rgba(29, 37, 33, 0.22);
-  --control-height: 2.75rem;
+  /* Sombras só para o que flutua sobre a página */
+  --shadow-float: 0 12px 32px rgba(28, 43, 39, 0.18), 0 2px 6px rgba(28, 43, 39, 0.08);
+
+  /* Estrutura */
   --sidebar-width: 15rem;
+  --header-height: 4rem;
+  --content-max: 72rem;
+  --control-height: 2.625rem;
+
+  --z-drawer: 30;
+  --z-modal: 40;
+  --z-toast: 50;
+
+  --duration-fast: 120ms;
+  --duration-base: 200ms;
+  --easing: cubic-bezier(0.2, 0, 0, 1);
 }

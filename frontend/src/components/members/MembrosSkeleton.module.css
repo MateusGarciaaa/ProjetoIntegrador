@@ -1,0 +1,23 @@
+.lista {
+  display: grid;
+}
+
+.linha {
+  display: grid;
+  grid-template-columns: 2fr 2fr 1.2fr 0.8fr;
+  gap: var(--space-5);
+  align-items: center;
+  padding: var(--space-4);
+  border-bottom: 1px solid var(--color-line);
+}
+
+.linha:last-child {
+  border-bottom: 0;
+}
+
+@media (max-width: 719px) {
+  .linha {
+    grid-template-columns: 1fr;
+    gap: var(--space-2);
+  }
+}

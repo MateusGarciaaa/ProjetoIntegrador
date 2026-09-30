@@ -1,45 +1,83 @@
-import { NavLink, Outlet } from 'react-router-dom';
-import { Button } from '../components/ui/Button';
+import { useEffect, useRef, useState } from 'react';
+import { NavLink, Outlet, useLocation } from 'react-router-dom';
+import { Wordmark } from '../components/brand/Wordmark';
+import { IconButton } from '../components/ui/Button';
 import { Icon } from '../components/ui/Icon';
-import { useAuth } from '../hooks/useAuth';
-import { ROLE_LABELS } from '../constants/roles';
-import { NAVIGATION_ITEMS } from '../routes/navigation';
+import { ITENS_MENU } from '../constants/navegacao';
+import { useFocusTrap } from '../hooks/useFocusTrap';
+import { cx } from '../utils/classNames';
+import { AppHeader } from './AppHeader';
 import styles from './AppLayout.module.css';
 
+const MEDIA_DESKTOP = '(min-width: 960px)';
+
+/** Estrutura das telas autenticadas. No celular, o menu vira um painel lateral. */
 export function AppLayout() {
-  const { user, can, logout } = useAuth();
-  const visibleItems = NAVIGATION_ITEMS.filter((item) => can(item.permission));
+  const [menuAberto, setMenuAberto] = useState(false);
+  const menuRef = useRef(null);
+  const { pathname } = useLocation();
+  useFocusTrap(menuRef, menuAberto);
+
+  useEffect(() => {
+    setMenuAberto(false);
+  }, [pathname]);
+
+  useEffect(() => {
+    const consulta = window.matchMedia(MEDIA_DESKTOP);
+    const fecharNoDesktop = (evento) => evento.matches && setMenuAberto(false);
+    consulta.addEventListener('change', fecharNoDesktop);
+    return () => consulta.removeEventListener('change', fecharNoDesktop);
+  }, []);
+
+  function aoPressionarTecla(evento) {
+    if (evento.key === 'Escape' && menuAberto) setMenuAberto(false);
+  }
 
   return (
-    <div className={styles.shell}>
-      <aside className={styles.sidebar}>
-        <span className={styles.brand}>ChurchHub</span>
+    <div className={styles.estrutura}>
+      <a className={styles.pularLink} href="#conteudo-principal">
+        Pular para o conteúdo
+      </a>
 
-        <nav className={styles.nav} aria-label="Menu principal">
-          {visibleItems.map((item) => (
-            <NavLink
-              key={item.path}
-              to={item.path}
-              className={({ isActive }) => `${styles.navLink} ${isActive ? styles.active : ''}`}
-            >
-              <Icon name={item.icon} />
-              {item.label}
-            </NavLink>
-          ))}
-        </nav>
+      {menuAberto && <div className={styles.veu} onClick={() => setMenuAberto(false)} aria-hidden="true" />}
 
-        <div className={styles.account}>
-          <div className={styles.accountInfo}>
-            <span className={styles.userName}>{user.name}</span>
-            <span className={styles.userRole}>{ROLE_LABELS[user.role] ?? user.role}</span>
-          </div>
-          <Button variant="ghost" icon="logout" iconOnly aria-label="Sair" title="Sair" onClick={logout} />
+      <aside
+        id="menu-lateral"
+        ref={menuRef}
+        className={cx(styles.menu, menuAberto && styles.menuAberto)}
+        aria-label="Menu principal"
+        onKeyDown={aoPressionarTecla}
+      >
+        <div className={styles.menuTopo}>
+          <Wordmark />
+          <IconButton
+            icone="fechar"
+            rotulo="Fechar menu"
+            pequeno
+            className={styles.botaoFecharMenu}
+            onClick={() => setMenuAberto(false)}
+          />
         </div>
+        <nav aria-label="Seções">
+          <ul className={styles.itens}>
+            {ITENS_MENU.map((item) => (
+              <li key={item.caminho}>
+                <NavLink to={item.caminho} className={({ isActive }) => cx(styles.link, isActive && styles.linkAtivo)}>
+                  <Icon nome={item.icone} />
+                  {item.rotulo}
+                </NavLink>
+              </li>
+            ))}
+          </ul>
+        </nav>
       </aside>
 
-      <main className={styles.content}>
-        <Outlet />
-      </main>
+      <div className={styles.coluna}>
+        <AppHeader menuAberto={menuAberto} onAbrirMenu={() => setMenuAberto(true)} />
+        <main id="conteudo-principal" tabIndex={-1} className={styles.conteudo}>
+          <Outlet />
+        </main>
+      </div>
     </div>
   );
 }

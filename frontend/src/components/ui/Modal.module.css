@@ -1,45 +1,98 @@
-.dialog {
-  width: calc(100% - 2 * var(--space-4));
-  max-height: calc(100dvh - 2 * var(--space-4));
-  padding: 0;
-  border: none;
-  border-radius: var(--radius-md);
+.fundo {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-modal);
+  display: grid;
+  place-items: center;
+  padding: var(--space-4);
+  background: rgba(22, 34, 31, 0.5);
+  animation: surgir var(--duration-base) var(--easing);
+}
+
+.painel {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-height: calc(100vh - 2 * var(--space-4));
   background: var(--color-surface);
-  color: var(--color-text);
-  box-shadow: var(--shadow-dialog);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-float);
+  animation: subir var(--duration-base) var(--easing);
 }
 
-.dialog::backdrop {
-  background: rgba(29, 37, 33, 0.45);
+.pequeno {
+  max-width: 28rem;
 }
 
-.small {
-  max-width: 26rem;
-}
-
-.medium {
+.medio {
   max-width: 44rem;
 }
 
-.header {
-  position: sticky;
-  top: 0;
-  z-index: 1;
+.cabecalho {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: var(--space-4);
-  padding: var(--space-4) var(--space-5);
-  border-bottom: 1px solid var(--color-border);
-  background: var(--color-surface);
+  padding: var(--space-5) var(--space-5) var(--space-4);
+  border-bottom: 1px solid var(--color-line);
 }
 
-.title {
-  font-family: var(--font-display);
+.titulo {
   font-size: var(--text-xl);
-  font-weight: 600;
 }
 
-.body {
+.descricao {
+  margin-top: var(--space-1);
+  font-size: var(--text-sm);
+  color: var(--color-ink-muted);
+}
+
+.corpo {
+  flex: 1;
+  overflow-y: auto;
   padding: var(--space-5);
+}
+
+.rodape {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-5);
+  border-top: 1px solid var(--color-line);
+  background: var(--color-surface-sunken);
+  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+}
+
+@media (max-width: 599px) {
+  .fundo {
+    align-items: end;
+    padding: 0;
+  }
+
+  .painel {
+    max-height: 92vh;
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  }
+
+  .rodape {
+    border-radius: 0;
+  }
+
+  .rodape > * {
+    flex: 1;
+  }
+}
+
+@keyframes surgir {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes subir {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
 }

@@ -1,0 +1,27 @@
+.barra {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+
+.painel {
+  background: var(--color-surface);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.atualizando {
+  opacity: 0.55;
+  transition: opacity var(--duration-base) var(--easing);
+  pointer-events: none;
+}
+
+@media (max-width: 599px) {
+  .novo {
+    width: 100%;
+  }
+}

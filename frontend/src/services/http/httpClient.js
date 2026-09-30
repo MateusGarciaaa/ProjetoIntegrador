@@ -1,38 +1,52 @@
 import axios from 'axios';
-import { env } from '../../config/env';
-import { sessionStore } from '../auth/sessionStore';
-import { toApiError } from './apiError';
+import { appConfig } from '../../config/env';
+import { encerrarSessao, lerSessao, MOTIVOS_FIM_SESSAO } from '../auth/sessionStore';
+import { ApiError, MENSAGENS_ERRO, TIPOS_ERRO } from './apiError';
 
-const REQUEST_TIMEOUT_MS = 15000;
+/** Espelha o permitAll("/api/v1/auth/**") do SecurityConfig. */
+const PREFIXOS_PUBLICOS = ['/auth/'];
 
-let handleUnauthorized = () => {};
-
-export function setUnauthorizedHandler(handler) {
-  handleUnauthorized = handler;
+function isRotaPublica(url = '') {
+  return PREFIXOS_PUBLICOS.some((prefixo) => url.startsWith(prefixo));
 }
 
 export const httpClient = axios.create({
-  baseURL: env.apiBaseUrl,
-  timeout: REQUEST_TIMEOUT_MS,
-  headers: { 'Content-Type': 'application/json' },
+  baseURL: appConfig.apiBaseUrl,
+  timeout: appConfig.requestTimeoutMs,
+  headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
 });
 
+if (appConfig.useMockApi) {
+  // Import dinâmico: o backend simulado vira um arquivo separado, só baixado no modo demonstração.
+  httpClient.defaults.adapter = async (config) => {
+    const { mockAdapter } = await import('../mock/mockAdapter');
+    return mockAdapter(config);
+  };
+}
+
 httpClient.interceptors.request.use((config) => {
-  const session = sessionStore.read();
-  if (session) {
-    config.headers.Authorization = `Bearer ${session.token}`;
+  // O JwtAuthenticationFilter roda até em rotas públicas: um token vencido
+  // enviado no login derrubaria a requisição. Por isso, nada de Authorization aqui.
+  if (isRotaPublica(config.url)) return config;
+
+  const sessao = lerSessao();
+  if (!sessao) {
+    encerrarSessao(MOTIVOS_FIM_SESSAO.EXPIRADA);
+    return Promise.reject(
+      new ApiError({ tipo: TIPOS_ERRO.SESSAO_EXPIRADA, status: 401, message: MENSAGENS_ERRO.SESSAO_EXPIRADA }),
+    );
   }
+  config.headers.Authorization = `Bearer ${sessao.token}`;
   return config;
 });
 
 httpClient.interceptors.response.use(
-  (response) => response,
-  (error) => {
-    const apiError = toApiError(error);
-    const wasAuthenticatedRequest = Boolean(error.config?.headers?.Authorization);
-
-    if (apiError.isUnauthorized && wasAuthenticatedRequest) {
-      handleUnauthorized();
+  (resposta) => resposta,
+  (erro) => {
+    const apiError = ApiError.from(erro);
+    // Na rota de login, 401 é "credenciais inválidas" e vira mensagem no formulário.
+    if (apiError.isSessaoRecusada() && !isRotaPublica(erro?.config?.url)) {
+      encerrarSessao(MOTIVOS_FIM_SESSAO.RECUSADA);
     }
     return Promise.reject(apiError);
   },

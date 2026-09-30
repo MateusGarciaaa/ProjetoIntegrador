@@ -1,0 +1,110 @@
+/* Tabela a partir de 720px; abaixo disso, a mesma lista vira cartões. */
+.tabela {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-sm);
+}
+
+.tabela thead th {
+  padding: var(--space-3) var(--space-4);
+  text-align: left;
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+  color: var(--color-ink-muted);
+  background: var(--color-surface-sunken);
+  border-bottom: 1px solid var(--color-line);
+}
+
+.tabela tbody th,
+.tabela td {
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--color-line);
+  vertical-align: middle;
+}
+
+.tabela tbody tr:last-child th,
+.tabela tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.tabela tbody tr:hover {
+  background: var(--color-surface-sunken);
+}
+
+.nome {
+  text-align: left;
+  font-weight: var(--weight-semibold);
+  color: var(--color-ink);
+}
+
+.secundario {
+  color: var(--color-ink-muted);
+  overflow-wrap: anywhere;
+}
+
+.telefone {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.semValor {
+  color: var(--color-ink-subtle);
+}
+
+.colunaAcoes {
+  width: 1%;
+  text-align: right;
+}
+
+.acoes {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-1);
+}
+
+.cartoes {
+  display: none;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cartao {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  border-bottom: 1px solid var(--color-line);
+}
+
+.cartao:last-child {
+  border-bottom: 0;
+}
+
+.cartaoTopo {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.cartaoDados {
+  display: grid;
+  gap: 2px;
+  font-size: var(--text-sm);
+}
+
+.cartaoAcoes {
+  display: flex;
+  gap: var(--space-2);
+  margin-top: var(--space-1);
+}
+
+@media (max-width: 719px) {
+  .tabela {
+    display: none;
+  }
+
+  .cartoes {
+    display: block;
+  }
+}

@@ -1,33 +1,40 @@
+import { faixaDaPagina } from '../../services/http/pagina';
 import { Button } from './Button';
 import styles from './Pagination.module.css';
 
-export function Pagination({ page, totalPages, onPageChange }) {
-  if (totalPages <= 1) return null;
-
-  const isFirstPage = page === 0;
-  const isLastPage = page >= totalPages - 1;
+export function Pagination({ pagina, onMudarPagina, desabilitado = false }) {
+  const { inicio, fim, total } = faixaDaPagina(pagina);
+  const totalPaginas = Math.max(pagina.totalPages, 1);
+  const naPrimeira = pagina.number <= 0;
+  const naUltima = pagina.number >= totalPaginas - 1;
 
   return (
-    <nav className={styles.pagination} aria-label="Paginação">
-      <Button
-        variant="secondary"
-        icon="chevronLeft"
-        iconOnly
-        aria-label="Página anterior"
-        disabled={isFirstPage}
-        onClick={() => onPageChange(page - 1)}
-      />
-      <span className={styles.status}>
-        Página {page + 1} de {totalPages}
-      </span>
-      <Button
-        variant="secondary"
-        icon="chevronRight"
-        iconOnly
-        aria-label="Próxima página"
-        disabled={isLastPage}
-        onClick={() => onPageChange(page + 1)}
-      />
+    <nav className={styles.paginacao} aria-label="Paginação">
+      <p className={styles.resumo} aria-live="polite">
+        Mostrando {inicio}–{fim} de {total}
+      </p>
+      <div className={styles.controles}>
+        <Button
+          variante="secundario"
+          pequeno
+          icone="anterior"
+          disabled={desabilitado || naPrimeira}
+          onClick={() => onMudarPagina(pagina.number - 1)}
+        >
+          Anterior
+        </Button>
+        <span className={styles.pagina}>
+          Página {pagina.number + 1} de {totalPaginas}
+        </span>
+        <Button
+          variante="secundario"
+          pequeno
+          disabled={desabilitado || naUltima}
+          onClick={() => onMudarPagina(pagina.number + 1)}
+        >
+          Próxima
+        </Button>
+      </div>
     </nav>
   );
 }

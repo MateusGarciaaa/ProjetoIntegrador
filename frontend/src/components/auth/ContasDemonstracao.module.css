@@ -1,0 +1,60 @@
+.bloco {
+  margin-top: var(--space-6);
+  padding: var(--space-4);
+  border: 1px dashed var(--color-accent);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-sunken);
+}
+
+.titulo {
+  font-size: var(--text-md);
+}
+
+.texto {
+  margin-top: var(--space-1);
+  font-size: var(--text-sm);
+  color: var(--color-ink-muted);
+}
+
+.contas {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(9.5rem, 1fr));
+  gap: var(--space-2);
+  margin: var(--space-3) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.conta {
+  display: grid;
+  width: 100%;
+  gap: 1px;
+  padding: var(--space-2) var(--space-3);
+  text-align: left;
+  background: var(--color-surface);
+  border: 1px solid var(--color-line-strong);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.conta:hover:not(:disabled) {
+  border-color: var(--color-primary);
+}
+
+.conta:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.perfil {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+}
+
+.email {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--text-xs);
+  color: var(--color-ink-subtle);
+}
