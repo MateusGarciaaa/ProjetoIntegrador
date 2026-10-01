@@ -1,15 +1,16 @@
 # =============================================================================
-# ChurchHub - Infraestrutura de DESENVOLVIMENTO
+# ChurchHub - Docker Compose
 # -----------------------------------------------------------------------------
-# Sobe apenas os serviços de apoio (banco e ferramentas). A aplicação Spring
-# Boot continua rodando pela IDE/Maven, conforme a Fase 1 do
-# 20-PlanoDeImplantacao.md. A containerização da aplicação fica para a Fase 5.
+# Profiles permitem escolher o que subir sem duplicar arquivos:
 #
-# Uso:
-#   docker compose up -d                   -> sobe o banco
-#   docker compose --profile tools up -d   -> sobe banco + pgAdmin
-#   docker compose down                    -> para (dados preservados)
-#   docker compose down -v                 -> para e APAGA os dados (reset)
+#   docker compose up -d                          -> só o banco (dev pela IDE)
+#   docker compose --profile app up -d --build    -> banco + API em container
+#   docker compose --profile tools up -d          -> banco + pgAdmin
+#   docker compose --profile app --profile tools up -d --build -> tudo
+#
+#   docker compose logs -f api                    -> acompanhar a API
+#   docker compose down                           -> para (dados preservados)
+#   docker compose down -v                        -> para e APAGA os dados
 # =============================================================================
 
 name: churchhub
@@ -20,9 +21,9 @@ services:
     container_name: churchhub-db
     restart: unless-stopped
     environment:
-      POSTGRES_DB: ${DB_NAME}
-      POSTGRES_USER: ${DB_USERNAME}
-      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME:?defina DB_NAME no .env}
+      POSTGRES_USER: ${DB_USERNAME:?defina DB_USERNAME no .env}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?defina DB_PASSWORD no .env}
       POSTGRES_INITDB_ARGS: "--encoding=UTF8"
       TZ: America/Sao_Paulo            # 06-Database.md
       PGTZ: America/Sao_Paulo
@@ -30,20 +31,43 @@ services:
       # Exposto somente em localhost: ninguém da rede acessa seu banco.
       - "127.0.0.1:${DB_PORT:-5432}:5432"
     volumes:
-      # Volume nomeado: os dados sobrevivem a "docker compose down".
       - pgdata:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 5s
       timeout: 5s
       retries: 10
-    # IMPORTANTE: nenhuma tabela é criada aqui. O Docker entrega um banco
-    # vazio; quem cria e evolui o esquema é o Flyway (V1__..., V2__...).
+    # Nenhuma tabela é criada aqui: quem cria e evolui o esquema é o Flyway.
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: churchhub-api:local
+    container_name: churchhub-api
+    profiles: ["app"]
+    restart: unless-stopped
+    environment:
+      # Dentro da rede do compose o banco é encontrado pelo NOME DO SERVIÇO
+      # e sempre na porta interna 5432 (DB_PORT do .env é só a porta do host).
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: ${DB_NAME}
+      DB_USERNAME: ${DB_USERNAME}
+      DB_PASSWORD: ${DB_PASSWORD}
+      # Obrigatório: impede subir com o segredo padrão do application.yml.
+      JWT_SECRET: ${JWT_SECRET:?defina JWT_SECRET no .env}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:5173}
+    ports:
+      - "127.0.0.1:${API_PORT:-8080}:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy     # só sobe depois que o banco aceita conexão
 
   pgadmin:
     image: dpage/pgadmin4:8
     container_name: churchhub-pgadmin
-    profiles: ["tools"]                # só sobe quando pedido explicitamente
+    profiles: ["tools"]
     environment:
       PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:-admin@churchhub.local}
       PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-admin}

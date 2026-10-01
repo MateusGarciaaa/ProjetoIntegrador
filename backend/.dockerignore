@@ -1,0 +1,13 @@
+# Só o necessário vai para o contexto do build: mais rápido e sem vazar segredos.
+target/
+.git/
+.idea/
+.vscode/
+*.iml
+.env
+.env.*
+!.env.example
+docker-compose.yml
+Dockerfile
+.dockerignore
+*.md
