@@ -37,7 +37,7 @@ npm run dev          # http://localhost:5173
 | `VITE_SHOW_DEMO_ACCOUNTS` | `false` | `true` mostra os botões das contas de demonstração também com o backend real (que precisa estar com `DEMO_DATA_ENABLED=true`). |
 | `DEV_PROXY_TARGET` | `http://localhost:8080` | Só para o `npm run dev`; não vai para o navegador. |
 
-Variáveis `VITE_*` são gravadas no código durante o build: ao mudar alguma em produção, é preciso gerar um novo deploy. Em produção, aponte `VITE_API_BASE_URL` para a URL absoluta da API e libere a origem do frontend em `CORS_ALLOWED_ORIGINS` no backend. O passo a passo está em [`../DEPLOY.md`](../DEPLOY.md).
+Variáveis `VITE_*` são gravadas no código durante o build: ao mudar alguma em produção, é preciso gerar um novo deploy. Em produção, aponte `VITE_API_BASE_URL` para a URL absoluta da API e libere a origem do frontend em `CORS_ALLOWED_ORIGINS` no backend.
 
 ## Contas de demonstração
 
