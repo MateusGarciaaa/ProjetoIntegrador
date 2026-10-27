@@ -13,9 +13,9 @@ const ORDEM_CAMPOS = ['email', 'password'];
 /**
  * Após o login, quem redireciona é o GuestRoute (para a rota de origem ou /membros),
  * então este componente não navega por conta própria.
- * contasDemo só é informado no modo simulado.
+ * demonstracao ({ contas, simulado }) só é informado em ambiente de apresentação.
  */
-export function LoginForm({ contasDemo }) {
+export function LoginForm({ demonstracao }) {
   const { entrar, limparAvisoSessao } = useAuth();
   const idBase = useId();
   const [valores, setValores] = useState(VALORES_INICIAIS_LOGIN);
@@ -92,7 +92,14 @@ export function LoginForm({ contasDemo }) {
           {enviando ? 'Entrando…' : 'Entrar'}
         </Button>
       </form>
-      {contasDemo && <ContasDemonstracao contas={contasDemo} desabilitado={enviando} onEscolher={preencherConta} />}
+      {demonstracao && (
+        <ContasDemonstracao
+          contas={demonstracao.contas}
+          simulado={demonstracao.simulado}
+          desabilitado={enviando}
+          onEscolher={preencherConta}
+        />
+      )}
     </>
   );
 }

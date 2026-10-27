@@ -1,16 +1,20 @@
 import { rotuloPerfil } from '../../constants/perfis';
 import styles from './ContasDemonstracao.module.css';
 
-/** Só aparece no modo simulado: preenche o formulário com uma conta de teste. */
-export function ContasDemonstracao({ contas, desabilitado, onEscolher }) {
+const AVISOS = Object.freeze({
+  simulado: 'Os dados ficam só neste navegador e voltam ao início quando a página é recarregada.',
+  servidor: 'Ambiente de apresentação com dados fictícios, compartilhado por todos os visitantes.',
+});
+
+/** Só aparece em ambiente de apresentação: preenche o formulário com uma conta de teste. */
+export function ContasDemonstracao({ contas, simulado, desabilitado, onEscolher }) {
   return (
     <section className={styles.bloco} aria-labelledby="titulo-demonstracao">
       <h2 id="titulo-demonstracao" className={styles.titulo}>
         Modo demonstração
       </h2>
       <p className={styles.texto}>
-        Os dados ficam só neste navegador e voltam ao início quando a página é recarregada. Escolha um perfil para
-        preencher o acesso.
+        {simulado ? AVISOS.simulado : AVISOS.servidor} Escolha um perfil para preencher o acesso.
       </p>
       <ul className={styles.contas}>
         {contas.map((conta) => (

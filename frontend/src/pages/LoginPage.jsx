@@ -6,8 +6,8 @@ import { useTituloPagina } from '../hooks/useTituloPagina';
 import { CONTAS_DEMO, SENHA_DEMO } from '../services/mock/contasDemo';
 import styles from './LoginPage.module.css';
 
-const CONTAS_DO_MODO_SIMULADO = appConfig.useMockApi
-  ? CONTAS_DEMO.map((conta) => ({ ...conta, senha: SENHA_DEMO }))
+const DEMONSTRACAO = appConfig.exibirContasDemo
+  ? { simulado: appConfig.useMockApi, contas: CONTAS_DEMO.map((conta) => ({ ...conta, senha: SENHA_DEMO })) }
   : null;
 
 export function LoginPage() {
@@ -23,7 +23,7 @@ export function LoginPage() {
           {avisoSessao}
         </Alert>
       )}
-      <LoginForm contasDemo={CONTAS_DO_MODO_SIMULADO} />
+      <LoginForm demonstracao={DEMONSTRACAO} />
     </>
   );
 }
