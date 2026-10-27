@@ -6,6 +6,7 @@ export function criarBanco() {
   return {
     usuarios: CONTAS_DEMO.map((conta) => ({ ...conta, senha: SENHA_DEMO, ativo: true })),
     membros: criarMembrosIniciais(),
+    tokensRedefinicao: [],
   };
 }
 

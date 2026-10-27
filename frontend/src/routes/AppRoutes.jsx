@@ -16,6 +16,8 @@ function carregarPagina(importar, nome) {
 }
 
 const LoginPage = carregarPagina(() => import('../pages/LoginPage'), 'LoginPage');
+const EsqueciSenhaPage = carregarPagina(() => import('../pages/EsqueciSenhaPage'), 'EsqueciSenhaPage');
+const RedefinirSenhaPage = carregarPagina(() => import('../pages/RedefinirSenhaPage'), 'RedefinirSenhaPage');
 const MembrosPage = carregarPagina(() => import('../pages/MembrosPage'), 'MembrosPage');
 const EmConstrucaoPage = carregarPagina(() => import('../pages/EmConstrucaoPage'), 'EmConstrucaoPage');
 const NotFoundPage = carregarPagina(() => import('../pages/NotFoundPage'), 'NotFoundPage');
@@ -45,14 +47,11 @@ export function AppRoutes() {
       <Routes>
         <Route path={ROTAS.INICIO} element={<RedirecionamentoInicial />} />
 
-        <Route
-          element={
-            <GuestRoute>
-              <AuthLayout />
-            </GuestRoute>
-          }
-        >
-          <Route path={ROTAS.LOGIN} element={<LoginPage />} />
+        <Route element={<AuthLayout />}>
+          <Route path={ROTAS.LOGIN} element={<GuestRoute><LoginPage /></GuestRoute>} />
+          <Route path={ROTAS.ESQUECI_SENHA} element={<GuestRoute><EsqueciSenhaPage /></GuestRoute>} />
+          {/* Sem GuestRoute: quem está logado e abre o link do e-mail não perde o token num redirecionamento. */}
+          <Route path={ROTAS.REDEFINIR_SENHA} element={<RedefinirSenhaPage />} />
         </Route>
 
         <Route

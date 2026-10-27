@@ -4,7 +4,7 @@ import { appConfig } from '../config/env';
 import { useAuth } from '../hooks/useAuth';
 import { useTituloPagina } from '../hooks/useTituloPagina';
 import { CONTAS_DEMO, SENHA_DEMO } from '../services/mock/contasDemo';
-import styles from './LoginPage.module.css';
+import styles from './PaginaAuth.module.css';
 
 const DEMONSTRACAO = appConfig.exibirContasDemo
   ? { simulado: appConfig.useMockApi, contas: CONTAS_DEMO.map((conta) => ({ ...conta, senha: SENHA_DEMO })) }

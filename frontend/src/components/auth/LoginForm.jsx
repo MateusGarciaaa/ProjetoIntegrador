@@ -1,6 +1,9 @@
 import { useId, useState } from 'react';
+import { Link } from 'react-router-dom';
+import { ROTAS } from '../../constants/rotas';
 import { useAuth } from '../../hooks/useAuth';
-import { VALORES_INICIAIS_LOGIN, validarLogin } from '../../schemas/loginSchema';
+import { useEnvioUnico } from '../../hooks/useEnvioUnico';
+import { mensagemErroLogin, VALORES_INICIAIS_LOGIN, validarLogin } from '../../schemas/loginSchema';
 import { Alert } from '../ui/Alert';
 import { Button } from '../ui/Button';
 import { TextField } from '../ui/FormField';
@@ -11,17 +14,17 @@ import styles from './LoginForm.module.css';
 const ORDEM_CAMPOS = ['email', 'password'];
 
 /**
- * Após o login, quem redireciona é o GuestRoute (para a rota de origem ou /membros),
- * então este componente não navega por conta própria.
+ * Após o login, quem redireciona é o GuestRoute (para a rota de origem ou a rota inicial
+ * do perfil), então este componente não navega por conta própria.
  * demonstracao ({ contas, simulado }) só é informado em ambiente de apresentação.
  */
 export function LoginForm({ demonstracao }) {
   const { entrar, limparAvisoSessao } = useAuth();
+  const { enviando, executar } = useEnvioUnico();
   const idBase = useId();
   const [valores, setValores] = useState(VALORES_INICIAIS_LOGIN);
   const [erros, setErros] = useState({});
   const [erroApi, setErroApi] = useState(null);
-  const [enviando, setEnviando] = useState(false);
   const [tentouEnviar, setTentouEnviar] = useState(false);
 
   const idCampo = (campo) => `${idBase}-${campo}`;
@@ -38,28 +41,27 @@ export function LoginForm({ demonstracao }) {
     setErroApi(null);
   }
 
-  async function enviar(evento) {
+  function enviar(evento) {
     evento.preventDefault();
-    if (enviando) return;
+    executar(async () => {
+      setTentouEnviar(true);
+      const encontrados = validarLogin(valores);
+      setErros(encontrados);
+      const primeiroInvalido = ORDEM_CAMPOS.find((campo) => encontrados[campo]);
+      if (primeiroInvalido) {
+        document.getElementById(idCampo(primeiroInvalido))?.focus();
+        return;
+      }
 
-    setTentouEnviar(true);
-    const encontrados = validarLogin(valores);
-    setErros(encontrados);
-    const primeiroInvalido = ORDEM_CAMPOS.find((campo) => encontrados[campo]);
-    if (primeiroInvalido) {
-      document.getElementById(idCampo(primeiroInvalido))?.focus();
-      return;
-    }
-
-    setErroApi(null);
-    limparAvisoSessao();
-    setEnviando(true);
-    try {
-      await entrar(valores);
-    } catch (erro) {
-      setErroApi(erro.message);
-      setEnviando(false);
-    }
+      setErroApi(null);
+      limparAvisoSessao();
+      try {
+        await entrar(valores);
+      } catch (erro) {
+        // 401 nunca diz se o erro está no e-mail ou na senha, e nenhum campo é marcado.
+        setErroApi(mensagemErroLogin(erro));
+      }
+    });
   }
 
   return (
@@ -91,6 +93,9 @@ export function LoginForm({ demonstracao }) {
         <Button type="submit" blocoInteiro carregando={enviando} className={styles.enviar}>
           {enviando ? 'Entrando…' : 'Entrar'}
         </Button>
+        <p className={styles.rodape}>
+          <Link to={ROTAS.ESQUECI_SENHA}>Esqueci minha senha</Link>
+        </p>
       </form>
       {demonstracao && (
         <ContasDemonstracao

@@ -1,12 +1,16 @@
 import { AxiosError, CanceledError } from 'axios';
 import { appConfig } from '../../config/env';
+import { registrarEmail } from './caixaDeSaida';
 import { fraseHttp } from './respostas';
 import { criarServidorSimulado } from './servidorSimulado';
 
 const LATENCIA_MINIMA_MS = 250;
 const LATENCIA_MAXIMA_MS = 650;
 
-const atender = criarServidorSimulado({ validadeTokenSegundos: appConfig.mockTokenExpiresInSeconds });
+const atender = criarServidorSimulado({
+  validadeTokenSegundos: appConfig.mockTokenExpiresInSeconds,
+  aoEnviarEmail: registrarEmail,
+});
 
 function aguardar(config) {
   const atraso = LATENCIA_MINIMA_MS + Math.random() * (LATENCIA_MAXIMA_MS - LATENCIA_MINIMA_MS);

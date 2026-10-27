@@ -1,6 +1,6 @@
 # Integração frontend × backend — diagnóstico
 
-> Fotografia de 2026-10-26 (commit 2087a3c), atualizada ao fim da Fundação no mesmo dia. Ler no início de cada sessão. Atualizar a tabela e o checklist ao concluir cada módulo.
+> Fotografia de 2026-10-26 (commit 2087a3c), atualizada ao fim da Fundação e da Autenticação no mesmo dia. Ler no início de cada sessão. Atualizar a tabela e o checklist ao concluir cada módulo.
 > Fontes: `backend/src/main/java/br/com/churchhub/api/{controller,dto,service,security,exception}` e `frontend/src/{services,constants,routes,schemas,hooks}`.
 
 ## 1. Convenções do backend (valem para todos os módulos)
@@ -29,9 +29,10 @@ Perfis: A = ADMINISTRADOR, P = PASTOR, S = SECRETARIO, T = TESOUREIRO, M = MEMBR
 
 | # | Método e rota | Parâmetros | Entrada (validações) | Saída | Perfis | Classificação |
 |---|---|---|---|---|---|---|
-| 1 | `POST /auth/login` | — | `LoginRequest { email @NotBlank @Email, password @NotBlank }` | 200 `LoginResponse { token, type:"Bearer", expiresIn (s) }`; 401 `"E-mail ou senha inválidos"` | público | **INTEGRADO** |
-| 2 | `POST /auth/forgot-password` | — | `{ email @NotBlank @Email }` | 200 `{ message }` (sempre a mesma, exista ou não o e-mail) | público | **NÃO USADO** |
-| 3 | `POST /auth/reset-password` | — | `{ token @NotBlank, newPassword @NotBlank @Size(6..72) }` | 204; 400 `"Token de redefinição inválido ou expirado"` | público | **NÃO USADO** |
+| 1 | `POST /auth/login` | — | `LoginRequest { email @NotBlank @Email, password @NotBlank }` (e-mail normalizado `trim().toLowerCase()` no `UsuarioDetailsServiceImpl`) | 200 `LoginResponse { token, type:"Bearer", expiresIn (s) }`; 401 `"E-mail ou senha inválidos"` (também usuário inativo) | público | **INTEGRADO** (`/login`) |
+| 2 | `POST /auth/forgot-password` | — | `{ email @NotBlank @Email }` (busca **exata**, sem normalizar) | 200 `{ message: "Se o e-mail existir em nossa base, um link de redefinição foi enviado." }` (sempre a mesma) | público | **INTEGRADO** (`/esqueci-senha`; front envia minúsculas e mostra sempre a mensagem neutra própria) |
+| 3 | `POST /auth/reset-password` | — | `{ token @NotBlank, newPassword @NotBlank @Size(6..72) }` | 204; 400 `"Token de redefinição inválido ou expirado"` (inexistente, já usado ou > 30 min) | público | **INTEGRADO** (`/reset-password?token=<UUID>`, caminho do link do `LoggingMailSender`) |
+| — | `POST /auth/refresh` | — | — | **não existe** (conferido no `AuthController` em 2026-10-26) | — | — |
 | 4 | `GET /members` | `nome` (contém, ignora maiúsc., diferencia acento), `page`, `size`=20, `sort`=`nome` | — | 200 `Page<MembroResponse>` | A P S | **INTEGRADO** (front: `size=10`, `sort=nome,asc`) |
 | 4b | `GET /members/lookup` | `nome` (contém), `status` (inválido → 400 `"Valor inválido para o parâmetro 'status'."`), `page`, `size` (máx. **20**, acima disso reduz); `sort` do cliente é ignorado (sempre `nome`, `id`) | — | 200 `Page<MembroResumoResponse { id, nome, status }>` | A P S T | **NÃO USADO** (`membrosService.buscarResumo` e mock prontos; seletor de membro do Financeiro) |
 | 5 | `GET /members/{id}` | `id` UUID | — | 200 `MembroResponse`; 404 | A P S | **NÃO USADO** (mock implementa; front edita a partir da linha da lista) |
@@ -73,14 +74,15 @@ Perfis: A = ADMINISTRADOR, P = PASTOR, S = SECRETARIO, T = TESOUREIRO, M = MEMBR
 
 ## 3. Divergências mock × backend real
 
-O mock (`services/mock/`) só implementa `POST /auth/login` e as 5 rotas de `/members`. Qualquer outra rota no mock: em `/auth/**` → 404 sem token (como o `permitAll`); nas demais, sem token → 401, com token → 404. Cada módulo exporta suas rotas em `handlers/<modulo>.js` (`ROTAS_AUTH`, `ROTAS_MEMBROS`), reunidas em `ROTAS` de `servidorSimulado.js`; paginação simulada em `mock/paginacao.js` (`lerPageable`, `paginaSpring`).
+O mock (`services/mock/`) implementa as 3 rotas de `/auth` (login, forgot-password, reset-password) e as rotas de `/members`. Rotas públicas passam pelo mesmo `@Valid` simulado das protegidas (`corpo.validar`). O `MailSender` simulado é a "caixa de e-mail" (`mock/caixaDeSaida.js`), exibida só no modo simulado na tela "Esqueci minha senha" (bloco "E-mails simulados", com o link `/reset-password?token=…`). Qualquer outra rota no mock: em `/auth/**` → 404 sem token (como o `permitAll`); nas demais, sem token → 401, com token → 404. Cada módulo exporta suas rotas em `handlers/<modulo>.js` (`ROTAS_AUTH`, `ROTAS_MEMBROS`), reunidas em `ROTAS` de `servidorSimulado.js`; paginação simulada em `mock/paginacao.js` (`lerPageable`, `paginaSpring`).
 
 | # | Assunto | Mock | Backend real | Impacto |
 |---|---|---|---|---|
-| 1 | Rotas cobertas | login + members | 22 endpoints | Eventos, financeiro, categorias, dashboard e reset de senha **só funcionam com backend real** até ganharem handler |
-| 2 | Rotas públicas desconhecidas | ~~401~~ → **corrigido na Fundação**: `/auth/**` inexistente responde 404 sem token. `forgot-password`/`reset-password` ainda sem handler (404 no mock) | 200 / 204 | Handlers entram no módulo Autenticação |
-| 3 | E-mail no login | comparação exata (`handlers/auth.js`) | normaliza `trim().toLowerCase()` (`UsuarioDetailsServiceImpl`) | `Admin@…` entra no real e falha no mock. Comentário em `authService.js` ("diferenciando maiúsculas") está desatualizado |
-| 4 | Mensagens de validação do login | padrões do Hibernate (`"não deve estar em branco"`, `"deve ser um endereço de e-mail bem formado"`) | do DTO: `"O e-mail é obrigatório"`, `"E-mail inválido"`, `"A senha é obrigatória"` | Texto diferente no erro; o front valida antes, então raro |
+| 1 | Rotas cobertas | auth (3) + members | 22 endpoints | Eventos, financeiro, categorias e dashboard **só funcionam com backend real** até ganharem handler |
+| 2 | Rotas públicas | ~~401~~ → **corrigido na Fundação** (`/auth/**` inexistente → 404 sem token); ~~forgot/reset sem handler~~ → **corrigido na Autenticação** | 200 / 204 | Nenhum |
+| 3 | E-mail no login | ~~comparação exata~~ → **corrigido na Autenticação**: normaliza como o real; forgot-password continua exato, **como o real** | login normaliza; forgot-password não | Nenhum (o front envia minúsculas nos dois) |
+| 4 | Mensagens de validação de auth | ~~padrões do Hibernate~~ → **corrigido na Autenticação**: mensagens do `LoginRequest`, `ForgotPasswordRequest` e `ResetPasswordRequest` | do DTO | Ordem das mensagens unidas: o Spring não garante a ordem dos `FieldError`; o mock usa a ordem dos campos no record |
+| 4b | Envio do link de redefinição | caixa de e-mail simulada na tela | `LoggingMailSender` só registra no log | Ver pendência 3 da seção 5 |
 | 5 | RN14 (excluir membro com movimentação) | sempre 204 | 409 com mensagem | Caminho de erro do `ExcluirMembroDialog` não é exercitado no mock |
 | 6 | Formato da página | ~~VIA_DTO~~ → **corrigido na Fundação**: DIRECT idêntico ao real (mesmas chaves e valores; `size` > 2000 reduzido para 2000) | DIRECT (conferido em 2026-10-26 com `GET /members?page=2&size=10&sort=nome,asc`) | Nenhum |
 | 7 | Ordenação | `localeCompare('pt-BR')`; só o 1º `sort` | collation do Postgres; múltiplos `sort` | Ordem com acentos/maiúsculas pode diferir |
@@ -138,7 +140,14 @@ Por prioridade para o frontend (cada item que mude schema exige migration nova; 
    - `GlobalExceptionHandler.handleValidation`: montar `errors` a partir de `getFieldErrors()` (`FieldError::getField`, `FieldError::getDefaultMessage`); manter `message` como está.
    - 409 de unicidade (`MembroService.validarUnicidade` e futuros): `ConflictException` com o campo (ex.: `new ConflictException("email", "Já existe um membro com este e-mail")`) e o handler devolvendo `errors: [{ campo: "email", ... }]`.
    - Demais erros: `errors` ausente ou `[]`.
-3. **Reset de senha utilizável**: URL base do frontend configurável (`FRONTEND_URL`) no link; envio real de e-mail (ou manter log e documentar para a demo).
+3. **Reset de senha utilizável**: URL base do frontend configurável (`FRONTEND_URL`) no link; envio real de e-mail (ou manter log e documentar para a demo). Hoje o link do log é relativo (`/reset-password?token=…`): na demo, abrir `http://localhost:5173` + o caminho do log.
+3b. **Recuperação de senha — achados do módulo Autenticação (2026-10-26)**, por gravidade:
+   - **BCrypt × `@Size(max = 72)`**: o `@Size` conta caracteres, o BCrypt aceita só 72 **bytes**. Uma senha acentuada com ≤ 72 caracteres e > 72 bytes passa na validação e, no `PasswordEncoder.encode`, tende a gerar exceção não tratada (500) — não reproduzido em execução. O front bloqueia antes (`senhaSchema.validarRedefinicao` confere os bytes UTF-8). Correção sugerida: validar bytes no DTO (validador próprio) ou tratar a exceção como 400.
+   - **Reset não encerra sessões**: JWTs emitidos antes da troca continuam válidos até o `exp` (24 h). Quem roubou a sessão continua dentro. Exige versão de credencial no token (ex.: `senhaAlteradaEm` comparado ao `iat`).
+   - **`forgot-password` não normaliza o e-mail** (`usuarioRepository.findByEmail(request.email())`, ao contrário do login): `Admin@…` não recebe link. O front contorna enviando `trim().toLowerCase()`; outros clientes falham. Sugestão: normalizar como o `UsuarioDetailsServiceImpl`.
+   - **Enumeração por tempo e sem limite de tentativas**: com e-mail existente o backend grava o token e "envia" o e-mail; sem ele, responde direto — a diferença de tempo pode revelar o cadastro (com SMTP real, ainda mais). Não há rate limit em `/auth/login` nem em `/auth/forgot-password`. Sugestão: envio assíncrono + limite por IP/e-mail.
+   - **Tokens anteriores continuam válidos**: cada pedido cria um token novo sem invalidar os pendentes do mesmo usuário (todos valem 30 min).
+   - **Usuário inativo recebe link**: `forgotPassword` não confere `ativo`. Inofensivo hoje (o login continua recusando), mas gera token e e-mail à toa.
 4. **Filtros de data com um só limite** em `/events` e `/financial` (hoje um só parâmetro é ignorado em silêncio) e validação `dataInicio <= dataFim` (inclusive em `summary`).
 5. **Financeiro**: filtros `tipo`/`categoriaId` na listagem; endpoint de série mensal (fluxo de caixa/gráfico); totais por categoria (relatório); `GET/PUT/DELETE` de categoria.
 6. **Dashboard**: definir quem acessa (T, S?); PASTOR e o bloco financeiro (seção 4, item 3); série para gráficos; "novos membros" (exige `data_cadastro` em `membros`).
@@ -165,12 +174,17 @@ Por prioridade para o frontend (cada item que mude schema exige migration nova; 
 - [x] Mock: estrutura para novos handlers (`handlers/<modulo>.js` exporta suas rotas; validação de corpo por rota) e `/auth/**` inexistente → 404. As coleções (eventos, categorias, movimentações) entram com cada módulo, junto dos handlers.
 - [x] Confirmar o formato real da `Page`: DIRECT (código: padrão do Spring Boot 4.1; API real conferida em 2026-10-26); mock alinhado.
 
-### Autenticação
-- [ ] Telas "Esqueci minha senha" (`POST /auth/forgot-password`) e "Redefinir senha" (`POST /auth/reset-password`, lendo `?token=`), dentro do `AuthLayout`/`GuestRoute`. Rota `/reset-password` casa com o link do log.
-- [ ] Schemas: e-mail; nova senha 6–72 + confirmação.
-- [ ] Mock: handlers de forgot/reset (rotas públicas) e login com e-mail normalizado + mensagens do `LoginRequest`.
-- [ ] Atualizar comentário de `authService.js` sobre maiúsculas.
-- [ ] Testes de schema e do mock.
+### Autenticação (concluída em 2026-10-26)
+- [x] Contrato conferido no `AuthController`/DTOs/`AuthService`: login, forgot-password, reset-password; **sem** `/auth/refresh` (sessão segue a Fundação: expiração por timer, aba e 401).
+- [x] Login: validação no cliente (e-mail, senha `@NotBlank`), guarda de envio duplo (`hooks/useEnvioUnico.js`, por ref) + botão em carregamento, 401 com mensagem fixa "E-mail ou senha inválidos" sem marcar campo (`loginSchema.mensagemErroLogin`), e-mail em minúsculas, link "Esqueci minha senha". Pós-login: rota de origem, senão `rotaInicialDoPerfil` (Painel para A/P; S/T/M não têm acesso ao `/dashboard` no backend).
+- [x] Tela "Esqueci minha senha" (`/esqueci-senha`, dentro de `AuthLayout` + `GuestRoute`): mensagem neutra **fixa do front** para qualquer desfecho (200, 4xx, 5xx, rede, tempo esgotado) — `hooks/useRecuperacaoSenha.useEsqueciSenha`.
+- [x] Tela "Redefinir senha" (`/reset-password?token=`, dentro de `AuthLayout` **sem** `GuestRoute`, para quem está logado não perder o token num redirecionamento): nova senha + confirmação (6–72 caracteres, `@NotBlank`, ≤ 72 bytes), token ausente/inválido/expirado → mensagem e link "Pedir um novo link".
+- [x] Schemas: `schemas/senhaSchema.js` (validações, mensagens, `isTokenInvalido`, `mapearErroRedefinicao`) e `MENSAGEM_CREDENCIAIS_INVALIDAS` em `loginSchema.js`.
+- [x] Sessão: `useAuth()` expõe `usuario { email, nome, perfil }` (nome `null` até a pendência 9); "Sair" apaga o `sessionStorage` e o estado — não há cache de dados em módulo (os dados vivem nos componentes, desmontados no logout). Senha nunca é guardada (teste confere o `sessionStorage`); nenhum token vai para o console (ESLint proíbe `console`).
+- [x] Mock: 3 handlers com as mensagens dos DTOs, login normalizado, forgot-password exato (como o real), token de 30 min de uso único, caixa de e-mail simulada; rotas públicas passam pelo `@Valid` simulado.
+- [x] Comentário de `authService.js` sobre maiúsculas atualizado.
+- [x] Testes: componentes (`LoginForm`, `EsqueciSenhaForm`, `RedefinirSenhaForm` — sucesso, credenciais erradas, envio duplo, logout, mensagem neutra em 5 desfechos, token inválido/ausente, 400 de senha), `senhaSchema.test.js` e fluxo forgot → reset → login no `servidorSimulado.test.js`. `test-utils/transporte.js` troca só o adaptador do axios (interceptores e `ApiError` reais).
+- [x] Pendências novas do backend: seção 5, item 3b.
 
 ### Membros
 - [ ] Mock: simular 409 RN14 (ex.: membros com flag de movimentação, ou derivar das movimentações quando existirem).

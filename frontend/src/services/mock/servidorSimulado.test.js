@@ -70,6 +70,88 @@ describe('login simulado', () => {
     expect(status).toBe(401);
     expect(data).toMatchObject({ status: 401, error: 'Unauthorized', message: 'E-mail ou senha inválidos', path: '/api/v1/auth/login' });
   });
+
+  it('normaliza o e-mail como o UsuarioDetailsServiceImpl', () => {
+    const { status } = novoServidor()({
+      metodo: 'post',
+      url: '/auth/login',
+      corpo: { email: 'Secretario@ChurchHub.LOCAL', password: SENHA_DEMO },
+    });
+    expect(status).toBe(200);
+  });
+
+  it('valida o corpo com as mensagens do LoginRequest', () => {
+    const atender = novoServidor();
+    expect(atender({ metodo: 'post', url: '/auth/login', corpo: { email: '', password: '' } }).data.message).toBe(
+      'O e-mail é obrigatório, A senha é obrigatória',
+    );
+    expect(atender({ metodo: 'post', url: '/auth/login', corpo: { email: 'sem-arroba', password: 'x' } }).data.message).toBe(
+      'E-mail inválido',
+    );
+    expect(atender({ metodo: 'post', url: '/auth/login', corpoMalformado: true }).status).toBe(400);
+  });
+});
+
+describe('redefinição de senha simulada', () => {
+  const MENSAGEM_FORGOT = 'Se o e-mail existir em nossa base, um link de redefinição foi enviado.';
+  const TOKEN_INVALIDO = 'Token de redefinição inválido ou expirado';
+
+  function servidorComCaixa(relogio) {
+    const emails = [];
+    const atender = criarServidorSimulado({ validadeTokenSegundos: 3600, relogio, aoEnviarEmail: (email) => emails.push(email) });
+    return { atender, emails };
+  }
+
+  const pedir = (atender, email) => atender({ metodo: 'post', url: '/auth/forgot-password', corpo: { email } });
+  const redefinir = (atender, token, newPassword) =>
+    atender({ metodo: 'post', url: '/auth/reset-password', corpo: { token, newPassword } });
+  const tokenDoLink = (link) => new URLSearchParams(link.split('?')[1]).get('token');
+
+  it('responde igual para e-mail existente e inexistente; só o existente recebe link', () => {
+    const { atender, emails } = servidorComCaixa(() => AGORA);
+    const existente = pedir(atender, 'pastor@churchhub.local');
+    const inexistente = pedir(atender, 'ninguem@churchhub.local');
+    expect(existente).toEqual({ status: 200, data: { message: MENSAGEM_FORGOT } });
+    expect(inexistente).toEqual(existente);
+    expect(emails).toHaveLength(1);
+    expect(emails[0]).toMatchObject({ para: 'pastor@churchhub.local', link: expect.stringMatching(/^\/reset-password\?token=[0-9a-f-]{36}$/) });
+  });
+
+  it('como o backend, não normaliza o e-mail no forgot-password', () => {
+    const { atender, emails } = servidorComCaixa(() => AGORA);
+    expect(pedir(atender, 'Pastor@churchhub.local').status).toBe(200);
+    expect(emails).toHaveLength(0);
+  });
+
+  it('fluxo completo: link → nova senha (204) → login com a nova; token não pode ser reutilizado', () => {
+    const { atender, emails } = servidorComCaixa(() => AGORA);
+    pedir(atender, 'pastor@churchhub.local');
+    const token = tokenDoLink(emails[0].link);
+
+    expect(redefinir(atender, token, 'novaSenha1')).toEqual({ status: 204, data: '' });
+    const login = (password) => atender({ metodo: 'post', url: '/auth/login', corpo: { email: 'pastor@churchhub.local', password } });
+    expect(login('novaSenha1').status).toBe(200);
+    expect(login(SENHA_DEMO).status).toBe(401);
+    expect(redefinir(atender, token, 'outraSenha')).toMatchObject({ status: 400, data: { message: TOKEN_INVALIDO } });
+  });
+
+  it('token desconhecido ou com mais de 30 minutos → 400', () => {
+    let agora = AGORA;
+    const { atender, emails } = servidorComCaixa(() => agora);
+    pedir(atender, 'pastor@churchhub.local');
+    const token = tokenDoLink(emails[0].link);
+
+    expect(redefinir(atender, 'nao-existe', 'novaSenha1').data.message).toBe(TOKEN_INVALIDO);
+    agora = AGORA + 30 * 60 * 1000;
+    expect(redefinir(atender, token, 'novaSenha1')).toMatchObject({ status: 400, data: { message: TOKEN_INVALIDO, path: '/api/v1/auth/reset-password' } });
+  });
+
+  it('valida os corpos com as mensagens dos DTOs', () => {
+    const { atender } = servidorComCaixa(() => AGORA);
+    expect(pedir(atender, '').data.message).toBe('O e-mail é obrigatório');
+    expect(redefinir(atender, '', '').data.message).toBe('O token é obrigatório, A nova senha é obrigatória, A nova senha deve ter entre 6 e 72 caracteres');
+    expect(redefinir(atender, 'x', '12345').data.message).toBe('A nova senha deve ter entre 6 e 72 caracteres');
+  });
 });
 
 describe('segurança simulada', () => {

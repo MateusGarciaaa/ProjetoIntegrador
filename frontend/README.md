@@ -1,6 +1,6 @@
 # ChurchHub — Frontend
 
-Interface web do ChurchHub (login e cadastro de membros), escrita para consumir o backend em `../backend` **exatamente como ele é**. O backend é a fonte da verdade: nomes de campo, perfis, mensagens de erro e regras de busca foram extraídos do código Java, não de suposições.
+Interface web do ChurchHub (login, recuperação de senha e cadastro de membros), escrita para consumir o backend em `../backend` **exatamente como ele é**. O backend é a fonte da verdade: nomes de campo, perfis, mensagens de erro e regras de busca foram extraídos do código Java, não de suposições.
 
 Stack: React 18, Vite 5, JavaScript, react-router-dom 6, axios, CSS Modules e Vitest. Sem biblioteca de UI.
 
@@ -57,7 +57,9 @@ São 25 membros de exemplo, todos com CPF de dígito verificador válido.
 
 Extraído de `AuthController`, `MembroController`, DTOs, `JwtService`, `SecurityConfig`, `GlobalExceptionHandler`, `MembroService` e migrations.
 
-**Autenticação.** `POST /api/v1/auth/login` com `{ email, password }` (`@NotBlank @Email` / `@NotBlank`). Responde `{ token, type: "Bearer", expiresIn }`, com `expiresIn` em **segundos** (86400). Credenciais erradas ou usuário inativo: 401 `"E-mail ou senha inválidos"`. O e-mail do login não diferencia maiúsculas. Só `/api/v1/auth/**`, o Swagger e `/actuator/health` são públicos.
+**Autenticação.** `POST /api/v1/auth/login` com `{ email, password }` (`@NotBlank @Email` / `@NotBlank`). Responde `{ token, type: "Bearer", expiresIn }`, com `expiresIn` em **segundos** (86400). Credenciais erradas ou usuário inativo: 401 `"E-mail ou senha inválidos"`. O e-mail do login não diferencia maiúsculas. Só `/api/v1/auth/**`, o Swagger e `/actuator/health` são públicos. Não existe `/auth/refresh`.
+
+**Recuperação de senha.** `POST /auth/forgot-password` com `{ email }` responde sempre 200 com a mesma mensagem; a tela `/esqueci-senha` mostra a sua própria mensagem neutra em qualquer desfecho (inclusive erro), para não revelar se o e-mail tem cadastro, e envia o e-mail em minúsculas (o backend o busca exatamente como recebe). O backend gera um link `/reset-password?token=<UUID>` válido por 30 minutos e de uso único — hoje só registrado no log do Spring (`LoggingMailSender`); no modo simulado, ele aparece no bloco "E-mails simulados" da própria tela. `POST /auth/reset-password` com `{ token, newPassword }` (6 a 72 caracteres) responde 204, ou 400 `"Token de redefinição inválido ou expirado"`; a tela `/reset-password` lê o `?token=`, pede a confirmação da senha, também limita a 72 bytes (limite do BCrypt) e, com token inválido, oferece pedir um novo link.
 
 **JWT.** Claims `sub` (e-mail), `perfil` (com prefixo, ex.: `ROLE_ADMINISTRADOR`), `iat` e `exp`. Não há claim de nome: o cabeçalho mostra o e-mail e passará a mostrar `nome` automaticamente se o backend começar a enviá-la.
 
@@ -116,22 +118,22 @@ src/
     mock/        backend simulado (núcleo, handlers/<módulo> com as próprias rotas, página DIRECT, dados, JWT falso)
   routes/        rotas (páginas com React.lazy) e guards (visitante, autenticado, permissão)
   layouts/       tela dividida do login e estrutura autenticada (menu por perfil, breadcrumb)
-  pages/         Login, Membros, Em construção, Sem acesso, 404
+  pages/         Login, Esqueci a senha, Redefinir senha, Membros, Em construção, Sem acesso, 404
   components/    ui (genéricos: Button, campos, Card, Table, Modal, ConfirmDialog, Pagination, Breadcrumb...), members, auth, brand
   styles/        tokens (cores, tipos, espaçamentos) e estilos globais
   utils/         CPF, telefone, datas, moeda, JWT, strings
-  test-utils/    apoio usado só pelos testes (tokens, render com perfil)
+  test-utils/    apoio usado só pelos testes (tokens, render com perfil, transporte HTTP falso)
 ```
 
 ## Testes
 
-`npm test` roda 233 testes em 18 arquivos: validação e máscara de CPF, máscara de telefone, schema do formulário de membro, mapeamento de erros 400/409 para campos, matriz de permissões de todos os controllers, menu, breadcrumb e rota inicial por perfil, formatadores de data/hora e moeda, leitura do perfil a partir do JWT, sessão e expiração, normalização e montagem da página, conversão de erros da API, cliente HTTP (Bearer, 401, 403, 400, 409, tempo esgotado e rede), redirecionamento seguro após login e fidelidade do backend simulado ao real.
+`npm test` roda 277 testes em 22 arquivos: login (sucesso, credenciais erradas, envio duplo, logout), esqueci a senha (mensagem neutra em qualquer desfecho), redefinição (token inválido, regras da senha), validação e máscara de CPF, máscara de telefone, schema do formulário de membro, mapeamento de erros 400/409 para campos, matriz de permissões de todos os controllers, menu, breadcrumb e rota inicial por perfil, formatadores de data/hora e moeda, leitura do perfil a partir do JWT, sessão e expiração, normalização e montagem da página, conversão de erros da API, cliente HTTP (Bearer, 401, 403, 400, 409, tempo esgotado e rede), redirecionamento seguro após login e fidelidade do backend simulado ao real.
 
-O ambiente padrão é `node` (funções puras, `*.test.js`). Testes de componente usam `*.test.jsx` com `// @vitest-environment jsdom` na primeira linha e `renderizarComPerfil` (`test-utils/componentes.jsx`), que simula o usuário logado e desmonta entre os testes. Exemplos: `PodeAcessar.test.jsx`, `Table.test.jsx` e `AppRoutes.test.jsx` (rotas por perfil).
+O ambiente padrão é `node` (funções puras, `*.test.js`). Testes de componente usam `*.test.jsx` com `// @vitest-environment jsdom` na primeira linha e `renderizarComPerfil` (`test-utils/componentes.jsx`), que simula o usuário logado e desmonta entre os testes. Exemplos: `PodeAcessar.test.jsx`, `Table.test.jsx` e `AppRoutes.test.jsx` (rotas por perfil). Para testar uma tela com o HTTP de verdade, `instalarTransporte` (`test-utils/transporte.js`) troca só o adaptador do axios: serviços, interceptores e `ApiError` continuam os reais (ex.: `LoginForm.test.jsx`).
 
 ## Como crescer (TCC)
 
-O backend já tem eventos, finanças, dashboard e recuperação de senha. Permissões, rotas, itens de menu e páginas provisórias desses módulos já existem. Para cada um, falta: criar o serviço em `services/<modulo>/` (com `montarParametrosPagina` + `normalizarPagina`), o schema em `schemas/` (com `criarMapeadorDeErros`), os componentes em `components/<modulo>/`, trocar o `EmConstrucaoPage` da rota em `routes/AppRoutes.jsx` pela página real e acrescentar `handlers/<modulo>.js` ao backend simulado (as rotas entram em `ROTAS` de `servidorSimulado.js`). As rotas de esqueci/redefinir senha cabem no `AuthLayout`, que já é um layout de rotas.
+O backend já tem eventos, finanças e dashboard. Permissões, rotas, itens de menu e páginas provisórias desses módulos já existem. Para cada um, falta: criar o serviço em `services/<modulo>/` (com `montarParametrosPagina` + `normalizarPagina`), o schema em `schemas/` (com `criarMapeadorDeErros`), os componentes em `components/<modulo>/`, trocar o `EmConstrucaoPage` da rota em `routes/AppRoutes.jsx` pela página real e acrescentar `handlers/<modulo>.js` ao backend simulado (as rotas entram em `ROTAS` de `servidorSimulado.js`).
 
 ## Integração com o backend
 
