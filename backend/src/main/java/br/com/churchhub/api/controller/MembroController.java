@@ -2,6 +2,8 @@ package br.com.churchhub.api.controller;
 
 import br.com.churchhub.api.dto.MembroRequest;
 import br.com.churchhub.api.dto.MembroResponse;
+import br.com.churchhub.api.dto.MembroResumoResponse;
+import br.com.churchhub.api.entity.StatusMembro;
 import br.com.churchhub.api.service.MembroService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -21,16 +23,30 @@ public class MembroController {
 
     private final MembroService membroService;
 
+    /** Ficha completa (CPF, contato, endereço, datas): só quem cuida do rol de membros. */
     @GetMapping
-    @PreAuthorize("hasAnyRole('ADMINISTRADOR','PASTOR','SECRETARIO','TESOUREIRO')")
+    @PreAuthorize("hasAnyRole('ADMINISTRADOR','PASTOR','SECRETARIO')")
     public ResponseEntity<Page<MembroResponse>> listar(
             @RequestParam(required = false) String nome,
             @PageableDefault(size = 20, sort = "nome") Pageable pageable) {
         return ResponseEntity.ok(membroService.listar(nome, pageable));
     }
 
-    @GetMapping("/{id}")
+    /**
+     * Busca enxuta (id, nome, status) para escolher um membro em outros módulos, como o
+     * membro de um lançamento financeiro. É o único acesso do TESOUREIRO a membros.
+     */
+    @GetMapping("/lookup")
     @PreAuthorize("hasAnyRole('ADMINISTRADOR','PASTOR','SECRETARIO','TESOUREIRO')")
+    public ResponseEntity<Page<MembroResumoResponse>> buscarResumo(
+            @RequestParam(required = false) String nome,
+            @RequestParam(required = false) StatusMembro status,
+            @PageableDefault(size = MembroService.TAMANHO_MAXIMO_PAGINA_RESUMO) Pageable pageable) {
+        return ResponseEntity.ok(membroService.buscarResumo(nome, status, pageable));
+    }
+
+    @GetMapping("/{id}")
+    @PreAuthorize("hasAnyRole('ADMINISTRADOR','PASTOR','SECRETARIO')")
     public ResponseEntity<MembroResponse> buscarPorId(@PathVariable UUID id) {
         return ResponseEntity.ok(membroService.buscarPorId(id));
     }
