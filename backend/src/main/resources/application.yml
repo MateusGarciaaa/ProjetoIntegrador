@@ -28,6 +28,19 @@ spring:
 server:
   port: ${PORT:8080}
 
+# Só o health fica exposto, e sem detalhes. /actuator/health/liveness não consulta o banco:
+# é o endereço certo para "acordar" o servidor gratuito sem gastar horas do banco.
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: never
+      probes:
+        enabled: true
+
 app:
   jwt:
     secret: ${JWT_SECRET:troque-este-valor-em-producao-por-uma-chave-forte-de-256-bits}
