@@ -21,10 +21,7 @@ export const authService = {
     return sessao;
   },
 
-  /**
-   * POST /auth/forgot-password com { email }. Aqui a normalização é necessária: o
-   * AuthService.forgotPassword busca o e-mail exatamente como veio ("Admin@…" não encontra ninguém).
-   */
+  /** POST /auth/forgot-password com { email }; o backend também normaliza (NormalizadorEmail). */
   async solicitarRedefinicao({ email }) {
     await httpClient.post('/auth/forgot-password', { email: normalizarEmail(email) });
   },

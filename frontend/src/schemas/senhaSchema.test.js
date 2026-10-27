@@ -45,6 +45,11 @@ describe('erros do servidor no reset', () => {
     expect(isTokenInvalido({ status: 500, corpoApi: true, message: 'Token de redefinição inválido ou expirado' })).toBe(false);
   });
 
+  it('leva a mensagem do @CabeNoBcrypt para o campo novaSenha', () => {
+    const mensagem = 'A nova senha é longa demais: o limite é de 72 bytes (letras acentuadas e símbolos ocupam 2 ou mais)';
+    expect(mapearErroRedefinicao(erroApi400(mensagem)).camposErro).toEqual({ novaSenha: mensagem });
+  });
+
   it('leva as mensagens de newPassword para o campo novaSenha', () => {
     expect(mapearErroRedefinicao(erroApi400('A nova senha deve ter entre 6 e 72 caracteres'))).toEqual({
       camposErro: { novaSenha: 'A nova senha deve ter entre 6 e 72 caracteres' },

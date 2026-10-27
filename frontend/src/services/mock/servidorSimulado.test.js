@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { isCpfValido } from '../../utils/cpf';
 import { lerUsuarioDoToken } from '../../utils/jwt';
+import { criarBanco } from './bancoEmMemoria';
 import { CONTAS_DEMO, SENHA_DEMO } from './contasDemo';
+import { esqueciSenha, redefinirSenha } from './handlers/auth';
 import { criarMembrosIniciais } from './dadosIniciais';
 import { criarServidorSimulado } from './servidorSimulado';
 
@@ -117,10 +119,45 @@ describe('redefinição de senha simulada', () => {
     expect(emails[0]).toMatchObject({ para: 'pastor@churchhub.local', link: expect.stringMatching(/^\/reset-password\?token=[0-9a-f-]{36}$/) });
   });
 
-  it('como o backend, não normaliza o e-mail no forgot-password', () => {
+  it('normaliza o e-mail no forgot-password, como o login', () => {
     const { atender, emails } = servidorComCaixa(() => AGORA);
-    expect(pedir(atender, 'Pastor@churchhub.local').status).toBe(200);
-    expect(emails).toHaveLength(0);
+    expect(pedir(atender, 'Pastor@ChurchHub.LOCAL').status).toBe(200);
+    expect(emails).toEqual([expect.objectContaining({ para: 'pastor@churchhub.local' })]);
+  });
+
+  it('pedido novo invalida o link anterior; só o mais recente vale', () => {
+    const { atender, emails } = servidorComCaixa(() => AGORA);
+    pedir(atender, 'pastor@churchhub.local');
+    pedir(atender, 'pastor@churchhub.local');
+    const [anterior, maisRecente] = emails.map(({ link }) => tokenDoLink(link));
+
+    expect(redefinir(atender, anterior, 'novaSenha1')).toMatchObject({ status: 400, data: { message: TOKEN_INVALIDO } });
+    expect(redefinir(atender, maisRecente, 'novaSenha1').status).toBe(204);
+  });
+
+  it('usuário inativo não recebe link, com a mesma resposta; link pendente deixa de valer', () => {
+    const banco = criarBanco();
+    const emails = [];
+    const contexto = { banco, agoraMs: AGORA, caminho: '/auth/reset-password', aoEnviarEmail: (e) => emails.push(e) };
+    esqueciSenha({ ...contexto, corpo: { email: 'pastor@churchhub.local' } });
+    banco.usuarios.find((u) => u.email === 'pastor@churchhub.local').ativo = false;
+
+    const resposta = esqueciSenha({ ...contexto, corpo: { email: 'pastor@churchhub.local' } });
+    expect(resposta).toEqual(esqueciSenha({ ...contexto, corpo: { email: 'ninguem@churchhub.local' } }));
+    expect(emails).toHaveLength(1);
+    const token = tokenDoLink(emails[0].link);
+    expect(redefinirSenha({ ...contexto, corpo: { token, newPassword: 'novaSenha1' } }).status).toBe(400);
+  });
+
+  it('senha acima de 72 bytes → 400 com a mensagem do @CabeNoBcrypt (login e reset)', () => {
+    const { atender } = servidorComCaixa(() => AGORA);
+    const acimaDoLimite = 'é'.repeat(37);
+    expect(redefinir(atender, 'x', 'é'.repeat(36)).data.message).toBe(TOKEN_INVALIDO);
+    expect(redefinir(atender, 'x', acimaDoLimite).data.message).toBe(
+      'A nova senha é longa demais: o limite é de 72 bytes (letras acentuadas e símbolos ocupam 2 ou mais)',
+    );
+    const login = atender({ metodo: 'post', url: '/auth/login', corpo: { email: 'pastor@churchhub.local', password: acimaDoLimite } });
+    expect(login).toMatchObject({ status: 400, data: { message: expect.stringMatching(/^A senha é longa demais/) } });
   });
 
   it('fluxo completo: link → nova senha (204) → login com a nova; token não pode ser reutilizado', () => {

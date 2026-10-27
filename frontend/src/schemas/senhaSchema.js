@@ -28,8 +28,8 @@ function bytesUtf8(texto) {
 }
 
 /**
- * Mesmas regras do ResetPasswordRequest (@NotBlank, 6 a 72 caracteres) e mais uma: o BCrypt
- * só aceita 72 BYTES, e uma senha acentuada pode ter 72 caracteres e passar disso.
+ * Mesmas regras do ResetPasswordRequest: @NotBlank, 6 a 72 caracteres e @CabeNoBcrypt (o BCrypt
+ * só aceita 72 BYTES, e uma senha acentuada pode ter menos de 72 caracteres e passar disso).
  * A senha é enviada como foi digitada (sem trim), como o backend a grava.
  */
 export function validarRedefinicao({ novaSenha, confirmacao }) {
@@ -58,5 +58,6 @@ export const mapearErroRedefinicao = criarMapeadorDeErros({
   campoPorMensagem: {
     'A nova senha é obrigatória': 'novaSenha',
     'A nova senha deve ter entre 6 e 72 caracteres': 'novaSenha',
+    'A nova senha é longa demais: o limite é de 72 bytes (letras acentuadas e símbolos ocupam 2 ou mais)': 'novaSenha',
   },
 });

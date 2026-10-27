@@ -16,6 +16,10 @@ export const MENSAGENS_AUTH = Object.freeze({
 
 const emBranco = (valor) => typeof valor !== 'string' || !valor.trim();
 
+/** @CabeNoBcrypt: até 72 bytes em UTF-8 (não caracteres). */
+const MENSAGEM_BCRYPT = 'é longa demais: o limite é de 72 bytes (letras acentuadas e símbolos ocupam 2 ou mais)';
+const excedeBcrypt = (senha) => typeof senha === 'string' && new TextEncoder().encode(senha).length > 72;
+
 function validarEmail(email) {
   const erros = [];
   if (emBranco(email)) erros.push('O e-mail é obrigatório');
@@ -32,6 +36,7 @@ function corpoIlegivel(corpo) {
 function validarLoginRequest(corpo) {
   const erros = validarEmail(corpo.email);
   if (emBranco(corpo.password)) erros.push('A senha é obrigatória');
+  if (excedeBcrypt(corpo.password)) erros.push(`A senha ${MENSAGEM_BCRYPT}`);
   return erros;
 }
 
@@ -49,13 +54,16 @@ function validarResetPasswordRequest(corpo) {
   if (typeof newPassword === 'string' && (newPassword.length < 6 || newPassword.length > 72)) {
     erros.push('A nova senha deve ter entre 6 e 72 caracteres');
   }
+  if (excedeBcrypt(newPassword)) erros.push(`A nova senha ${MENSAGEM_BCRYPT}`);
   return erros;
 }
 
+/** NormalizadorEmail do backend, usado no login e no forgot-password. */
+const normalizarEmail = (email) => email.trim().toLowerCase();
+
 export function login({ banco, corpo, caminho, agoraMs, validadeSegundos }) {
-  // UsuarioDetailsServiceImpl normaliza o e-mail; usuário inativo também falha.
-  const email = corpo.email.trim().toLowerCase();
-  const usuario = banco.usuarios.find((u) => u.email === email);
+  // Usuário inativo também falha, com a mesma mensagem.
+  const usuario = banco.usuarios.find((u) => u.email === normalizarEmail(corpo.email));
   if (!usuario || !usuario.ativo || usuario.senha !== corpo.password) {
     return erroApi(401, MENSAGENS_AUTH.CREDENCIAIS_INVALIDAS, caminho);
   }
@@ -65,12 +73,13 @@ export function login({ banco, corpo, caminho, agoraMs, validadeSegundos }) {
 }
 
 /**
- * AuthService.forgotPassword: busca o e-mail exatamente como veio (sem normalizar) e não
- * confere se o usuário está ativo. A resposta é sempre a mesma, exista ou não a conta.
+ * AuthService.forgotPassword: e-mail normalizado, só usuário ativo recebe link, e um pedido
+ * novo invalida os links pendentes. A resposta é sempre a mesma, exista ou não a conta.
  */
 export function esqueciSenha({ banco, corpo, agoraMs, aoEnviarEmail }) {
-  const usuario = banco.usuarios.find((u) => u.email === corpo.email);
+  const usuario = banco.usuarios.find((u) => u.email === normalizarEmail(corpo.email) && u.ativo);
   if (usuario) {
+    banco.tokensRedefinicao.filter((t) => t.email === usuario.email).forEach((t) => (t.usado = true));
     const token = novoId();
     banco.tokensRedefinicao.push({ token, email: usuario.email, expiraEm: agoraMs + VALIDADE_TOKEN_REDEFINICAO_MS, usado: false });
     aoEnviarEmail?.({ para: usuario.email, link: `/reset-password?token=${token}` });
@@ -78,13 +87,13 @@ export function esqueciSenha({ banco, corpo, agoraMs, aoEnviarEmail }) {
   return ok(200, { message: MENSAGENS_AUTH.ESQUECI_SENHA });
 }
 
-/** AuthService.resetPassword: token inexistente, usado ou vencido → 400; sucesso → 204. */
+/** AuthService.resetPassword: token inexistente, usado, vencido ou de usuário inativo → 400; sucesso → 204. */
 export function redefinirSenha({ banco, corpo, caminho, agoraMs }) {
   const registro = banco.tokensRedefinicao.find((t) => t.token === corpo.token);
-  if (!registro || registro.usado || registro.expiraEm <= agoraMs) {
+  const usuario = registro && banco.usuarios.find((u) => u.email === registro.email);
+  if (!registro || registro.usado || registro.expiraEm <= agoraMs || !usuario.ativo) {
     return erroApi(400, MENSAGENS_AUTH.TOKEN_INVALIDO, caminho);
   }
-  const usuario = banco.usuarios.find((u) => u.email === registro.email);
   usuario.senha = corpo.newPassword;
   registro.usado = true;
   return ok(204);
