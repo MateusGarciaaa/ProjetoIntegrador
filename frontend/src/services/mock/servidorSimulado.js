@@ -12,6 +12,7 @@ const PREFIXO_PUBLICO = '/auth/';
 /**
  * Tabela de rotas do backend simulado. Cada módulo exporta as suas em handlers/<modulo>.js:
  *   { metodo, padrao (regex; o 1º grupo é o {id}), publica? | perfis (@PreAuthorize),
+ *     parametros?(params) → mensagem de 400 ou null (conversão de @RequestParam),
  *     corpo?: { ilegivel(corpo), validar(corpo) → mensagens }, executar(contexto) }
  * Módulo novo = um arquivo de handlers + uma linha aqui.
  */
@@ -42,7 +43,7 @@ function validarCorpo(rota, corpo, corpoMalformado, caminho) {
 
 /**
  * Cria um servidor com estado próprio. A ordem das verificações segue o Spring:
- * autenticação → conversão do {id} → @Valid do corpo → @PreAuthorize → serviço.
+ * autenticação → conversão do {id} e dos parâmetros → @Valid do corpo → @PreAuthorize → serviço.
  */
 export function criarServidorSimulado({ validadeTokenSegundos, relogio = () => Date.now() }) {
   const banco = criarBanco();
@@ -65,6 +66,9 @@ export function criarServidorSimulado({ validadeTokenSegundos, relogio = () => D
 
     const id = rota.padrao.exec(caminho)[1];
     if (id !== undefined && !UUID.test(id)) return erroApi(400, "Valor inválido para o parâmetro 'id'.", caminho);
+
+    const erroDeParametro = rota.parametros?.(params);
+    if (erroDeParametro) return erroApi(400, erroDeParametro, caminho);
 
     const erroDeCorpo = validarCorpo(rota, corpo, corpoMalformado, caminho);
     if (erroDeCorpo) return erroDeCorpo;

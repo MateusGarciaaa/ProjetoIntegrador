@@ -32,8 +32,9 @@ Perfis: A = ADMINISTRADOR, P = PASTOR, S = SECRETARIO, T = TESOUREIRO, M = MEMBR
 | 1 | `POST /auth/login` | — | `LoginRequest { email @NotBlank @Email, password @NotBlank }` | 200 `LoginResponse { token, type:"Bearer", expiresIn (s) }`; 401 `"E-mail ou senha inválidos"` | público | **INTEGRADO** |
 | 2 | `POST /auth/forgot-password` | — | `{ email @NotBlank @Email }` | 200 `{ message }` (sempre a mesma, exista ou não o e-mail) | público | **NÃO USADO** |
 | 3 | `POST /auth/reset-password` | — | `{ token @NotBlank, newPassword @NotBlank @Size(6..72) }` | 204; 400 `"Token de redefinição inválido ou expirado"` | público | **NÃO USADO** |
-| 4 | `GET /members` | `nome` (contém, ignora maiúsc., diferencia acento), `page`, `size`=20, `sort`=`nome` | — | 200 `Page<MembroResponse>` | A P S T | **INTEGRADO** (front: `size=10`, `sort=nome,asc`) |
-| 5 | `GET /members/{id}` | `id` UUID | — | 200 `MembroResponse`; 404 | A P S T | **NÃO USADO** (mock implementa; front edita a partir da linha da lista) |
+| 4 | `GET /members` | `nome` (contém, ignora maiúsc., diferencia acento), `page`, `size`=20, `sort`=`nome` | — | 200 `Page<MembroResponse>` | A P S | **INTEGRADO** (front: `size=10`, `sort=nome,asc`) |
+| 4b | `GET /members/lookup` | `nome` (contém), `status` (inválido → 400 `"Valor inválido para o parâmetro 'status'."`), `page`, `size` (máx. **20**, acima disso reduz); `sort` do cliente é ignorado (sempre `nome`, `id`) | — | 200 `Page<MembroResumoResponse { id, nome, status }>` | A P S T | **NÃO USADO** (`membrosService.buscarResumo` e mock prontos; seletor de membro do Financeiro) |
+| 5 | `GET /members/{id}` | `id` UUID | — | 200 `MembroResponse`; 404 | A P S | **NÃO USADO** (mock implementa; front edita a partir da linha da lista) |
 | 6 | `POST /members` | — | `MembroRequest { nome @NotBlank @Size150, cpf @NotBlank @Pattern \d{11}, email @NotBlank @Email @Size150, telefone @Size20, endereco @Size255, dataNascimento, dataBatismo, dataConversao (LocalDate), status (nulo→ATIVO) }` | 201 `MembroResponse`; 409 e-mail/CPF | A S | **INTEGRADO** |
 | 7 | `PUT /members/{id}` | `id` | `MembroRequest` | 200; 404; 409 | A S | **INTEGRADO** |
 | 8 | `DELETE /members/{id}` | `id` | — | 204; 404; 409 RN14 (tem movimentação financeira) | A | **INTEGRADO** (409 RN14 só existe no real; mock não simula) |
@@ -95,6 +96,8 @@ Sem divergência: ordem auth → `{id}` → `@Valid` → `@PreAuthorize`; 400 pa
 
 | Permissão | Backend |
 |---|---|
+| membros.visualizar (ficha completa) | A P S (`GET /members`, `/members/{id}`) — **TESOUREIRO removido em 2026-10-26** (ver item 5 abaixo) |
+| membros.buscar | A P S T (`GET /members/lookup`: id, nome, status) |
 | eventos.visualizar | A P S M (`GET /events`, `/events/{id}`) |
 | eventos.criar / eventos.editar | A S |
 | eventos.excluir | A |
@@ -111,11 +114,13 @@ Problemas de regra:
 2. **TESOUREIRO e SECRETARIO sem dashboard** (403). Contornado no front: T começa em `/financeiro`, S em `/membros`, e o item "Painel" não aparece no menu deles. Continua em aberto se o `@PreAuthorize` deve ser ampliado (pendência 6).
 3. **PASTOR e o bloco financeiro do dashboard — regra vigente confirmada no código.** `DashboardController.obter` calcula `incluirDadosFinanceiros` só quando a autoridade é `ROLE_ADMINISTRADOR`, e `DashboardService.gerar` devolve `resumoFinanceiroMesAtual = null` nos demais casos. É intencional (está explícito no código), mas inconsistente: o PASTOR tem `financeiro.visualizar` e pode chamar `/financial/summary` diretamente. O front espelha a regra como está (`dashboard.financeiro` = só A; teste dedicado em `permissoes.test.js`). Decisão em aberto para o módulo Dashboard: mostrar o bloco ao PASTOR via `/financial/summary` ou pedir a mudança no backend.
 4. **RN09**: SECRETARIO pode `PUT /events/{id}`, mas recebe **400** (não 403) se o evento já passou. Não cabe na matriz; o front deve desabilitar "Editar" em evento passado para não-admin e tratar o 400.
+5. **TESOUREIRO e a ficha de membros — corrigido em 2026-10-26.** O Tesoureiro estava nos `@PreAuthorize` de `GET /members` e `/members/{id}` desde a criação do controller (antes do módulo financeiro), sem justificativa registrada, e recebia CPF, contato e endereço. A única necessidade real é escolher o membro de um lançamento (`membroId` opcional); para isso existe agora `GET /members/lookup` (id, nome, status). A listagem de movimentações já traz `membroNome`, então o Tesoureiro não precisa de `/members/{id}`.
 
 ## 5. Pendências do backend
 
 Por prioridade para o frontend (cada item que mude schema exige migration nova; nunca editar V1–V6):
 
+0. **BUG — `GET /financial` responde 500** (encontrado em 2026-10-26, não corrigido). `spring.jpa.open-in-view: false` e `MovimentacaoFinanceiraService.listar` sem `@Transactional`: o mapper acessa `categoria` (`@ManyToOne(fetch = LAZY)`) depois de fechada a sessão → `LazyInitializationException`. Afeta todos os perfis; provavelmente também `GET /financial/{id}`. Correção sugerida: `@Transactional(readOnly = true)` nas leituras do serviço (ou `@EntityGraph`/`JOIN FETCH` de `categoria` e `membro` no repositório) + teste de integração. **Bloqueia o módulo Financeiro.**
 1. **Fixar o formato da página explicitamente.** Hoje é o DIRECT por padrão do Spring Boot 4.1 (o Spring Data registra aviso recomendando VIA_DTO); uma atualização de versão poderia mudá-lo em silêncio. Sugestão: `@EnableSpringDataWebSupport(pageSerializationMode = VIA_DTO)` ou `spring.data.web.pageable.serialization-mode` no `application.yml`. O front aceita os dois formatos, mas o mock precisa acompanhar (`mock/paginacao.js`).
 2. **Erros de validação estruturados por campo.** Hoje o front deduz o campo pelo texto da mensagem (seção 1, "Mapeamento de erros por campo"). Proposta, compatível com o formato atual (só acrescenta um campo opcional ao record `ApiError`):
    ```json
@@ -186,7 +191,7 @@ Por prioridade para o frontend (cada item que mude schema exige migration nova; 
 ### Financeiro
 - [ ] Permissões (financeiro + categorias) + teste + mock.
 - [ ] `services/financial/` (movimentações, summary, categorias).
-- [ ] Schema de movimentação: valor > 0, 2 casas, ≤ 10 dígitos inteiros; tipo; categoria filtrada pelo tipo (`GET /financial-categories?tipo=`); membro opcional (busca em `/members` — T pode listar membros).
+- [ ] Schema de movimentação: valor > 0, 2 casas, ≤ 10 dígitos inteiros; tipo; categoria filtrada pelo tipo (`GET /financial-categories?tipo=`); membro opcional (seletor com `membrosService.buscarResumo` → `GET /members/lookup`, permissão `membros.buscar`; T **não** usa `/members`).
 - [ ] Telas: receitas, despesas (filtragem no cliente por `tipo` enquanto o backend não filtra — atenção: paginação mistura os dois tipos), fluxo de caixa (summary por mês), relatórios (o que der com summary).
 - [ ] Cadastro de categoria (A T); tratar 409.
 - [ ] Tratar 400 "tipo incompatível com categoria" e 404 de categoria/membro.

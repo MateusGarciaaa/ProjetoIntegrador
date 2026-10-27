@@ -29,6 +29,12 @@ describe('rotas por perfil', () => {
     expect(await screen.findByRole('heading', { name: 'Financeiro' })).toBeTruthy();
   });
 
+  it('TESOUREIRO não vê Membros no menu nem abre /membros', async () => {
+    abrir('/membros', PERFIS.TESOUREIRO);
+    expect(await screen.findByRole('heading', { name: 'Sem acesso à área Membros' })).toBeTruthy();
+    expect(menu().textContent).toBe('Financeiro');
+  });
+
   it('URL de área não permitida mostra "Sem acesso", sem deslogar', async () => {
     abrir('/financeiro', PERFIS.MEMBRO);
     expect(await screen.findByRole('heading', { name: 'Sem acesso à área Financeiro' })).toBeTruthy();

@@ -5,6 +5,7 @@ export const PERMISSOES = Object.freeze({
   MEMBROS_CRIAR: 'membros.criar',
   MEMBROS_EDITAR: 'membros.editar',
   MEMBROS_EXCLUIR: 'membros.excluir',
+  MEMBROS_BUSCAR: 'membros.buscar',
   EVENTOS_VISUALIZAR: 'eventos.visualizar',
   EVENTOS_CRIAR: 'eventos.criar',
   EVENTOS_EDITAR: 'eventos.editar',
@@ -28,10 +29,11 @@ const { ADMINISTRADOR, PASTOR, SECRETARIO, TESOUREIRO, MEMBRO } = PERFIS;
  */
 const MATRIZ = Object.freeze({
   // MembroController
-  [PERMISSOES.MEMBROS_VISUALIZAR]: [ADMINISTRADOR, PASTOR, SECRETARIO, TESOUREIRO], // GET /members e /members/{id}
+  [PERMISSOES.MEMBROS_VISUALIZAR]: [ADMINISTRADOR, PASTOR, SECRETARIO], // GET /members e /members/{id} (ficha completa)
   [PERMISSOES.MEMBROS_CRIAR]: [ADMINISTRADOR, SECRETARIO], // POST /members
   [PERMISSOES.MEMBROS_EDITAR]: [ADMINISTRADOR, SECRETARIO], // PUT /members/{id}
   [PERMISSOES.MEMBROS_EXCLUIR]: [ADMINISTRADOR], // DELETE /members/{id}
+  [PERMISSOES.MEMBROS_BUSCAR]: [ADMINISTRADOR, PASTOR, SECRETARIO, TESOUREIRO], // GET /members/lookup (id, nome, status)
 
   // EventoController
   [PERMISSOES.EVENTOS_VISUALIZAR]: [ADMINISTRADOR, PASTOR, SECRETARIO, MEMBRO], // GET /events e /events/{id}

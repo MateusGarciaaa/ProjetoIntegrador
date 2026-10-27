@@ -48,7 +48,7 @@ Todas com a senha **`demo123`**. Existem no modo simulado e também no backend r
 | Administrador | `administrador@churchhub.local` | Lista, cadastra, edita e exclui |
 | Secretário | `secretario@churchhub.local` | Lista, cadastra e edita |
 | Pastor | `pastor@churchhub.local` | Só lista |
-| Tesoureiro | `tesoureiro@churchhub.local` | Só lista |
+| Tesoureiro | `tesoureiro@churchhub.local` | Sem acesso à ficha (só a busca enxuta `/members/lookup`, para o Financeiro) |
 | Membro | `membro@churchhub.local` | Página "Sem acesso" |
 
 São 25 membros de exemplo, todos com CPF de dígito verificador válido.
@@ -65,8 +65,9 @@ Extraído de `AuthController`, `MembroController`, DTOs, `JwtService`, `Security
 
 | Método e rota | Perfis (`@PreAuthorize`) | Resposta |
 |---|---|---|
-| `GET /members?nome=&page=&size=&sort=` | ADMINISTRADOR, PASTOR, SECRETARIO, TESOUREIRO | 200, `Page<MembroResponse>` |
-| `GET /members/{id}` | ADMINISTRADOR, PASTOR, SECRETARIO, TESOUREIRO | 200 ou 404 |
+| `GET /members?nome=&page=&size=&sort=` | ADMINISTRADOR, PASTOR, SECRETARIO | 200, `Page<MembroResponse>` |
+| `GET /members/lookup?nome=&status=&page=&size=` | ADMINISTRADOR, PASTOR, SECRETARIO, TESOUREIRO | 200, `Page<{ id, nome, status }>` (máx. 20 por página, sempre por nome) |
+| `GET /members/{id}` | ADMINISTRADOR, PASTOR, SECRETARIO | 200 ou 404 |
 | `POST /members` | ADMINISTRADOR, SECRETARIO | 201, 400 ou 409 |
 | `PUT /members/{id}` | ADMINISTRADOR, SECRETARIO | 200, 400, 404 ou 409 |
 | `DELETE /members/{id}` | ADMINISTRADOR | 204 ou 404 |

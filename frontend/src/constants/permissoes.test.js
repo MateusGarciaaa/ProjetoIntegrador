@@ -10,10 +10,11 @@ const { ADMINISTRADOR, PASTOR, SECRETARIO, TESOUREIRO, MEMBRO } = PERFIS;
  */
 const ESPERADO = {
   // MembroController
-  [PERMISSOES.MEMBROS_VISUALIZAR]: [ADMINISTRADOR, PASTOR, SECRETARIO, TESOUREIRO],
+  [PERMISSOES.MEMBROS_VISUALIZAR]: [ADMINISTRADOR, PASTOR, SECRETARIO],
   [PERMISSOES.MEMBROS_CRIAR]: [ADMINISTRADOR, SECRETARIO],
   [PERMISSOES.MEMBROS_EDITAR]: [ADMINISTRADOR, SECRETARIO],
   [PERMISSOES.MEMBROS_EXCLUIR]: [ADMINISTRADOR],
+  [PERMISSOES.MEMBROS_BUSCAR]: [ADMINISTRADOR, PASTOR, SECRETARIO, TESOUREIRO],
   // EventoController
   [PERMISSOES.EVENTOS_VISUALIZAR]: [ADMINISTRADOR, PASTOR, SECRETARIO, MEMBRO],
   [PERMISSOES.EVENTOS_CRIAR]: [ADMINISTRADOR, SECRETARIO],
@@ -44,6 +45,11 @@ describe('matriz de permissões', () => {
         expect(temPermissao(perfil, permissao)).toBe(deve);
       });
     });
+  });
+
+  it('TESOUREIRO só busca membros (id, nome, status); a ficha completa não é dele', () => {
+    expect(temPermissao(TESOUREIRO, PERMISSOES.MEMBROS_BUSCAR)).toBe(true);
+    expect(temPermissao(TESOUREIRO, PERMISSOES.MEMBROS_VISUALIZAR)).toBe(false);
   });
 
   it('PASTOR vê o financeiro, mas não o bloco financeiro do dashboard', () => {

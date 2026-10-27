@@ -120,14 +120,59 @@ export function excluir({ banco, id, caminho }) {
   return ok(204);
 }
 
+/** MembroService.TAMANHO_MAXIMO_PAGINA_RESUMO. */
+const TAMANHO_MAXIMO_RESUMO = 20;
+
+/** ?status= fora do enum → MethodArgumentTypeMismatchException → 400 (antes do @PreAuthorize). */
+function validarParametrosResumo(params) {
+  const { status } = params;
+  if (status == null || status === '' || Object.values(STATUS_MEMBRO).includes(status)) return null;
+  return "Valor inválido para o parâmetro 'status'.";
+}
+
+/** Ordem do MembroService.ORDENACAO_RESUMO: nome, com o id desempatando. */
+function compararResumo(a, b) {
+  return comparar(a, b, 'nome') || comparar(a, b, 'id');
+}
+
+/**
+ * GET /members/lookup: só id, nome e status. Ignora o sort do cliente e limita o size a 20,
+ * como o MembroService.buscarResumo.
+ */
+export function buscarResumo({ banco, params }) {
+  const { pagina, tamanho } = lerPageable(params, 'nome');
+  const nome = typeof params.nome === 'string' ? params.nome.trim().toLowerCase() : '';
+  const status = params.status || null;
+
+  const filtrados = banco.membros.filter(
+    (m) => (!nome || m.nome.toLowerCase().includes(nome)) && (!status || m.status === status),
+  );
+  const resumos = [...filtrados].sort(compararResumo).map(({ id, nome: nomeMembro, status: situacao }) => ({
+    id,
+    nome: nomeMembro,
+    status: situacao,
+  }));
+  return ok(200, paginaSpring(resumos, { pagina, tamanho: Math.min(tamanho, TAMANHO_MAXIMO_RESUMO) }));
+}
+
 const { ADMINISTRADOR, PASTOR, SECRETARIO, TESOUREIRO } = PERFIS;
 const CORPO_MEMBRO = Object.freeze({ ilegivel: corpoIlegivel, validar: validarMembroRequest });
 
-/** Rotas do MembroController; "perfis" repete os @PreAuthorize, independente da matriz do frontend. */
+/**
+ * Rotas do MembroController; "perfis" repete os @PreAuthorize, independente da matriz do frontend.
+ * /members/lookup vem antes de /members/{id}: senão "lookup" seria lido como id (400 de UUID).
+ */
 export const ROTAS_MEMBROS = Object.freeze([
-  { metodo: 'get', padrao: /^\/members$/, perfis: [ADMINISTRADOR, PASTOR, SECRETARIO, TESOUREIRO], executar: listar },
+  { metodo: 'get', padrao: /^\/members$/, perfis: [ADMINISTRADOR, PASTOR, SECRETARIO], executar: listar },
   { metodo: 'post', padrao: /^\/members$/, perfis: [ADMINISTRADOR, SECRETARIO], corpo: CORPO_MEMBRO, executar: cadastrar },
-  { metodo: 'get', padrao: /^\/members\/([^/]+)$/, perfis: [ADMINISTRADOR, PASTOR, SECRETARIO, TESOUREIRO], executar: buscarPorId },
+  {
+    metodo: 'get',
+    padrao: /^\/members\/lookup$/,
+    perfis: [ADMINISTRADOR, PASTOR, SECRETARIO, TESOUREIRO],
+    parametros: validarParametrosResumo,
+    executar: buscarResumo,
+  },
+  { metodo: 'get', padrao: /^\/members\/([^/]+)$/, perfis: [ADMINISTRADOR, PASTOR, SECRETARIO], executar: buscarPorId },
   { metodo: 'put', padrao: /^\/members\/([^/]+)$/, perfis: [ADMINISTRADOR, SECRETARIO], corpo: CORPO_MEMBRO, executar: atualizar },
   { metodo: 'delete', padrao: /^\/members\/([^/]+)$/, perfis: [ADMINISTRADOR], executar: excluir },
 ]);
