@@ -60,10 +60,10 @@ export class ApiError extends Error {
   }
 
   /**
-   * O backend não tem authenticationEntryPoint: sem token válido ele responde 403
-   * SEM corpo (padrão do Spring Security), e não 401. Já o 403 do @PreAuthorize
-   * passa pelo GlobalExceptionHandler e traz corpo. É isso que separa
-   * "sessão recusada" de "perfil sem permissão".
+   * Sem token válido o backend responde 401 (SecurityErrorHandler); 403 com corpo é
+   * perfil sem permissão (@PreAuthorize). Um 403 SEM corpo não vem do Spring desta API
+   * (pode vir de um proxy ou de uma versão antiga do backend) e, por segurança,
+   * também encerra a sessão.
    */
   isSessaoRecusada() {
     return this.tipo === TIPOS_ERRO.NAO_AUTENTICADO || (this.tipo === TIPOS_ERRO.SEM_PERMISSAO && !this.corpoApi);

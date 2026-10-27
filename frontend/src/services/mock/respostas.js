@@ -6,6 +6,7 @@ const FRASES_HTTP = Object.freeze({
   401: 'Unauthorized',
   403: 'Forbidden',
   404: 'Not Found',
+  405: 'Method Not Allowed',
   409: 'Conflict',
   500: 'Internal Server Error',
 });
@@ -34,12 +35,18 @@ export function erroApi(status, message, caminho) {
   };
 }
 
-/** Sem authenticationEntryPoint, o Spring Security responde 403 sem corpo. */
-export function recusaSemCorpo() {
-  return { status: 403, data: '' };
+export const MENSAGENS_BACKEND = Object.freeze({
+  NAO_AUTENTICADO: 'Sessão inválida ou expirada. Faça login novamente.',
+  CORPO_INVALIDO: 'Corpo da requisição inválido. Confira o JSON, as datas (AAAA-MM-DD) e os valores permitidos.',
+  RECURSO_INEXISTENTE: 'Recurso não encontrado.',
+});
+
+/** Token ausente, inválido ou vencido: SecurityErrorHandler → GlobalExceptionHandler. */
+export function naoAutenticado(caminho) {
+  return erroApi(401, MENSAGENS_BACKEND.NAO_AUTENTICADO, caminho);
 }
 
-/** Qualquer exceção não tratada cai no handler genérico do GlobalExceptionHandler. */
-export function erroInterno(caminho) {
-  return erroApi(500, 'Ocorreu um erro interno no servidor.', caminho);
+/** HttpMessageNotReadableException: JSON malformado, data ou enum inválidos. */
+export function corpoInvalido(caminho) {
+  return erroApi(400, MENSAGENS_BACKEND.CORPO_INVALIDO, caminho);
 }

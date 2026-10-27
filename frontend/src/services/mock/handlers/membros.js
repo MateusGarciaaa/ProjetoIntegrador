@@ -1,6 +1,7 @@
 import { STATUS_MEMBRO } from '../../../constants/statusMembro';
 import { novoId } from '../bancoEmMemoria';
-import { erroApi, erroInterno, ok } from '../respostas';
+import { LIMITES_MEMBRO } from '../../../constants/membros';
+import { erroApi, ok } from '../respostas';
 
 const CAMPOS_ORDENAVEIS = ['id', 'nome', 'cpf', 'email', 'telefone', 'endereco', 'dataNascimento', 'dataBatismo', 'dataConversao', 'status'];
 const CAMPOS_DATA = ['dataNascimento', 'dataBatismo', 'dataConversao'];
@@ -11,7 +12,7 @@ function copiar(membro) {
   return { ...membro };
 }
 
-/** Falhas de desserialização (data ou enum inválidos) viram 500 no backend. */
+/** Falhas de desserialização (data ou enum inválidos) viram 400 no backend (HttpMessageNotReadableException). */
 export function corpoIlegivel(corpo) {
   if (!corpo || typeof corpo !== 'object') return true;
   const dataRuim = CAMPOS_DATA.some((campo) => corpo[campo] != null && !(typeof corpo[campo] === 'string' && DATA_ISO.test(corpo[campo])));
@@ -22,15 +23,20 @@ export function corpoIlegivel(corpo) {
 /** Mesmas regras e mensagens das anotações do MembroRequest. */
 export function validarMembroRequest(corpo) {
   const erros = [];
-  const { nome, cpf, email } = corpo;
+  const { nome, cpf, email, telefone, endereco } = corpo;
+  const excede = (valor, limite) => typeof valor === 'string' && valor.length > limite;
 
   if (typeof nome !== 'string' || !nome.trim()) erros.push('O nome é obrigatório');
+  if (excede(nome, LIMITES_MEMBRO.nome)) erros.push(`O nome deve ter no máximo ${LIMITES_MEMBRO.nome} caracteres`);
 
   if (typeof cpf !== 'string' || !cpf.trim()) erros.push('O CPF é obrigatório');
   if (typeof cpf === 'string' && !/^\d{11}$/.test(cpf)) erros.push('O CPF deve conter 11 dígitos numéricos');
 
   if (typeof email !== 'string' || !email.trim()) erros.push('O e-mail é obrigatório');
   if (typeof email === 'string' && email.length > 0 && !EMAIL_HIBERNATE.test(email)) erros.push('E-mail inválido');
+  if (excede(email, LIMITES_MEMBRO.email)) erros.push(`O e-mail deve ter no máximo ${LIMITES_MEMBRO.email} caracteres`);
+  if (excede(telefone, LIMITES_MEMBRO.telefone)) erros.push(`O telefone deve ter no máximo ${LIMITES_MEMBRO.telefone} caracteres`);
+  if (excede(endereco, LIMITES_MEMBRO.endereco)) erros.push(`O endereço deve ter no máximo ${LIMITES_MEMBRO.endereco} caracteres`);
 
   return erros;
 }
@@ -80,8 +86,8 @@ function inteiroNaoNegativo(valor, padrao) {
 
 export function listar({ banco, params, caminho }) {
   const { campo, fator } = lerOrdenacao(params.sort);
-  // Campo inexistente gera PropertyReferenceException, que cai no handler de 500.
-  if (!CAMPOS_ORDENAVEIS.includes(campo)) return erroInterno(caminho);
+  // Campo inexistente gera PropertyReferenceException, tratada como 400 pelo GlobalExceptionHandler.
+  if (!CAMPOS_ORDENAVEIS.includes(campo)) return erroApi(400, `Campo de ordenação inválido: '${campo}'.`, caminho);
 
   const pagina = inteiroNaoNegativo(params.page, 0);
   const tamanho = Math.min(Math.max(inteiroNaoNegativo(params.size, 20), 1), 2000);

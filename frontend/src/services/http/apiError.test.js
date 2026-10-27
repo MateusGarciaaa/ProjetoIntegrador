@@ -32,7 +32,7 @@ describe('ApiError.from', () => {
     expect(erro.isFimDeSessao()).toBe(false);
   });
 
-  it('403 sem corpo (entry point padrão do Spring) é sessão recusada', () => {
+  it('403 sem corpo (proxy ou backend antigo) é tratado, por segurança, como sessão recusada', () => {
     const erro = ApiError.from(erroHttp(403, ''));
     expect(erro.tipo).toBe(TIPOS_ERRO.SEM_PERMISSAO);
     expect(erro.corpoApi).toBe(false);

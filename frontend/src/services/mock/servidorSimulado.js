@@ -3,7 +3,7 @@ import { criarBanco } from './bancoEmMemoria';
 import * as auth from './handlers/auth';
 import * as membros from './handlers/membros';
 import { verificarTokenFalso } from './mockJwt';
-import { erroApi, erroInterno, recusaSemCorpo } from './respostas';
+import { corpoInvalido, erroApi, MENSAGENS_BACKEND, naoAutenticado } from './respostas';
 
 const { ADMINISTRADOR, PASTOR, SECRETARIO, TESOUREIRO } = PERFIS;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -28,6 +28,14 @@ function autenticar(banco, cabecalhoAuthorization, agoraMs) {
   return payload ? banco.usuarios.find((u) => u.email === payload.sub) ?? null : null;
 }
 
+/** Caminho conhecido com outro método → 405; caminho desconhecido → 404 (NoResourceFoundException). */
+function rotaInexistente(metodo, caminho) {
+  if (ROTAS.some((r) => r.padrao.test(caminho))) {
+    return erroApi(405, `Método ${metodo.toUpperCase()} não suportado neste recurso.`, caminho);
+  }
+  return erroApi(404, MENSAGENS_BACKEND.RECURSO_INEXISTENTE, caminho);
+}
+
 /**
  * Cria um servidor com estado próprio. A ordem das verificações segue o Spring:
  * autenticação → conversão do {id} → @Valid do corpo → @PreAuthorize → serviço.
@@ -41,19 +49,19 @@ export function criarServidorSimulado({ validadeTokenSegundos, relogio = () => D
     const rota = ROTAS.find((r) => r.metodo === metodo && r.padrao.test(caminho));
 
     if (rota?.publica) {
-      if (corpoMalformado) return erroInterno(caminho);
+      if (corpoMalformado) return corpoInvalido(caminho);
       return rota.executar({ banco, corpo, caminho, agoraMs, validadeSegundos: validadeTokenSegundos });
     }
 
     const usuario = autenticar(banco, authorization, agoraMs);
-    if (!usuario) return recusaSemCorpo();
-    if (!rota) return erroInterno(caminho);
+    if (!usuario) return naoAutenticado(caminho);
+    if (!rota) return rotaInexistente(metodo, caminho);
 
     const id = rota.padrao.exec(caminho)[1];
-    if (id !== undefined && !UUID.test(id)) return erroInterno(caminho);
+    if (id !== undefined && !UUID.test(id)) return erroApi(400, "Valor inválido para o parâmetro 'id'.", caminho);
 
     if (rota.validarCorpo) {
-      if (corpoMalformado || membros.corpoIlegivel(corpo)) return erroInterno(caminho);
+      if (corpoMalformado || membros.corpoIlegivel(corpo)) return corpoInvalido(caminho);
       const erros = membros.validarMembroRequest(corpo);
       if (erros.length) return erroApi(400, erros.join(', '), caminho);
     }

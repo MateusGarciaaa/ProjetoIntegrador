@@ -73,14 +73,28 @@ describe('login simulado', () => {
 });
 
 describe('segurança simulada', () => {
-  it('sem token ou com token vencido responde 403 sem corpo, como o Spring sem entry point', () => {
+  it('sem token ou com token vencido responde 401 com corpo ApiError', () => {
     let agora = AGORA;
     const atender = novoServidor(() => agora);
-    expect(atender({ metodo: 'get', url: '/members' })).toEqual({ status: 403, data: '' });
+    const semToken = atender({ metodo: 'get', url: '/members' });
+    expect(semToken).toMatchObject({ status: 401, data: { status: 401, error: 'Unauthorized', path: '/api/v1/members' } });
 
     const authorization = entrar(atender, 'PASTOR');
     agora += 3601 * 1000;
-    expect(atender({ metodo: 'get', url: '/members', authorization })).toEqual({ status: 403, data: '' });
+    expect(atender({ metodo: 'get', url: '/members', authorization }).status).toBe(401);
+  });
+
+  it('erros de entrada são 400/404/405, nunca 500', () => {
+    const atender = novoServidor();
+    const authorization = entrar(atender, 'ADMINISTRADOR');
+    expect(atender({ metodo: 'get', url: '/members/123', authorization })).toMatchObject({
+      status: 400,
+      data: { message: "Valor inválido para o parâmetro 'id'." },
+    });
+    expect(atender({ metodo: 'post', url: '/members', authorization, corpoMalformado: true }).status).toBe(400);
+    expect(atender({ metodo: 'post', url: '/members', authorization, corpo: { ...novoMembro, status: 'X' } }).status).toBe(400);
+    expect(atender({ metodo: 'get', url: '/nao-existe', authorization }).status).toBe(404);
+    expect(atender({ metodo: 'patch', url: '/members', authorization }).status).toBe(405);
   });
 
   it('perfil sem permissão recebe 403 com corpo', () => {
@@ -118,10 +132,21 @@ describe('membros simulados', () => {
     ]);
   });
 
-  it('sort por campo inexistente gera 500', () => {
+  it('sort por campo inexistente gera 400', () => {
     const atender = novoServidor();
     const authorization = entrar(atender, 'PASTOR');
-    expect(atender({ metodo: 'get', url: '/members', authorization, params: { sort: 'name,asc' } }).status).toBe(500);
+    expect(atender({ metodo: 'get', url: '/members', authorization, params: { sort: 'name,asc' } })).toMatchObject({
+      status: 400,
+      data: { message: "Campo de ordenação inválido: 'name'." },
+    });
+  });
+
+  it('respeita os limites de tamanho do MembroRequest (@Size)', () => {
+    const atender = novoServidor();
+    const authorization = entrar(atender, 'ADMINISTRADOR');
+    const { status, data } = atender({ metodo: 'post', url: '/members', authorization, corpo: { ...novoMembro, telefone: '1'.repeat(21) } });
+    expect(status).toBe(400);
+    expect(data.message).toBe('O telefone deve ter no máximo 20 caracteres');
   });
 
   it('cadastra com status padrão ATIVO e acusa conflito de e-mail antes do de CPF', () => {

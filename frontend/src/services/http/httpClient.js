@@ -25,8 +25,7 @@ if (appConfig.useMockApi) {
 }
 
 httpClient.interceptors.request.use((config) => {
-  // O JwtAuthenticationFilter roda até em rotas públicas: um token vencido
-  // enviado no login derrubaria a requisição. Por isso, nada de Authorization aqui.
+  // Rotas públicas não precisam de token; enviar um token vencido ali só polui a requisição.
   if (isRotaPublica(config.url)) return config;
 
   const sessao = lerSessao();
