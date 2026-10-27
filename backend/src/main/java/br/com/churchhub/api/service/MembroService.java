@@ -7,6 +7,7 @@ import br.com.churchhub.api.exception.ConflictException;
 import br.com.churchhub.api.exception.ResourceNotFoundException;
 import br.com.churchhub.api.mapper.MembroMapper;
 import br.com.churchhub.api.repository.MembroRepository;
+import br.com.churchhub.api.repository.MovimentacaoFinanceiraRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -22,6 +23,7 @@ public class MembroService {
 
     private final MembroRepository membroRepository;
     private final MembroMapper membroMapper;
+    private final MovimentacaoFinanceiraRepository movimentacaoRepository;
 
     public Page<MembroResponse> listar(String nome, Pageable pageable) {
         Page<Membro> pagina = StringUtils.hasText(nome)
@@ -54,9 +56,18 @@ public class MembroService {
         return membroMapper.toResponse(atualizado);
     }
 
+    /**
+     * RN14 (versão MVP): membro com histórico financeiro não é excluído, para não
+     * apagar a origem de dízimos e ofertas. A confirmação administrativa fica para a Fase 2.
+     */
     @Transactional
     public void excluir(UUID id) {
         Membro membro = buscarEntidadePorId(id);
+        if (movimentacaoRepository.existsByMembroId(id)) {
+            throw new ConflictException(
+                    "Este membro possui movimentações financeiras vinculadas e não pode ser excluído. "
+                            + "Altere o status para Afastado.");
+        }
         membroRepository.delete(membro);
     }
 

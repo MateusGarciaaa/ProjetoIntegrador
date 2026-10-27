@@ -16,6 +16,8 @@ public interface MovimentacaoFinanceiraRepository extends JpaRepository<Moviment
 
     Page<MovimentacaoFinanceira> findByDataBetween(LocalDate dataInicio, LocalDate dataFim, Pageable pageable);
 
+    boolean existsByMembroId(UUID membroId);
+
     @Query("""
             SELECT COALESCE(SUM(m.valor), 0)
             FROM MovimentacaoFinanceira m
