@@ -44,8 +44,9 @@ function validarCorpo(rota, corpo, corpoMalformado, caminho) {
 /**
  * Cria um servidor com estado próprio. A ordem das verificações segue o Spring:
  * autenticação → conversão do {id} e dos parâmetros → @Valid do corpo → @PreAuthorize → serviço.
+ * aoEnviarEmail({ para, link }) faz o papel do MailSender (no real, o link só vai para o log).
  */
-export function criarServidorSimulado({ validadeTokenSegundos, relogio = () => Date.now() }) {
+export function criarServidorSimulado({ validadeTokenSegundos, relogio = () => Date.now(), aoEnviarEmail = null }) {
   const banco = criarBanco();
 
   return function atender({ metodo, url, params = {}, corpo = null, authorization = null, corpoMalformado = false }) {
@@ -54,8 +55,9 @@ export function criarServidorSimulado({ validadeTokenSegundos, relogio = () => D
     const rota = ROTAS.find((r) => r.metodo === metodo && r.padrao.test(caminho));
 
     if (rota?.publica) {
-      if (corpoMalformado) return corpoInvalido(caminho);
-      return rota.executar({ banco, corpo, caminho, agoraMs, validadeSegundos: validadeTokenSegundos });
+      const erroDeCorpo = validarCorpo(rota, corpo, corpoMalformado, caminho);
+      if (erroDeCorpo) return erroDeCorpo;
+      return rota.executar({ banco, corpo, caminho, agoraMs, validadeSegundos: validadeTokenSegundos, aoEnviarEmail });
     }
     // Rota pública inexistente não exige token: o Spring responde 404/405 direto.
     if (caminho.startsWith(PREFIXO_PUBLICO)) return rotaInexistente(metodo, caminho);

@@ -5,12 +5,12 @@ import br.com.churchhub.api.entity.Perfil;
 import br.com.churchhub.api.entity.Usuario;
 import br.com.churchhub.api.repository.PerfilRepository;
 import br.com.churchhub.api.repository.UsuarioRepository;
+import br.com.churchhub.api.util.NormalizadorEmail;
+import br.com.churchhub.api.validation.SenhaBcrypt;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.util.Locale;
 
 /**
  * Regras de cadastro de usuários do sistema. Hoje atende a carga inicial; é a base
@@ -35,7 +35,11 @@ public class UsuarioService {
      */
     @Transactional
     public boolean criarSeNaoExistir(String nome, String email, String senha, NomePerfil nomePerfil) {
-        String emailNormalizado = normalizarEmail(email);
+        if (!SenhaBcrypt.cabe(senha)) {
+            throw new IllegalArgumentException(
+                    "A senha deve ter no máximo %d bytes em UTF-8 (limite do BCrypt).".formatted(SenhaBcrypt.MAX_BYTES));
+        }
+        String emailNormalizado = NormalizadorEmail.normalizar(email);
         if (usuarioRepository.existsByEmail(emailNormalizado)) {
             return false;
         }
@@ -53,9 +57,5 @@ public class UsuarioService {
         return perfilRepository.findByNome(nomePerfil.name())
                 .orElseThrow(() -> new IllegalStateException(
                         "Perfil %s não encontrado: confira a migration V1.".formatted(nomePerfil)));
-    }
-
-    private static String normalizarEmail(String email) {
-        return email.trim().toLowerCase(Locale.ROOT);
     }
 }

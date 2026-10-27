@@ -3,6 +3,9 @@ import { PERFIS } from './perfis';
 export const ROTAS = Object.freeze({
   INICIO: '/',
   LOGIN: '/login',
+  ESQUECI_SENHA: '/esqueci-senha',
+  // Caminho do link gerado pelo backend (LoggingMailSender): /reset-password?token=<UUID>.
+  REDEFINIR_SENHA: '/reset-password',
   DASHBOARD: '/dashboard',
   MEMBROS: '/membros',
   EVENTOS: '/eventos',

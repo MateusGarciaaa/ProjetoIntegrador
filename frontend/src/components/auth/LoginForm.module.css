@@ -6,3 +6,8 @@
 .enviar {
   margin-top: var(--space-2);
 }
+
+.rodape {
+  text-align: center;
+  font-size: var(--text-sm);
+}

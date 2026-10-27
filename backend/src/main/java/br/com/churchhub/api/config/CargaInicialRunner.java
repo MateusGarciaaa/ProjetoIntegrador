@@ -4,6 +4,7 @@ import br.com.churchhub.api.config.properties.BootstrapProperties;
 import br.com.churchhub.api.entity.NomePerfil;
 import br.com.churchhub.api.service.DadosDemonstracaoService;
 import br.com.churchhub.api.service.UsuarioService;
+import br.com.churchhub.api.validation.SenhaBcrypt;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.ApplicationArguments;
@@ -42,6 +43,11 @@ public class CargaInicialRunner implements ApplicationRunner {
         if (properties.adminPassword().length() < TAMANHO_MINIMO_SENHA_ADMIN) {
             throw new IllegalStateException(
                     "ADMIN_PASSWORD deve ter pelo menos %d caracteres.".formatted(TAMANHO_MINIMO_SENHA_ADMIN));
+        }
+        if (!SenhaBcrypt.cabe(properties.adminPassword())) {
+            throw new IllegalStateException(
+                    "ADMIN_PASSWORD deve ter no máximo %d bytes em UTF-8 (letras acentuadas ocupam 2)."
+                            .formatted(SenhaBcrypt.MAX_BYTES));
         }
         boolean criado = usuarioService.criarSeNaoExistir(properties.adminName(), properties.adminEmail(),
                 properties.adminPassword(), NomePerfil.ADMINISTRADOR);
