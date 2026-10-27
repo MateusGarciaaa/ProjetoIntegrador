@@ -1,3 +1,5 @@
+# Toda configuração sensível ou que muda por ambiente vem de variável de ambiente (RNF23).
+# Em desenvolvimento, as variáveis são lidas do arquivo .env (veja .env.example).
 spring:
   config:
     import: optional:file:.env[.properties]
@@ -16,10 +18,10 @@ spring:
     open-in-view: false
     hibernate:
       ddl-auto: validate   # nunca "update" - quem manda no schema é o Flyway
-    show-sql: true
+    show-sql: ${JPA_SHOW_SQL:false}
     properties:
       hibernate:
-        format_sql: true
+        format_sql: ${JPA_SHOW_SQL:false}
 
   flyway:
     enabled: true
