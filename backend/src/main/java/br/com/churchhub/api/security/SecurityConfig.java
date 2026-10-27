@@ -6,6 +6,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
+import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -16,7 +17,6 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
-import org.springframework.security.config.Customizer;
 
 @Configuration
 @EnableWebSecurity
@@ -24,22 +24,34 @@ import org.springframework.security.config.Customizer;
 @RequiredArgsConstructor
 public class SecurityConfig {
 
-    private final JwtAuthenticationFilter jwtAuthenticationFilter;
+    private static final String[] ROTAS_PUBLICAS = {
+            "/api/v1/auth/**",
+            "/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**",
+            "/actuator/health", "/actuator/health/**",
+            "/error"
+    };
+
+    private final JwtService jwtService;
     private final UsuarioDetailsServiceImpl userDetailsService;
+    private final SecurityErrorHandler securityErrorHandler;
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
-            .csrf(AbstractHttpConfigurer::disable)
+            .csrf(AbstractHttpConfigurer::disable)   // API stateless com JWT no cabeçalho: sem cookie, sem CSRF
+            .cors(Customizer.withDefaults())          // usa o bean corsConfigurationSource do CorsConfig
             .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/api/v1/auth/**").permitAll()
-                .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()
+                .requestMatchers(ROTAS_PUBLICAS).permitAll()
                 .anyRequest().authenticated()
             )
+            .exceptionHandling(ex -> ex
+                .authenticationEntryPoint(securityErrorHandler)
+                .accessDeniedHandler(securityErrorHandler)
+            )
             .authenticationProvider(authenticationProvider())
-            .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
-            .cors(Customizer.withDefaults());
+            .addFilterBefore(new JwtAuthenticationFilter(jwtService, userDetailsService),
+                    UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }
