@@ -120,7 +120,6 @@ Problemas de regra:
 
 Por prioridade para o frontend (cada item que mude schema exige migration nova; nunca editar V1–V6):
 
-0. **BUG — `GET /financial` responde 500** (encontrado em 2026-10-26, não corrigido). `spring.jpa.open-in-view: false` e `MovimentacaoFinanceiraService.listar` sem `@Transactional`: o mapper acessa `categoria` (`@ManyToOne(fetch = LAZY)`) depois de fechada a sessão → `LazyInitializationException`. Afeta todos os perfis; provavelmente também `GET /financial/{id}`. Correção sugerida: `@Transactional(readOnly = true)` nas leituras do serviço (ou `@EntityGraph`/`JOIN FETCH` de `categoria` e `membro` no repositório) + teste de integração. **Bloqueia o módulo Financeiro.**
 1. **Fixar o formato da página explicitamente.** Hoje é o DIRECT por padrão do Spring Boot 4.1 (o Spring Data registra aviso recomendando VIA_DTO); uma atualização de versão poderia mudá-lo em silêncio. Sugestão: `@EnableSpringDataWebSupport(pageSerializationMode = VIA_DTO)` ou `spring.data.web.pageable.serialization-mode` no `application.yml`. O front aceita os dois formatos, mas o mock precisa acompanhar (`mock/paginacao.js`).
 2. **Erros de validação estruturados por campo.** Hoje o front deduz o campo pelo texto da mensagem (seção 1, "Mapeamento de erros por campo"). Proposta, compatível com o formato atual (só acrescenta um campo opcional ao record `ApiError`):
    ```json
