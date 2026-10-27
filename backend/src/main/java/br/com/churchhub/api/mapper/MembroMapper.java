@@ -2,6 +2,7 @@ package br.com.churchhub.api.mapper;
 
 import br.com.churchhub.api.dto.MembroRequest;
 import br.com.churchhub.api.dto.MembroResponse;
+import br.com.churchhub.api.dto.MembroResumoResponse;
 import br.com.churchhub.api.entity.Membro;
 import br.com.churchhub.api.entity.StatusMembro;
 import org.springframework.stereotype.Component;
@@ -44,5 +45,9 @@ public class MembroMapper {
                 membro.getDataConversao(),
                 membro.getStatus()
         );
+    }
+
+    public MembroResumoResponse toResumo(Membro membro) {
+        return new MembroResumoResponse(membro.getId(), membro.getNome(), membro.getStatus());
     }
 }

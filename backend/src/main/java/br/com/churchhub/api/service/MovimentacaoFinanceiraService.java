@@ -31,6 +31,8 @@ public class MovimentacaoFinanceiraService {
     private final MembroRepository membroRepository;
     private final MovimentacaoFinanceiraMapper movimentacaoMapper;
 
+    /** Leituras transacionais: o mapper acessa categoria e membro (open-in-view está desligado). */
+    @Transactional(readOnly = true)
     public Page<MovimentacaoFinanceiraResponse> listar(LocalDate dataInicio, LocalDate dataFim, Pageable pageable) {
         Page<MovimentacaoFinanceira> pagina = (dataInicio != null && dataFim != null)
                 ? movimentacaoRepository.findByDataBetween(dataInicio, dataFim, pageable)
@@ -39,6 +41,7 @@ public class MovimentacaoFinanceiraService {
         return pagina.map(movimentacaoMapper::toResponse);
     }
 
+    @Transactional(readOnly = true)
     public MovimentacaoFinanceiraResponse buscarPorId(UUID id) {
         return movimentacaoMapper.toResponse(buscarEntidadePorId(id));
     }
@@ -69,6 +72,7 @@ public class MovimentacaoFinanceiraService {
         movimentacaoRepository.delete(buscarEntidadePorId(id));
     }
 
+    @Transactional(readOnly = true)
     public ResumoFinanceiroResponse resumo(LocalDate dataInicio, LocalDate dataFim) {
         BigDecimal receitas = movimentacaoRepository.somarPorTipo(TipoMovimentacao.RECEITA, dataInicio, dataFim);
         BigDecimal despesas = movimentacaoRepository.somarPorTipo(TipoMovimentacao.DESPESA, dataInicio, dataFim);

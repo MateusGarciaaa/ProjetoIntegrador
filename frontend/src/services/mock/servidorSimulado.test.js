@@ -112,17 +112,119 @@ describe('segurança simulada', () => {
   });
 });
 
+describe('rotas públicas simuladas', () => {
+  it('caminho inexistente em /auth/** responde 404 sem exigir token, como o permitAll', () => {
+    const atender = novoServidor();
+    expect(atender({ metodo: 'post', url: '/auth/nao-existe', corpo: {} })).toMatchObject({
+      status: 404,
+      data: { message: 'Recurso não encontrado.', path: '/api/v1/auth/nao-existe' },
+    });
+    expect(atender({ metodo: 'get', url: '/auth/login' }).status).toBe(405);
+  });
+});
+
+describe('página no formato do backend real', () => {
+  it('serializa o PageImpl no modo DIRECT (padrão do Spring Boot 4.1)', () => {
+    const atender = novoServidor();
+    const authorization = entrar(atender, 'SECRETARIO');
+    const { data } = atender({ metodo: 'get', url: '/members', authorization, params: { page: 2, size: 10, sort: 'nome,asc' } });
+    const { content, ...metadados } = data;
+    expect(content).toHaveLength(5);
+    expect(metadados).toEqual({
+      pageable: {
+        pageNumber: 2,
+        pageSize: 10,
+        sort: { empty: false, sorted: true, unsorted: false },
+        offset: 20,
+        paged: true,
+        unpaged: false,
+      },
+      last: true,
+      totalElements: 25,
+      totalPages: 3,
+      size: 10,
+      number: 2,
+      sort: { empty: false, sorted: true, unsorted: false },
+      first: false,
+      numberOfElements: 5,
+      empty: false,
+    });
+  });
+
+  it('size acima de 2000 é reduzido em silêncio, como o max-page-size do Spring', () => {
+    const atender = novoServidor();
+    const authorization = entrar(atender, 'SECRETARIO');
+    const { status, data } = atender({ metodo: 'get', url: '/members', authorization, params: { size: 5000 } });
+    expect(status).toBe(200);
+    expect(data.size).toBe(2000);
+  });
+});
+
+describe('ficha completa × busca enxuta de membros', () => {
+  const MEMBROS = criarMembrosIniciais();
+
+  it('TESOUREIRO não lê a ficha completa (lista nem detalhe)', () => {
+    const atender = novoServidor();
+    const authorization = entrar(atender, 'TESOUREIRO');
+    expect(atender({ metodo: 'get', url: '/members', authorization }).status).toBe(403);
+    expect(atender({ metodo: 'get', url: `/members/${MEMBROS[0].id}`, authorization }).status).toBe(403);
+  });
+
+  it('lookup: A, P, S e T recebem só id, nome e status; MEMBRO recebe 403', () => {
+    const atender = novoServidor();
+    ['ADMINISTRADOR', 'PASTOR', 'SECRETARIO', 'TESOUREIRO'].forEach((perfil) => {
+      const { status, data } = atender({ metodo: 'get', url: '/members/lookup', authorization: entrar(atender, perfil) });
+      expect(status).toBe(200);
+      expect(Object.keys(data.content[0]).sort()).toEqual(['id', 'nome', 'status']);
+    });
+    expect(atender({ metodo: 'get', url: '/members/lookup', authorization: entrar(atender, 'MEMBRO') }).status).toBe(403);
+  });
+
+  it('lookup: filtra por nome e status, ordena por nome e ignora o sort do cliente', () => {
+    const atender = novoServidor();
+    const authorization = entrar(atender, 'TESOUREIRO');
+    const params = { nome: 'LU', status: 'ATIVO', sort: 'cpf,desc' };
+    const { data } = atender({ metodo: 'get', url: '/members/lookup', authorization, params });
+
+    const esperados = MEMBROS.filter((m) => m.nome.toLowerCase().includes('lu') && m.status === 'ATIVO')
+      .map((m) => m.nome)
+      .sort((a, b) => a.localeCompare(b, 'pt-BR'));
+    expect(esperados.length).toBeGreaterThan(0);
+    expect(data.content.map((m) => m.nome)).toEqual(esperados);
+    expect(data.content.every((m) => m.status === 'ATIVO')).toBe(true);
+  });
+
+  it('lookup: no máximo 20 por página', () => {
+    const atender = novoServidor();
+    const authorization = entrar(atender, 'TESOUREIRO');
+    const { data } = atender({ metodo: 'get', url: '/members/lookup', authorization, params: { size: 500 } });
+    expect(data.size).toBe(20);
+    expect(data.content).toHaveLength(20);
+    expect(data.totalElements).toBe(MEMBROS.length);
+  });
+
+  it('lookup: status inválido gera 400 com a mensagem do backend', () => {
+    const atender = novoServidor();
+    // Mesmo o MEMBRO recebe 400, não 403: a conversão do parâmetro vem antes do @PreAuthorize.
+    const authorization = entrar(atender, 'MEMBRO');
+    expect(atender({ metodo: 'get', url: '/members/lookup', authorization, params: { status: 'XYZ' } })).toMatchObject({
+      status: 400,
+      data: { message: "Valor inválido para o parâmetro 'status'.", path: '/api/v1/members/lookup' },
+    });
+  });
+});
+
 describe('membros simulados', () => {
   it('lista paginada, ordenada por nome e filtrada por nome sem diferenciar maiúsculas', () => {
     const atender = novoServidor();
-    const authorization = entrar(atender, 'TESOUREIRO');
+    const authorization = entrar(atender, 'SECRETARIO');
     const { data } = atender({ metodo: 'get', url: '/members', authorization, params: { page: 0, size: 10, sort: 'nome,asc' } });
     expect(data.content).toHaveLength(10);
-    expect(data.page).toEqual({ size: 10, number: 0, totalElements: 25, totalPages: 3 });
     expect(data.content[0].nome).toBe('Ana Beatriz Carvalho');
 
     const busca = atender({ metodo: 'get', url: '/members', authorization, params: { nome: 'SILVA', sort: 'nome,asc' } });
-    expect(busca.data.page.totalElements).toBe(0);
+    expect(busca.data.totalElements).toBe(0);
+    expect(busca.data.empty).toBe(true);
     const outra = atender({ metodo: 'get', url: '/members', authorization, params: { nome: 'lu', sort: 'nome,asc' } });
     expect(outra.data.content.map((m) => m.nome)).toEqual([
       'André Luiz Fontana',

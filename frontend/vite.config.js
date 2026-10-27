@@ -30,7 +30,9 @@ export default defineConfig(({ mode }) => {
     },
     test: {
       environment: 'node',
-      include: ['src/**/*.test.js'],
+      // Padrão: node (funções puras). Testes de componente (*.test.jsx) declaram no topo:
+      //   // @vitest-environment jsdom
+      include: ['src/**/*.test.{js,jsx}'],
     },
   };
 });

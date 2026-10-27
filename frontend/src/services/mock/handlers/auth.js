@@ -28,3 +28,6 @@ export function login({ banco, corpo, caminho, agoraMs, validadeSegundos }) {
   const token = emitirTokenFalso({ email: usuario.email, perfil: usuario.perfil, agoraMs, validadeSegundos });
   return ok(200, { token, type: 'Bearer', expiresIn: validadeSegundos });
 }
+
+/** Rotas públicas do AuthController (permitAll em /api/v1/auth/**). */
+export const ROTAS_AUTH = Object.freeze([{ metodo: 'post', padrao: /^\/auth\/login$/, publica: true, executar: login }]);

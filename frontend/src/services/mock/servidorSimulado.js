@@ -1,25 +1,22 @@
-import { PERFIS } from '../../constants/perfis';
 import { criarBanco } from './bancoEmMemoria';
-import * as auth from './handlers/auth';
-import * as membros from './handlers/membros';
+import { ROTAS_AUTH } from './handlers/auth';
+import { ROTAS_MEMBROS } from './handlers/membros';
 import { verificarTokenFalso } from './mockJwt';
 import { corpoInvalido, erroApi, MENSAGENS_BACKEND, naoAutenticado } from './respostas';
 
-const { ADMINISTRADOR, PASTOR, SECRETARIO, TESOUREIRO } = PERFIS;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+/** Espelha o permitAll("/api/v1/auth/**") do SecurityConfig. */
+const PREFIXO_PUBLICO = '/auth/';
+
 /**
- * Tabela de rotas do backend simulado. "perfis" repete os @PreAuthorize do
- * MembroController de forma independente da matriz do frontend, como o backend real.
+ * Tabela de rotas do backend simulado. Cada módulo exporta as suas em handlers/<modulo>.js:
+ *   { metodo, padrao (regex; o 1º grupo é o {id}), publica? | perfis (@PreAuthorize),
+ *     parametros?(params) → mensagem de 400 ou null (conversão de @RequestParam),
+ *     corpo?: { ilegivel(corpo), validar(corpo) → mensagens }, executar(contexto) }
+ * Módulo novo = um arquivo de handlers + uma linha aqui.
  */
-const ROTAS = [
-  { metodo: 'post', padrao: /^\/auth\/login$/, publica: true, executar: auth.login },
-  { metodo: 'get', padrao: /^\/members$/, perfis: [ADMINISTRADOR, PASTOR, SECRETARIO, TESOUREIRO], executar: membros.listar },
-  { metodo: 'post', padrao: /^\/members$/, perfis: [ADMINISTRADOR, SECRETARIO], validarCorpo: true, executar: membros.cadastrar },
-  { metodo: 'get', padrao: /^\/members\/([^/]+)$/, perfis: [ADMINISTRADOR, PASTOR, SECRETARIO, TESOUREIRO], executar: membros.buscarPorId },
-  { metodo: 'put', padrao: /^\/members\/([^/]+)$/, perfis: [ADMINISTRADOR, SECRETARIO], validarCorpo: true, executar: membros.atualizar },
-  { metodo: 'delete', padrao: /^\/members\/([^/]+)$/, perfis: [ADMINISTRADOR], executar: membros.excluir },
-];
+const ROTAS = [...ROTAS_AUTH, ...ROTAS_MEMBROS];
 
 function autenticar(banco, cabecalhoAuthorization, agoraMs) {
   if (typeof cabecalhoAuthorization !== 'string' || !cabecalhoAuthorization.startsWith('Bearer ')) return null;
@@ -36,9 +33,17 @@ function rotaInexistente(metodo, caminho) {
   return erroApi(404, MENSAGENS_BACKEND.RECURSO_INEXISTENTE, caminho);
 }
 
+/** @Valid: corpo ilegível (JSON, data, enum) → 400 fixo; regras violadas → mensagens unidas por ", ". */
+function validarCorpo(rota, corpo, corpoMalformado, caminho) {
+  if (!rota.corpo) return null;
+  if (corpoMalformado || rota.corpo.ilegivel(corpo)) return corpoInvalido(caminho);
+  const erros = rota.corpo.validar(corpo);
+  return erros.length ? erroApi(400, erros.join(', '), caminho) : null;
+}
+
 /**
  * Cria um servidor com estado próprio. A ordem das verificações segue o Spring:
- * autenticação → conversão do {id} → @Valid do corpo → @PreAuthorize → serviço.
+ * autenticação → conversão do {id} e dos parâmetros → @Valid do corpo → @PreAuthorize → serviço.
  */
 export function criarServidorSimulado({ validadeTokenSegundos, relogio = () => Date.now() }) {
   const banco = criarBanco();
@@ -52,6 +57,8 @@ export function criarServidorSimulado({ validadeTokenSegundos, relogio = () => D
       if (corpoMalformado) return corpoInvalido(caminho);
       return rota.executar({ banco, corpo, caminho, agoraMs, validadeSegundos: validadeTokenSegundos });
     }
+    // Rota pública inexistente não exige token: o Spring responde 404/405 direto.
+    if (caminho.startsWith(PREFIXO_PUBLICO)) return rotaInexistente(metodo, caminho);
 
     const usuario = autenticar(banco, authorization, agoraMs);
     if (!usuario) return naoAutenticado(caminho);
@@ -60,11 +67,11 @@ export function criarServidorSimulado({ validadeTokenSegundos, relogio = () => D
     const id = rota.padrao.exec(caminho)[1];
     if (id !== undefined && !UUID.test(id)) return erroApi(400, "Valor inválido para o parâmetro 'id'.", caminho);
 
-    if (rota.validarCorpo) {
-      if (corpoMalformado || membros.corpoIlegivel(corpo)) return corpoInvalido(caminho);
-      const erros = membros.validarMembroRequest(corpo);
-      if (erros.length) return erroApi(400, erros.join(', '), caminho);
-    }
+    const erroDeParametro = rota.parametros?.(params);
+    if (erroDeParametro) return erroApi(400, erroDeParametro, caminho);
+
+    const erroDeCorpo = validarCorpo(rota, corpo, corpoMalformado, caminho);
+    if (erroDeCorpo) return erroDeCorpo;
 
     if (!rota.perfis.includes(usuario.perfil)) {
       return erroApi(403, 'Você não possui permissão para acessar este recurso.', caminho);

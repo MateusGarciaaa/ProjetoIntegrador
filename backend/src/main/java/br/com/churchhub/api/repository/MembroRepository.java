@@ -21,6 +21,10 @@ public interface MembroRepository extends JpaRepository<Membro, UUID> {
 
     Page<Membro> findByNomeContainingIgnoreCase(String nome, Pageable pageable);
 
+    Page<Membro> findByStatus(StatusMembro status, Pageable pageable);
+
+    Page<Membro> findByNomeContainingIgnoreCaseAndStatus(String nome, StatusMembro status, Pageable pageable);
+
     long countByStatus(StatusMembro status);
 
     @Query("""

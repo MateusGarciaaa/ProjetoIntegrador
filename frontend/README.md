@@ -37,7 +37,7 @@ npm run dev          # http://localhost:5173
 | `VITE_SHOW_DEMO_ACCOUNTS` | `false` | `true` mostra os botões das contas de demonstração também com o backend real (que precisa estar com `DEMO_DATA_ENABLED=true`). |
 | `DEV_PROXY_TARGET` | `http://localhost:8080` | Só para o `npm run dev`; não vai para o navegador. |
 
-Variáveis `VITE_*` são gravadas no código durante o build: ao mudar alguma em produção, é preciso gerar um novo deploy. Em produção, aponte `VITE_API_BASE_URL` para a URL absoluta da API e libere a origem do frontend em `CORS_ALLOWED_ORIGINS` no backend. O passo a passo está em [`../DEPLOY.md`](../DEPLOY.md).
+Variáveis `VITE_*` são gravadas no código durante o build: ao mudar alguma em produção, é preciso gerar um novo deploy. Em produção, aponte `VITE_API_BASE_URL` para a URL absoluta da API e libere a origem do frontend em `CORS_ALLOWED_ORIGINS` no backend.
 
 ## Contas de demonstração
 
@@ -48,7 +48,7 @@ Todas com a senha **`demo123`**. Existem no modo simulado e também no backend r
 | Administrador | `administrador@churchhub.local` | Lista, cadastra, edita e exclui |
 | Secretário | `secretario@churchhub.local` | Lista, cadastra e edita |
 | Pastor | `pastor@churchhub.local` | Só lista |
-| Tesoureiro | `tesoureiro@churchhub.local` | Só lista |
+| Tesoureiro | `tesoureiro@churchhub.local` | Sem acesso à ficha (só a busca enxuta `/members/lookup`, para o Financeiro) |
 | Membro | `membro@churchhub.local` | Página "Sem acesso" |
 
 São 25 membros de exemplo, todos com CPF de dígito verificador válido.
@@ -65,8 +65,9 @@ Extraído de `AuthController`, `MembroController`, DTOs, `JwtService`, `Security
 
 | Método e rota | Perfis (`@PreAuthorize`) | Resposta |
 |---|---|---|
-| `GET /members?nome=&page=&size=&sort=` | ADMINISTRADOR, PASTOR, SECRETARIO, TESOUREIRO | 200, `Page<MembroResponse>` |
-| `GET /members/{id}` | ADMINISTRADOR, PASTOR, SECRETARIO, TESOUREIRO | 200 ou 404 |
+| `GET /members?nome=&page=&size=&sort=` | ADMINISTRADOR, PASTOR, SECRETARIO | 200, `Page<MembroResponse>` |
+| `GET /members/lookup?nome=&status=&page=&size=` | ADMINISTRADOR, PASTOR, SECRETARIO, TESOUREIRO | 200, `Page<{ id, nome, status }>` (máx. 20 por página, sempre por nome) |
+| `GET /members/{id}` | ADMINISTRADOR, PASTOR, SECRETARIO | 200 ou 404 |
 | `POST /members` | ADMINISTRADOR, SECRETARIO | 201, 400 ou 409 |
 | `PUT /members/{id}` | ADMINISTRADOR, SECRETARIO | 200, 400, 404 ou 409 |
 | `DELETE /members/{id}` | ADMINISTRADOR | 204 ou 404 |
@@ -89,9 +90,13 @@ A listagem usa `page` a partir de 0, `size=10` e `sort=nome,asc` (padrão do con
 
 **Backend simulado como adaptador do axios.** Em vez de duplicar os serviços em versões reais e falsas, o modo simulado troca apenas o transporte (`httpClient.defaults.adapter`). Os mesmos serviços, interceptores, normalização de página e conversão de erro rodam nos dois modos, e o resto do app não sabe qual está em uso. O servidor simulado segue a ordem do Spring (autenticação → conversão do `{id}` → `@Valid` → `@PreAuthorize` → serviço), responde 401 para token ausente ou vencido e 400 para entradas inválidas (inclusive `sort`), e tem sua própria cópia dos perfis por rota, independente da matriz do frontend. Ele é carregado por import dinâmico: fica num arquivo separado que nem é baixado quando o modo simulado está desligado.
 
-**Página normalizada.** Dependendo da versão e da configuração do Spring Data, a página chega como `{ content, totalElements, totalPages, number, size }` ou como `{ content, page: { ... } }`. `normalizarPagina` aceita os dois e entrega sempre o primeiro formato.
+**Página normalizada.** O backend (Spring Boot 4.1, sem configuração própria) serializa o `PageImpl` no modo padrão DIRECT: `{ content, pageable, totalElements, totalPages, last, size, number, sort, numberOfElements, first, empty }` (conferido na API real em 2026-10-26). O backend simulado responde exatamente nesse formato. `normalizarPagina` entrega sempre `{ content, number, size, totalElements, totalPages }` e também aceita o VIA_DTO (`{ content, page: { ... } }`), caso o backend venha a fixá-lo. `montarParametrosPagina` monta a query (`page`, `size` limitado a 2000, `sort` e filtros, descartando os vazios) e `useConsultaPaginada` busca a página, cancelando a anterior.
 
-**Permissões só escondem, não autorizam.** `constants/permissoes.js` espelha os `@PreAuthorize` linha a linha, e um teste transcreve a mesma tabela: se o backend mudar, o teste obriga a revisar.
+**Erro ao lado do campo, por enquanto pelo texto.** O backend não diz a que campo pertence cada erro. `schemas/errosServidor.js` (`criarMapeadorDeErros`) deduz o campo pela mensagem exata do DTO (400) ou por palavra-chave (409: e-mail, CPF). É provisório: se o backend mudar o texto, o erro só passa para o topo do formulário. O formato estruturado proposto está em `docs/frontend-integracao.md`.
+
+**Permissões só escondem, não autorizam.** `constants/permissoes.js` espelha os `@PreAuthorize` de todos os controllers linha a linha, e um teste transcreve a mesma tabela: se o backend mudar, o teste obriga a revisar. `usePermissao().pode(...)` e `<PodeAcessar permissao senao>` escondem botões e blocos; `RequirePermission` protege rotas (mostra "Sem acesso", sem deslogar); o menu (`itensMenuDoPerfil`) só lista áreas permitidas; e cada perfil começa na sua área (`rotaInicialDoPerfil`: A/P → Painel, S → Membros, T → Financeiro, M → Eventos). Painel, Eventos e Financeiro ainda são páginas "Em construção".
+
+**Datas como texto.** `LocalDate`, `LocalTime` e `LocalDateTime` chegam sem fuso. `utils/datas.js` os formata fatiando a string, nunca com `new Date("AAAA-MM-DD")` (que no Brasil mostraria o dia anterior). Moeda: `utils/moeda.js` (`Intl.NumberFormat` BRL, arredondamento para 2 casas antes de enviar).
 
 **Acessibilidade.** Rótulos ligados aos campos, `aria-invalid` e `aria-describedby` nos erros, foco no primeiro campo inválido, foco preso nas modais e no menu do celular, Esc fecha, o foco volta a quem abriu, link "Pular para o conteúdo", foco visível e `prefers-reduced-motion` respeitado. Botões em carregamento usam `aria-disabled` em vez de `disabled`, porque um botão desabilitado joga o foco para fora da modal.
 
@@ -102,29 +107,31 @@ src/
   config/        leitura única das variáveis de ambiente
   constants/     perfis, permissões, status, rotas, limites de campo, menu
   contexts/      AuthProvider (sessão) e ToastProvider (notificações)
-  hooks/         useAuth, usePermissao, useMembros, useMembroForm, useFocusTrap...
-  schemas/       validação, máscaras, montagem do payload e leitura de erros do servidor
+  hooks/         useAuth, usePermissao, useConsultaPaginada, useMembros, useMembroForm, useFocusTrap...
+  schemas/       validação, máscaras, montagem do payload e mapeamento de erros do servidor para campos
   services/
-    http/        cliente axios, ApiError, normalização de página
+    http/        cliente axios, ApiError, página (normalização e query)
     auth/        sessão (regras puras + armazenamento) e login
     members/     chamadas de /members
-    mock/        backend simulado (adaptador, rotas, dados, JWT falso)
-  routes/        rotas e guards (visitante, autenticado, permissão)
-  layouts/       tela dividida do login e estrutura autenticada
-  pages/         Login, Membros, Sem acesso, 404
-  components/    ui (genéricos), members, auth, brand
+    mock/        backend simulado (núcleo, handlers/<módulo> com as próprias rotas, página DIRECT, dados, JWT falso)
+  routes/        rotas (páginas com React.lazy) e guards (visitante, autenticado, permissão)
+  layouts/       tela dividida do login e estrutura autenticada (menu por perfil, breadcrumb)
+  pages/         Login, Membros, Em construção, Sem acesso, 404
+  components/    ui (genéricos: Button, campos, Card, Table, Modal, ConfirmDialog, Pagination, Breadcrumb...), members, auth, brand
   styles/        tokens (cores, tipos, espaçamentos) e estilos globais
-  utils/         CPF, telefone, datas, JWT, strings
-  test-utils/    apoio usado só pelos testes
+  utils/         CPF, telefone, datas, moeda, JWT, strings
+  test-utils/    apoio usado só pelos testes (tokens, render com perfil)
 ```
 
 ## Testes
 
-`npm test` roda 113 testes em 10 arquivos: validação e máscara de CPF, máscara de telefone, schema do formulário de membro (validação, montagem do payload e tradução de erros 400/409 para campos), matriz de permissões, leitura do perfil a partir do JWT, sessão e expiração, normalização da página nos dois formatos, conversão de erros da API, redirecionamento seguro após login e fidelidade do backend simulado ao real.
+`npm test` roda 233 testes em 18 arquivos: validação e máscara de CPF, máscara de telefone, schema do formulário de membro, mapeamento de erros 400/409 para campos, matriz de permissões de todos os controllers, menu, breadcrumb e rota inicial por perfil, formatadores de data/hora e moeda, leitura do perfil a partir do JWT, sessão e expiração, normalização e montagem da página, conversão de erros da API, cliente HTTP (Bearer, 401, 403, 400, 409, tempo esgotado e rede), redirecionamento seguro após login e fidelidade do backend simulado ao real.
+
+O ambiente padrão é `node` (funções puras, `*.test.js`). Testes de componente usam `*.test.jsx` com `// @vitest-environment jsdom` na primeira linha e `renderizarComPerfil` (`test-utils/componentes.jsx`), que simula o usuário logado e desmonta entre os testes. Exemplos: `PodeAcessar.test.jsx`, `Table.test.jsx` e `AppRoutes.test.jsx` (rotas por perfil).
 
 ## Como crescer (TCC)
 
-O backend já tem eventos, finanças, dashboard e recuperação de senha. Para um módulo novo, o caminho é sempre o mesmo: acrescentar as permissões em `constants/permissoes.js` espelhando o controller, criar o serviço em `services/<modulo>/`, o schema em `schemas/`, os componentes em `components/<modulo>/`, a página, a rota protegida com `RequirePermission` e o item em `constants/navegacao.js`. As rotas de esqueci/redefinir senha cabem no `AuthLayout`, que já é um layout de rotas. Quando houver várias páginas, vale carregar cada uma com `React.lazy`. Os componentes de `ui/` (campos, modal, confirmação, paginação, estados vazios, toasts) já são genéricos.
+O backend já tem eventos, finanças, dashboard e recuperação de senha. Permissões, rotas, itens de menu e páginas provisórias desses módulos já existem. Para cada um, falta: criar o serviço em `services/<modulo>/` (com `montarParametrosPagina` + `normalizarPagina`), o schema em `schemas/` (com `criarMapeadorDeErros`), os componentes em `components/<modulo>/`, trocar o `EmConstrucaoPage` da rota em `routes/AppRoutes.jsx` pela página real e acrescentar `handlers/<modulo>.js` ao backend simulado (as rotas entram em `ROTAS` de `servidorSimulado.js`). As rotas de esqueci/redefinir senha cabem no `AuthLayout`, que já é um layout de rotas.
 
 ## Integração com o backend
 
@@ -134,6 +141,6 @@ Ficam para as próximas fases:
 
 1. **E-mail único de membro diferencia maiúsculas** no banco (`Ana@x.com` e `ana@x.com` passam). O frontend já grava em minúsculas; o ideal é um índice único em `lower(email)` numa nova migration.
 2. **Unicidade checada antes de gravar.** Dois cadastros simultâneos com o mesmo CPF: o segundo esbarra na constraint e recebe 409 genérico, em vez da mensagem específica.
-3. **Formato da página não fixado.** Sem `@EnableSpringDataWebSupport(pageSerializationMode = VIA_DTO)`, o JSON do `Page` depende da versão do Spring Data. O frontend aceita os dois formatos.
+3. **Formato da página implícito.** Hoje é o DIRECT, padrão do Spring Boot 4.1 (o próprio Spring Data registra aviso recomendando VIA_DTO). Fixar com `@EnableSpringDataWebSupport(pageSerializationMode = ...)` evita mudança silenciosa numa atualização. O frontend aceita os dois formatos.
 4. **Busca por nome diferencia acentos** ("Jose" não encontra "José"); a extensão `unaccent` do PostgreSQL resolveria.
 5. **Sessão em `sessionStorage` sem refresh token.** O ideal é cookie `httpOnly` com refresh token (`POST /auth/refresh`, já previsto em 07-API.md).

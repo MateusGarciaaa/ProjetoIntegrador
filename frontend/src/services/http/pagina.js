@@ -1,14 +1,18 @@
 import { ApiError, MENSAGENS_ERRO, TIPOS_ERRO } from './apiError';
 
+/** Spring Data limita o size a 2000 (spring.data.web.pageable.max-page-size); acima disso, reduz em silêncio. */
+export const TAMANHO_MAXIMO_PAGINA = 2000;
+
 function inteiroOu(valor, padrao) {
   return Number.isInteger(valor) && valor >= 0 ? valor : padrao;
 }
 
 /**
- * O Spring Data pode serializar a página de dois jeitos, conforme a versão e a
- * configuração (PageSerializationMode):
- *   DIRECT:  { content, totalElements, totalPages, number, size, ... }
- *   VIA_DTO: { content, page: { size, number, totalElements, totalPages } }
+ * O backend (Spring Boot 4.1, sem configuração própria) usa o modo padrão DIRECT:
+ * o PageImpl serializado como está —
+ *   { content, pageable, totalElements, totalPages, last, size, number, sort, numberOfElements, first, empty }
+ * O modo VIA_DTO ({ content, page: { size, number, totalElements, totalPages } }) também é
+ * aceito porque fixar o formato é uma pendência do backend (docs/frontend-integracao.md).
  * O app só enxerga o formato abaixo, com os nomes do Spring.
  */
 export function normalizarPagina(bruta) {
@@ -38,4 +42,27 @@ export function faixaDaPagina({ content, number, size, totalElements }) {
   }
   const inicio = number * size + 1;
   return { inicio, fim: inicio + content.length - 1, total: totalElements };
+}
+
+function isFiltroPreenchido(valor) {
+  return valor !== undefined && valor !== null && String(valor).trim() !== '';
+}
+
+function filtrosPreenchidos(filtros) {
+  return Object.fromEntries(
+    Object.entries(filtros)
+      .filter(([, valor]) => isFiltroPreenchido(valor))
+      .map(([nome, valor]) => [nome, typeof valor === 'string' ? valor.trim() : valor]),
+  );
+}
+
+/**
+ * Query string do Pageable (page base 0, size, sort "campo,asc|desc") mais os filtros
+ * da rota. Filtros vazios não são enviados: o backend os trataria como o texto "".
+ */
+export function montarParametrosPagina({ pagina = 0, tamanho, ordenacao, filtros = {} } = {}) {
+  const parametros = { ...filtrosPreenchidos(filtros), page: Math.max(0, Number.parseInt(pagina, 10) || 0) };
+  if (tamanho !== undefined) parametros.size = Math.min(Math.max(1, tamanho), TAMANHO_MAXIMO_PAGINA);
+  if (ordenacao) parametros.sort = ordenacao;
+  return parametros;
 }

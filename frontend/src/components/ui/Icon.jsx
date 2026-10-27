@@ -6,6 +6,27 @@ const CAMINHOS = {
       <path d="M16 4.6a3.5 3.5 0 0 1 0 6.8M18.5 13.9c1.8.9 3 2.9 3 5.1" />
     </>
   ),
+  painel: (
+    <>
+      <rect x="3.5" y="3.5" width="7" height="8" rx="1.5" />
+      <rect x="13.5" y="3.5" width="7" height="5" rx="1.5" />
+      <rect x="13.5" y="11.5" width="7" height="9" rx="1.5" />
+      <rect x="3.5" y="14.5" width="7" height="6" rx="1.5" />
+    </>
+  ),
+  calendario: (
+    <>
+      <rect x="3.5" y="5" width="17" height="15.5" rx="2" />
+      <path d="M3.5 10h17M8 3v4M16 3v4" />
+    </>
+  ),
+  financeiro: (
+    <>
+      <rect x="2.5" y="6" width="19" height="12" rx="2" />
+      <circle cx="12" cy="12" r="2.5" />
+      <path d="M6 9.5v5M18 9.5v5" />
+    </>
+  ),
   menu: <path d="M4 7h16M4 12h16M4 17h16" />,
   fechar: <path d="M6 6l12 12M18 6L6 18" />,
   busca: (

@@ -1,6 +1,8 @@
+import { LIMITES_MEMBRO } from '../../../constants/membros';
+import { PERFIS } from '../../../constants/perfis';
 import { STATUS_MEMBRO } from '../../../constants/statusMembro';
 import { novoId } from '../bancoEmMemoria';
-import { LIMITES_MEMBRO } from '../../../constants/membros';
+import { lerPageable, paginaSpring } from '../paginacao';
 import { erroApi, ok } from '../respostas';
 
 const CAMPOS_ORDENAVEIS = ['id', 'nome', 'cpf', 'email', 'telefone', 'endereco', 'dataNascimento', 'dataBatismo', 'dataConversao', 'status'];
@@ -67,30 +69,18 @@ function conflito(banco, corpo, idIgnorado, caminho) {
   return null;
 }
 
-function lerOrdenacao(sort) {
-  const primeira = Array.isArray(sort) ? sort[0] : sort;
-  const [campo, direcao = 'asc'] = String(primeira ?? 'nome').split(',');
-  return { campo, fator: direcao.toLowerCase() === 'desc' ? -1 : 1 };
-}
-
 function comparar(a, b, campo) {
   if (a[campo] == null) return b[campo] == null ? 0 : 1;
   if (b[campo] == null) return -1;
   return String(a[campo]).localeCompare(String(b[campo]), 'pt-BR');
 }
 
-function inteiroNaoNegativo(valor, padrao) {
-  const numero = Number.parseInt(valor, 10);
-  return Number.isInteger(numero) && numero >= 0 ? numero : padrao;
-}
-
 export function listar({ banco, params, caminho }) {
-  const { campo, fator } = lerOrdenacao(params.sort);
+  const { pagina, tamanho, campo, direcao } = lerPageable(params, 'nome');
   // Campo inexistente gera PropertyReferenceException, tratada como 400 pelo GlobalExceptionHandler.
   if (!CAMPOS_ORDENAVEIS.includes(campo)) return erroApi(400, `Campo de ordenação inválido: '${campo}'.`, caminho);
 
-  const pagina = inteiroNaoNegativo(params.page, 0);
-  const tamanho = Math.min(Math.max(inteiroNaoNegativo(params.size, 20), 1), 2000);
+  const fator = direcao === 'DESC' ? -1 : 1;
   const nome = typeof params.nome === 'string' ? params.nome : '';
 
   // StringUtils.hasText + findByNomeContainingIgnoreCase
@@ -98,12 +88,7 @@ export function listar({ banco, params, caminho }) {
     ? banco.membros.filter((m) => m.nome.toLowerCase().includes(nome.toLowerCase()))
     : banco.membros;
   const ordenados = [...filtrados].sort((a, b) => comparar(a, b, campo) * fator);
-  const content = ordenados.slice(pagina * tamanho, pagina * tamanho + tamanho).map(copiar);
-
-  return ok(200, {
-    content,
-    page: { size: tamanho, number: pagina, totalElements: filtrados.length, totalPages: Math.ceil(filtrados.length / tamanho) },
-  });
+  return ok(200, paginaSpring(ordenados.map(copiar), { pagina, tamanho }));
 }
 
 export function buscarPorId({ banco, id, caminho }) {
@@ -134,3 +119,60 @@ export function excluir({ banco, id, caminho }) {
   banco.membros.splice(indice, 1);
   return ok(204);
 }
+
+/** MembroService.TAMANHO_MAXIMO_PAGINA_RESUMO. */
+const TAMANHO_MAXIMO_RESUMO = 20;
+
+/** ?status= fora do enum → MethodArgumentTypeMismatchException → 400 (antes do @PreAuthorize). */
+function validarParametrosResumo(params) {
+  const { status } = params;
+  if (status == null || status === '' || Object.values(STATUS_MEMBRO).includes(status)) return null;
+  return "Valor inválido para o parâmetro 'status'.";
+}
+
+/** Ordem do MembroService.ORDENACAO_RESUMO: nome, com o id desempatando. */
+function compararResumo(a, b) {
+  return comparar(a, b, 'nome') || comparar(a, b, 'id');
+}
+
+/**
+ * GET /members/lookup: só id, nome e status. Ignora o sort do cliente e limita o size a 20,
+ * como o MembroService.buscarResumo.
+ */
+export function buscarResumo({ banco, params }) {
+  const { pagina, tamanho } = lerPageable(params, 'nome');
+  const nome = typeof params.nome === 'string' ? params.nome.trim().toLowerCase() : '';
+  const status = params.status || null;
+
+  const filtrados = banco.membros.filter(
+    (m) => (!nome || m.nome.toLowerCase().includes(nome)) && (!status || m.status === status),
+  );
+  const resumos = [...filtrados].sort(compararResumo).map(({ id, nome: nomeMembro, status: situacao }) => ({
+    id,
+    nome: nomeMembro,
+    status: situacao,
+  }));
+  return ok(200, paginaSpring(resumos, { pagina, tamanho: Math.min(tamanho, TAMANHO_MAXIMO_RESUMO) }));
+}
+
+const { ADMINISTRADOR, PASTOR, SECRETARIO, TESOUREIRO } = PERFIS;
+const CORPO_MEMBRO = Object.freeze({ ilegivel: corpoIlegivel, validar: validarMembroRequest });
+
+/**
+ * Rotas do MembroController; "perfis" repete os @PreAuthorize, independente da matriz do frontend.
+ * /members/lookup vem antes de /members/{id}: senão "lookup" seria lido como id (400 de UUID).
+ */
+export const ROTAS_MEMBROS = Object.freeze([
+  { metodo: 'get', padrao: /^\/members$/, perfis: [ADMINISTRADOR, PASTOR, SECRETARIO], executar: listar },
+  { metodo: 'post', padrao: /^\/members$/, perfis: [ADMINISTRADOR, SECRETARIO], corpo: CORPO_MEMBRO, executar: cadastrar },
+  {
+    metodo: 'get',
+    padrao: /^\/members\/lookup$/,
+    perfis: [ADMINISTRADOR, PASTOR, SECRETARIO, TESOUREIRO],
+    parametros: validarParametrosResumo,
+    executar: buscarResumo,
+  },
+  { metodo: 'get', padrao: /^\/members\/([^/]+)$/, perfis: [ADMINISTRADOR, PASTOR, SECRETARIO], executar: buscarPorId },
+  { metodo: 'put', padrao: /^\/members\/([^/]+)$/, perfis: [ADMINISTRADOR, SECRETARIO], corpo: CORPO_MEMBRO, executar: atualizar },
+  { metodo: 'delete', padrao: /^\/members\/([^/]+)$/, perfis: [ADMINISTRADOR], executar: excluir },
+]);

@@ -13,3 +13,6 @@ export const TAMANHO_PAGINA_MEMBROS = 10;
 export const ORDENACAO_MEMBROS = 'nome,asc';
 
 export const ATRASO_BUSCA_MS = 400;
+
+/** Limite do GET /members/lookup (MembroService.TAMANHO_MAXIMO_PAGINA_RESUMO); acima disso o backend reduz. */
+export const TAMANHO_MAXIMO_BUSCA_MEMBROS = 20;
