@@ -43,7 +43,9 @@ management:
 
 app:
   jwt:
-    secret: ${JWT_SECRET:troque-este-valor-em-producao-por-uma-chave-forte-de-256-bits}
+    # Sem valor padrão de propósito: um segredo publicado no GitHub permitiria forjar tokens.
+    # A aplicação não sobe sem JWT_SECRET (mínimo 32 caracteres).
+    secret: ${JWT_SECRET:}
     expiration-ms: 86400000
     reset-token-expiration-minutes: 30
   cors:
