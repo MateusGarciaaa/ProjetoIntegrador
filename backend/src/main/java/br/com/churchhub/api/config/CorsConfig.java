@@ -1,18 +1,16 @@
-package br.com.seuprojeto.config;
+package br.com.churchhub.api.config;
 
 import java.util.List;
 
-import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
-import br.com.seuprojeto.config.properties.CorsProperties;
+import br.com.churchhub.api.config.properties.CorsProperties;
 
 @Configuration
-@EnableConfigurationProperties(CorsProperties.class)
 public class CorsConfig {
 
     private static final String API_PATH_PATTERN = "/api/**";
@@ -34,11 +32,23 @@ public class CorsConfig {
 
     private CorsConfiguration buildApiCorsConfiguration() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(corsProperties.allowedOrigins());
+        configuration.setAllowedOrigins(normalizarOrigens(corsProperties.allowedOrigins()));
         configuration.setAllowedMethods(ALLOWED_METHODS);
         configuration.setAllowedHeaders(ALLOWED_HEADERS);
         configuration.setAllowCredentials(false);
         configuration.setMaxAge(corsProperties.maxAge());
         return configuration;
+    }
+
+    /**
+     * O navegador envia a origem sem barra final ("https://app.vercel.app"). Uma barra
+     * digitada a mais na variável de ambiente faria toda chamada ser recusada.
+     */
+    private static List<String> normalizarOrigens(List<String> origens) {
+        return origens.stream()
+                .map(String::trim)
+                .map(origem -> origem.replaceAll("/+$", ""))
+                .filter(origem -> !origem.isEmpty())
+                .toList();
     }
 }

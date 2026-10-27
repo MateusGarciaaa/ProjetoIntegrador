@@ -1,4 +1,4 @@
-package br.com.seuprojeto.config.properties;
+package br.com.churchhub.api.config.properties;
 
 import java.time.Duration;
 import java.util.List;
