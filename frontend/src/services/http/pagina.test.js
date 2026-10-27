@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { ApiError, TIPOS_ERRO } from './apiError';
-import { faixaDaPagina, normalizarPagina } from './pagina';
+import { faixaDaPagina, montarParametrosPagina, normalizarPagina, TAMANHO_MAXIMO_PAGINA } from './pagina';
 
 const membros = [{ id: '1' }, { id: '2' }];
 const ESPERADO = { content: membros, number: 1, size: 10, totalElements: 12, totalPages: 2 };
@@ -48,6 +48,26 @@ describe('normalizarPagina', () => {
     } catch (erro) {
       expect(erro.tipo).toBe(TIPOS_ERRO.RESPOSTA_INVALIDA);
     }
+  });
+});
+
+describe('montarParametrosPagina', () => {
+  it('monta page, size, sort e filtros', () => {
+    expect(
+      montarParametrosPagina({ pagina: 2, tamanho: 10, ordenacao: 'nome,asc', filtros: { nome: ' ana ', status: 'ATIVO' } }),
+    ).toEqual({ nome: 'ana', status: 'ATIVO', page: 2, size: 10, sort: 'nome,asc' });
+  });
+
+  it('descarta filtros vazios e omite size/sort não informados', () => {
+    expect(montarParametrosPagina({ filtros: { nome: '  ', dataInicio: null, dataFim: undefined, tipo: 0 } })).toEqual({
+      tipo: 0,
+      page: 0,
+    });
+  });
+
+  it('respeita os limites do Pageable', () => {
+    expect(montarParametrosPagina({ pagina: -3, tamanho: 5000 })).toEqual({ page: 0, size: TAMANHO_MAXIMO_PAGINA });
+    expect(montarParametrosPagina({ tamanho: 0 }).size).toBe(1);
   });
 });
 

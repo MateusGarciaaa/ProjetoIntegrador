@@ -1,17 +1,24 @@
 # Integração frontend × backend — diagnóstico
 
-> Fotografia de 2026-10-26 (commit 2087a3c). Ler no início de cada sessão. Atualizar a tabela e o checklist ao concluir cada módulo.
+> Fotografia de 2026-10-26 (commit 2087a3c), atualizada ao fim da Fundação no mesmo dia. Ler no início de cada sessão. Atualizar a tabela e o checklist ao concluir cada módulo.
 > Fontes: `backend/src/main/java/br/com/churchhub/api/{controller,dto,service,security,exception}` e `frontend/src/{services,constants,routes,schemas,hooks}`.
 
 ## 1. Convenções do backend (valem para todos os módulos)
 
 - Base: `/api/v1` (o frontend já usa `VITE_API_BASE_URL=/api/v1`; os services chamam caminhos relativos, ex. `/members`).
 - Públicos: `/api/v1/auth/**`, Swagger, `/actuator/health`. Todo o resto exige `Authorization: Bearer <jwt>`.
-- Paginação (Spring `Pageable`): `page` (base 0), `size` (máx. 2000), `sort=campo,asc|desc` (campo inexistente → 400). Resposta `Page<T>`; formato não fixado no backend → usar sempre `normalizarPagina`.
+- Paginação (Spring `Pageable`): `page` (base 0), `size` (máx. 2000; acima disso é reduzido **sem erro**), `sort=campo,asc|desc` (campo inexistente → 400). Resposta `Page<T>` no modo **DIRECT** (padrão de `spring.data.web.pageable.serialization-mode` no Spring Boot 4.1; o projeto não o altera): `{ content, pageable{pageNumber,pageSize,sort,offset,paged,unpaged}, last, totalElements, totalPages, size, number, sort{empty,sorted,unsorted}, first, numberOfElements, empty }` — conferido na API real em 2026-10-26. No front: query com `montarParametrosPagina`, resposta com `normalizarPagina` (`services/http/pagina.js`).
 - Datas `LocalDate`: `"AAAA-MM-DD"` no corpo e na query. Horário `LocalTime`: resposta `"HH:mm:ss"` (ex. `"19:00:00"`); entrada aceita `"HH:mm"` ou `"HH:mm:ss"`.
 - Dinheiro `BigDecimal`: número JSON (ex. `450.00`). Entrada: `@DecimalMin 0.01`, `@Digits(integer=10, fraction=2)` → **arredondar para 2 casas antes de enviar** (float JS como `0.30000000000000004` dá 400).
 - Enums: `StatusMembro` = `ATIVO | AFASTADO | VISITANTE`; `TipoMovimentacao` = `RECEITA | DESPESA`; perfis = `ADMINISTRADOR | PASTOR | SECRETARIO | TESOUREIRO | MEMBRO`.
-- Erro: `ApiError { timestamp (LocalDateTime sem fuso), status, error, message, path }`, sem lista por campo. Validação: mensagens unidas por `", "` em `message`.
+- Erro: `ApiError { timestamp (LocalDateTime sem fuso), status, error, message, path }`, sem lista por campo. Validação: mensagens unidas por `", "` em `message`. No front, o campo é deduzido do **texto** da mensagem (ver "Mapeamento de erros por campo" abaixo).
+
+### Mapeamento de erros por campo (provisório)
+
+`schemas/errosServidor.js` → `criarMapeadorDeErros({ campoPorMensagem, campoPorConflito })`. **Depende do texto exato das mensagens do backend**:
+- 400: divide `message` por `", "` e procura cada parte em `campoPorMensagem` (mensagens copiadas das anotações do DTO). Se nenhuma parte for reconhecida, a mensagem inteira vai para o topo do formulário — isso evita quebrar textos que têm vírgula, como `"Corpo da requisição inválido. Confira o JSON, as datas…"`.
+- 409: procura palavras-chave (`e-mail`, `CPF`) em `message`.
+- Se o backend mudar uma mensagem, nada quebra: o erro só deixa de aparecer ao lado do campo e vai para o topo. Ao mudar mensagens de DTO/serviço no backend, atualizar o mapeador do formulário correspondente (hoje: `membroSchema.js`). Substituir pela lista estruturada quando a pendência 2 da seção 5 for resolvida.
 - Códigos: 400 = validação, JSON/data/enum inválido, `{id}` não-UUID, parâmetro obrigatório ausente, `sort` inválido **e regra de negócio** (`BusinessException`: evento encerrado, tipo ≠ categoria, token de reset inválido); 401 = credenciais erradas no login / token ausente, inválido ou vencido; 403 = perfil sem permissão (com corpo); 404 = registro ou rota inexistente; 405 = método errado; 409 = conflito (unicidade, RN14, violação de constraint); 500 = genérico.
 - JWT: `sub` = e-mail, `perfil` = `ROLE_<PERFIL>`, `iat`, `exp`; validade 86400 s. Sem claim `nome`, sem refresh token.
 - Fuso: container e banco em `America/Sao_Paulo` (Dockerfile/compose). "Hoje", "mês atual" e "evento encerrado" são calculados no servidor.
@@ -65,16 +72,16 @@ Perfis: A = ADMINISTRADOR, P = PASTOR, S = SECRETARIO, T = TESOUREIRO, M = MEMBR
 
 ## 3. Divergências mock × backend real
 
-O mock (`services/mock/`) só implementa `POST /auth/login` e as 5 rotas de `/members`. Qualquer outra rota no mock: sem token → 401; com token → 404.
+O mock (`services/mock/`) só implementa `POST /auth/login` e as 5 rotas de `/members`. Qualquer outra rota no mock: em `/auth/**` → 404 sem token (como o `permitAll`); nas demais, sem token → 401, com token → 404. Cada módulo exporta suas rotas em `handlers/<modulo>.js` (`ROTAS_AUTH`, `ROTAS_MEMBROS`), reunidas em `ROTAS` de `servidorSimulado.js`; paginação simulada em `mock/paginacao.js` (`lerPageable`, `paginaSpring`).
 
 | # | Assunto | Mock | Backend real | Impacto |
 |---|---|---|---|---|
 | 1 | Rotas cobertas | login + members | 22 endpoints | Eventos, financeiro, categorias, dashboard e reset de senha **só funcionam com backend real** até ganharem handler |
-| 2 | Rotas públicas desconhecidas | `POST /auth/forgot-password` → **401** (cai na autenticação) | 200 | Tela de "esqueci a senha" quebraria no mock |
+| 2 | Rotas públicas desconhecidas | ~~401~~ → **corrigido na Fundação**: `/auth/**` inexistente responde 404 sem token. `forgot-password`/`reset-password` ainda sem handler (404 no mock) | 200 / 204 | Handlers entram no módulo Autenticação |
 | 3 | E-mail no login | comparação exata (`handlers/auth.js`) | normaliza `trim().toLowerCase()` (`UsuarioDetailsServiceImpl`) | `Admin@…` entra no real e falha no mock. Comentário em `authService.js` ("diferenciando maiúsculas") está desatualizado |
 | 4 | Mensagens de validação do login | padrões do Hibernate (`"não deve estar em branco"`, `"deve ser um endereço de e-mail bem formado"`) | do DTO: `"O e-mail é obrigatório"`, `"E-mail inválido"`, `"A senha é obrigatória"` | Texto diferente no erro; o front valida antes, então raro |
 | 5 | RN14 (excluir membro com movimentação) | sempre 204 | 409 com mensagem | Caminho de erro do `ExcluirMembroDialog` não é exercitado no mock |
-| 6 | Formato da página | sempre `{ content, page: {…} }` (VIA_DTO) | não fixado (Spring Boot 4.1 / Spring Data decide) | Neutralizado por `normalizarPagina`; confirmar no Swagger |
+| 6 | Formato da página | ~~VIA_DTO~~ → **corrigido na Fundação**: DIRECT idêntico ao real (mesmas chaves e valores; `size` > 2000 reduzido para 2000) | DIRECT (conferido em 2026-10-26 com `GET /members?page=2&size=10&sort=nome,asc`) | Nenhum |
 | 7 | Ordenação | `localeCompare('pt-BR')`; só o 1º `sort` | collation do Postgres; múltiplos `sort` | Ordem com acentos/maiúsculas pode diferir |
 | 8 | `timestamp` do erro | ISO UTC com ms (23 chars) | `LocalDateTime` do servidor, até micros | Front não usa |
 | 9 | Unicidade de e-mail do membro | exata | exata (índice sem `lower`) | Iguais; ambos aceitam `Ana@x` e `ana@x` (front grava minúsculo) |
@@ -84,11 +91,9 @@ Sem divergência: ordem auth → `{id}` → `@Valid` → `@PreAuthorize`; 400 pa
 
 ## 4. Divergências de permissão
 
-`constants/permissoes.js` tem só 4 permissões (membros) e elas **batem exatamente** com o `MembroController`. `permissoes.test.js` e as `ROTAS` do mock também só cobrem membros.
+**Fundação concluída:** `constants/permissoes.js` espelha todos os `@PreAuthorize` (16 permissões, comentário com o endpoint em cada linha) e `permissoes.test.js` transcreve a mesma tabela de forma independente. As `ROTAS` do mock ainda só cobrem membros (cada módulo acrescenta as suas). Uso no front: `usePermissao().pode(...)`, `<PodeAcessar permissao senao>`, `RequirePermission` (rotas → `SemAcessoPage`), `itensMenuDoPerfil` (menu) e `rotaInicialDoPerfil`.
 
-Faltam no frontend (copiar dos controllers):
-
-| Permissão a criar | Backend |
+| Permissão | Backend |
 |---|---|
 | eventos.visualizar | A P S M (`GET /events`, `/events/{id}`) |
 | eventos.criar / eventos.editar | A S |
@@ -101,37 +106,60 @@ Faltam no frontend (copiar dos controllers):
 | dashboard.visualizar | A P |
 | dashboard.financeiro (bloco financeiro) | só A (regra no controller, não no `@PreAuthorize`) |
 
-Problemas de regra a resolver:
-1. **MEMBRO não tem tela**: `ROTA_PADRAO_AUTENTICADA = /membros`, então o perfil MEMBRO sempre cai em "Sem acesso". No backend ele só pode `GET /events`. → Rota inicial por perfil.
-2. **TESOUREIRO e SECRETARIO sem dashboard** (403). Decidir: rota inicial diferente ou ampliar o `@PreAuthorize`.
-3. **PASTOR**: lê `/financial` e `/financial/summary`, mas o dashboard devolve `resumoFinanceiroMesAtual = null` para ele. Regra inconsistente — decidir se o front mostra o bloco via `/financial/summary` ou se o backend muda.
+Problemas de regra:
+1. ~~**MEMBRO não tem tela**~~ → **resolvido na Fundação**: rota inicial por perfil (`rotaInicialDoPerfil`): MEMBRO → `/eventos`.
+2. **TESOUREIRO e SECRETARIO sem dashboard** (403). Contornado no front: T começa em `/financeiro`, S em `/membros`, e o item "Painel" não aparece no menu deles. Continua em aberto se o `@PreAuthorize` deve ser ampliado (pendência 6).
+3. **PASTOR e o bloco financeiro do dashboard — regra vigente confirmada no código.** `DashboardController.obter` calcula `incluirDadosFinanceiros` só quando a autoridade é `ROLE_ADMINISTRADOR`, e `DashboardService.gerar` devolve `resumoFinanceiroMesAtual = null` nos demais casos. É intencional (está explícito no código), mas inconsistente: o PASTOR tem `financeiro.visualizar` e pode chamar `/financial/summary` diretamente. O front espelha a regra como está (`dashboard.financeiro` = só A; teste dedicado em `permissoes.test.js`). Decisão em aberto para o módulo Dashboard: mostrar o bloco ao PASTOR via `/financial/summary` ou pedir a mudança no backend.
 4. **RN09**: SECRETARIO pode `PUT /events/{id}`, mas recebe **400** (não 403) se o evento já passou. Não cabe na matriz; o front deve desabilitar "Editar" em evento passado para não-admin e tratar o 400.
 
 ## 5. Pendências do backend
 
 Por prioridade para o frontend (cada item que mude schema exige migration nova; nunca editar V1–V6):
 
-1. **Fixar o formato da página** (`@EnableSpringDataWebSupport(pageSerializationMode = VIA_DTO)`).
-2. **Reset de senha utilizável**: URL base do frontend configurável (`FRONTEND_URL`) no link; envio real de e-mail (ou manter log e documentar para a demo).
-3. **Filtros de data com um só limite** em `/events` e `/financial` (hoje um só parâmetro é ignorado em silêncio) e validação `dataInicio <= dataFim` (inclusive em `summary`).
-4. **Financeiro**: filtros `tipo`/`categoriaId` na listagem; endpoint de série mensal (fluxo de caixa/gráfico); totais por categoria (relatório); `GET/PUT/DELETE` de categoria.
-5. **Dashboard**: definir quem acessa (T, S?); PASTOR e o bloco financeiro; série para gráficos; "novos membros" (exige `data_cadastro` em `membros`).
-6. **Usuários**: CRUD `/users` (A), ativar/desativar, trocar perfil.
-7. **Meu perfil**: vínculo `usuarios.membro_id`, `GET/PUT /me`, `PUT /me/password`.
-8. **Nome do usuário**: claim `nome` no JWT ou `GET /auth/me` (o front já lê `payload.nome` se vier).
-9. **Membros**: filtro por status; busca sem acento (`unaccent`); unicidade de e-mail case-insensitive (`lower(email)`).
-10. **Sessão**: `POST /auth/refresh` (opcional para o TCC).
+1. **Fixar o formato da página explicitamente.** Hoje é o DIRECT por padrão do Spring Boot 4.1 (o Spring Data registra aviso recomendando VIA_DTO); uma atualização de versão poderia mudá-lo em silêncio. Sugestão: `@EnableSpringDataWebSupport(pageSerializationMode = VIA_DTO)` ou `spring.data.web.pageable.serialization-mode` no `application.yml`. O front aceita os dois formatos, mas o mock precisa acompanhar (`mock/paginacao.js`).
+2. **Erros de validação estruturados por campo.** Hoje o front deduz o campo pelo texto da mensagem (seção 1, "Mapeamento de erros por campo"). Proposta, compatível com o formato atual (só acrescenta um campo opcional ao record `ApiError`):
+   ```json
+   {
+     "timestamp": "2026-10-26T10:00:00",
+     "status": 400,
+     "error": "Bad Request",
+     "message": "O CPF é obrigatório, E-mail inválido",
+     "path": "/api/v1/members",
+     "errors": [
+       { "campo": "cpf", "mensagem": "O CPF é obrigatório" },
+       { "campo": "email", "mensagem": "E-mail inválido" }
+     ]
+   }
+   ```
+   - `GlobalExceptionHandler.handleValidation`: montar `errors` a partir de `getFieldErrors()` (`FieldError::getField`, `FieldError::getDefaultMessage`); manter `message` como está.
+   - 409 de unicidade (`MembroService.validarUnicidade` e futuros): `ConflictException` com o campo (ex.: `new ConflictException("email", "Já existe um membro com este e-mail")`) e o handler devolvendo `errors: [{ campo: "email", ... }]`.
+   - Demais erros: `errors` ausente ou `[]`.
+3. **Reset de senha utilizável**: URL base do frontend configurável (`FRONTEND_URL`) no link; envio real de e-mail (ou manter log e documentar para a demo).
+4. **Filtros de data com um só limite** em `/events` e `/financial` (hoje um só parâmetro é ignorado em silêncio) e validação `dataInicio <= dataFim` (inclusive em `summary`).
+5. **Financeiro**: filtros `tipo`/`categoriaId` na listagem; endpoint de série mensal (fluxo de caixa/gráfico); totais por categoria (relatório); `GET/PUT/DELETE` de categoria.
+6. **Dashboard**: definir quem acessa (T, S?); PASTOR e o bloco financeiro (seção 4, item 3); série para gráficos; "novos membros" (exige `data_cadastro` em `membros`).
+7. **Usuários**: CRUD `/users` (A), ativar/desativar, trocar perfil.
+8. **Meu perfil**: vínculo `usuarios.membro_id`, `GET/PUT /me`, `PUT /me/password`.
+9. **Nome do usuário**: claim `nome` no JWT ou `GET /auth/me` (o front já lê `payload.nome` se vier).
+10. **Membros**: filtro por status; busca sem acento (`unaccent`); unicidade de e-mail case-insensitive (`lower(email)`).
+11. **Sessão**: `POST /auth/refresh` (opcional para o TCC). O front não tenta renovar; o ponto de extensão é `tratarErroResposta` em `services/http/httpClient.js`.
 
 ## 6. Checklist por módulo
 
-### Fundação
-- [ ] Rota inicial por perfil (MEMBRO → eventos; T → financeiro; A/P → dashboard; S → membros) em `constants/rotas.js`/`RedirecionamentoInicial`.
-- [ ] Menu (`constants/navegacao.js`) filtrado por permissão.
-- [ ] `React.lazy` nas páginas.
-- [ ] Utils compartilhados: formatar data `AAAA-MM-DD` ↔ `dd/mm/aaaa`, horário `HH:mm:ss` → `HH:mm`, moeda BRL (`Intl.NumberFormat`), parse/arredondamento de valor para 2 casas.
-- [ ] Corrigir o split de erro 400 em `", "`: a mensagem de corpo inválido do backend contém vírgula ("Confira o JSON, as datas…") e é quebrada em duas.
-- [ ] Mock: estrutura para novos handlers (eventos, financeiro, categorias, dashboard, auth públicas) e banco em memória com essas coleções.
-- [ ] Confirmar no Swagger o formato real da `Page` no Spring Boot 4.1.
+### Fundação (concluída em 2026-10-26)
+- [x] Rota inicial por perfil (MEMBRO → eventos; T → financeiro; A/P → dashboard; S → membros): `rotaInicialDoPerfil` em `constants/rotas.js`, usada por `RedirecionamentoInicial`, `GuestRoute` (`destinoAposLogin`) e 404.
+- [x] Menu (`constants/navegacao.js`) filtrado por permissão (`itensMenuDoPerfil`) + breadcrumb (`trilhaDoCaminho` + `components/ui/Breadcrumb`).
+- [x] Rotas `/dashboard`, `/eventos`, `/financeiro` protegidas por `RequirePermission`, com `EmConstrucaoPage` até cada módulo existir.
+- [x] `React.lazy` nas páginas (`routes/AppRoutes.jsx`) com `Suspense` → `CarregandoPagina`.
+- [x] Utils compartilhados: `utils/datas.js` (`formatarData`, `dataBrParaIso`, `formatarHorario`, `formatarDataHora` — por texto, sem "voltar um dia") e `utils/moeda.js` (`formatarMoeda` BRL, `arredondarValor`, `lerValorBr`).
+- [x] Corrigir o split de erro 400 em `", "`: mapeador genérico `schemas/errosServidor.js` (provisório, depende do texto — pendência 2); `membroSchema` também reconhece as mensagens de `@Size`.
+- [x] Paginação: `montarParametrosPagina` + `useConsultaPaginada` (genérico; `useMembros` usa).
+- [x] RBAC: matriz completa (seção 4), `<PodeAcessar>`, testes da matriz, do menu, da rota inicial e das rotas por perfil.
+- [x] Cliente HTTP: interceptores extraídos (`anexarToken`, `tratarErroResposta`) e testados (Bearer, 401, 403, 400, 409, tempo esgotado, rede). Sem refresh (pendência 11).
+- [x] Componentes: `Card`, `Table` (tabela/cartões; `MembrosLista` migrada), `Breadcrumb`, `CarregandoPagina`. Os demais (Button, campos, Modal, ConfirmDialog, Pagination, Alert, Toast, Skeleton, EmptyState) já existiam.
+- [x] Testes de componente: `jsdom` + `@testing-library/react`; arquivos `*.test.jsx` com `// @vitest-environment jsdom` e `test-utils/componentes.jsx` (`renderizarComPerfil`).
+- [x] Mock: estrutura para novos handlers (`handlers/<modulo>.js` exporta suas rotas; validação de corpo por rota) e `/auth/**` inexistente → 404. As coleções (eventos, categorias, movimentações) entram com cada módulo, junto dos handlers.
+- [x] Confirmar o formato real da `Page`: DIRECT (código: padrão do Spring Boot 4.1; API real conferida em 2026-10-26); mock alinhado.
 
 ### Autenticação
 - [ ] Telas "Esqueci minha senha" (`POST /auth/forgot-password`) e "Redefinir senha" (`POST /auth/reset-password`, lendo `?token=`), dentro do `AuthLayout`/`GuestRoute`. Rota `/reset-password` casa com o link do log.
@@ -143,7 +171,7 @@ Por prioridade para o frontend (cada item que mude schema exige migration nova; 
 ### Membros
 - [ ] Mock: simular 409 RN14 (ex.: membros com flag de movimentação, ou derivar das movimentações quando existirem).
 - [ ] Decidir se usa `GET /members/{id}` (detalhe/edição) ou mantém dados da lista.
-- [ ] Checar mensagens de `@Size` (e-mail, telefone, endereço) no `mapearErroDoServidor`.
+- [x] Checar mensagens de `@Size` (nome, e-mail, telefone, endereço) no `mapearErroDoServidor` (feito na Fundação).
 - [ ] (Se backend ganhar) filtro por status.
 
 ### Eventos
@@ -167,12 +195,12 @@ Por prioridade para o frontend (cada item que mude schema exige migration nova; 
 ### Dashboard
 - [ ] Permissões `dashboard.visualizar` (A P) e bloco financeiro (só A, ou via summary para P — decidir).
 - [ ] Cards: total de membros, ativos, próximos eventos (≤5), aniversariantes do mês, receitas/despesas/saldo do mês.
-- [ ] Gráficos: só com dados disponíveis (N × `/financial/summary`) ou após pendência 4/5.
+- [ ] Gráficos: só com dados disponíveis (N × `/financial/summary`) ou após pendência 5/6.
 - [ ] "Novos membros": fora até existir `data_cadastro`.
 - [ ] Mock: handler `GET /dashboard` derivado do banco simulado (respeitando `null` para não-A).
 
 ### Usuários/Perfil
-- [ ] Bloqueado pelo backend (pendências 6–8). Só iniciar depois que os endpoints existirem; até lá, nada de tela.
+- [ ] Bloqueado pelo backend (pendências 7–9). Só iniciar depois que os endpoints existirem; até lá, nada de tela.
 
 ### Revisão final
 - [ ] `permissoes.js` × todos os `@PreAuthorize` (linha a linha) e `permissoes.test.js`.

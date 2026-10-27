@@ -5,6 +5,7 @@ import { hojeIso, isDataIsoValida } from '../utils/datas';
 import { contarLetras, normalizarEspacos, somenteDigitos, vazioParaNull } from '../utils/strings';
 import { formatarTelefone } from '../utils/telefone';
 import { isEmailValido } from './email';
+import { criarMapeadorDeErros } from './errosServidor';
 
 /** Os campos têm os mesmos nomes do MembroRequest. */
 export const CAMPOS_MEMBRO = Object.freeze([
@@ -130,42 +131,24 @@ export function montarPayloadMembro(valores) {
   };
 }
 
-/** Mensagens exatas das anotações do MembroRequest. */
-const CAMPO_POR_MENSAGEM_DE_VALIDACAO = Object.freeze({
-  'O nome é obrigatório': 'nome',
-  'O CPF é obrigatório': 'cpf',
-  'O CPF deve conter 11 dígitos numéricos': 'cpf',
-  'O e-mail é obrigatório': 'email',
-  'E-mail inválido': 'email',
-});
-
-function campoDoConflito(mensagem) {
-  if (/e-?mail/i.test(mensagem)) return 'email';
-  if (/\bcpf\b/i.test(mensagem)) return 'cpf';
-  return null;
-}
-
 /**
- * O backend não devolve erros por campo. Em 409 o campo é deduzido da mensagem;
- * em 400 as mensagens vêm juntas, separadas por ", ". O que não for reconhecido
- * vai para o topo do formulário.
+ * Erros do servidor → campos do formulário. Provisório: depende do texto exato das
+ * mensagens do MembroRequest e do MembroService (ver schemas/errosServidor.js).
  */
-export function mapearErroDoServidor(erro) {
-  if (erro.status === 409) {
-    const campo = campoDoConflito(erro.message);
-    return campo ? { camposErro: { [campo]: erro.message }, erroGeral: null } : { camposErro: {}, erroGeral: erro.message };
-  }
-
-  if (erro.status === 400 && erro.corpoApi) {
-    const camposErro = {};
-    const naoReconhecidas = [];
-    erro.message.split(', ').forEach((mensagem) => {
-      const campo = CAMPO_POR_MENSAGEM_DE_VALIDACAO[mensagem.trim()];
-      if (campo && !camposErro[campo]) camposErro[campo] = mensagem.trim();
-      else if (!campo) naoReconhecidas.push(mensagem.trim());
-    });
-    return { camposErro, erroGeral: naoReconhecidas.length ? naoReconhecidas.join('. ') : null };
-  }
-
-  return { camposErro: {}, erroGeral: erro.message };
-}
+export const mapearErroDoServidor = criarMapeadorDeErros({
+  campoPorMensagem: {
+    'O nome é obrigatório': 'nome',
+    'O nome deve ter no máximo 150 caracteres': 'nome',
+    'O CPF é obrigatório': 'cpf',
+    'O CPF deve conter 11 dígitos numéricos': 'cpf',
+    'O e-mail é obrigatório': 'email',
+    'E-mail inválido': 'email',
+    'O e-mail deve ter no máximo 150 caracteres': 'email',
+    'O telefone deve ter no máximo 20 caracteres': 'telefone',
+    'O endereço deve ter no máximo 255 caracteres': 'endereco',
+  },
+  campoPorConflito: [
+    { padrao: /e-?mail/i, campo: 'email' },
+    { padrao: /\bcpf\b/i, campo: 'cpf' },
+  ],
+});

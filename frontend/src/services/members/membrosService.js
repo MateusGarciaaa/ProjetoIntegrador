@@ -1,5 +1,5 @@
 import { httpClient } from '../http/httpClient';
-import { normalizarPagina } from '../http/pagina';
+import { montarParametrosPagina, normalizarPagina } from '../http/pagina';
 
 const RECURSO = '/members';
 
@@ -10,8 +10,7 @@ function caminhoDoMembro(id) {
 /** Recebe e devolve objetos com os nomes de campo do MembroRequest/MembroResponse. */
 export const membrosService = {
   async listar({ nome, pagina, tamanho, ordenacao }, { signal } = {}) {
-    const params = { page: pagina, size: tamanho, sort: ordenacao };
-    if (nome) params.nome = nome;
+    const params = montarParametrosPagina({ pagina, tamanho, ordenacao, filtros: { nome } });
     const { data } = await httpClient.get(RECURSO, { params, signal });
     return normalizarPagina(data);
   },

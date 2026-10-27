@@ -14,7 +14,7 @@ export function SemAcessoPage({ permissao, area }) {
   return (
     <EmptyState
       icone="cadeado"
-      titulo={`Sem acesso a ${area}`}
+      titulo={`Sem acesso à área ${area}`}
       descricao={`Seu perfil (${rotuloPerfil(perfil)}) não pode ver esta área. Ela está disponível para: ${permitidos}. Se você precisa desse acesso, fale com o administrador da igreja.`}
     />
   );
