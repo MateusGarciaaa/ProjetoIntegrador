@@ -3,7 +3,7 @@ package br.com.churchhub.api.service;
 import br.com.churchhub.api.dto.EventoRequest;
 import br.com.churchhub.api.dto.EventoResponse;
 import br.com.churchhub.api.entity.Evento;
-import br.com.churchhub.api.exception.BusinessException;
+import br.com.churchhub.api.exception.ConflictException;
 import br.com.churchhub.api.exception.ResourceNotFoundException;
 import br.com.churchhub.api.mapper.EventoMapper;
 import br.com.churchhub.api.repository.EventoRepository;
@@ -13,6 +13,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.UUID;
@@ -23,6 +24,8 @@ public class EventoService {
 
     private final EventoRepository eventoRepository;
     private final EventoMapper eventoMapper;
+    /** Relógio no fuso da igreja (ClockConfig): a RN09 não depende do fuso da máquina. */
+    private final Clock clock;
 
     public Page<EventoResponse> listar(LocalDate dataInicio, LocalDate dataFim, Pageable pageable) {
         Page<Evento> pagina = (dataInicio != null && dataFim != null)
@@ -47,7 +50,7 @@ public class EventoService {
         Evento evento = buscarEntidadePorId(id);
 
         if (!isAdministrador && jaEncerrado(evento)) {
-            throw new BusinessException(
+            throw new ConflictException(
                     "Este evento já foi encerrado e só pode ser editado por um administrador");
         }
 
@@ -65,8 +68,12 @@ public class EventoService {
                 .orElseThrow(() -> new ResourceNotFoundException("Evento não encontrado"));
     }
 
+    /**
+     * RN09: o evento conta como encerrado a partir do horário de início (não há hora de término).
+     * Olha o evento gravado, não os valores novos da requisição.
+     */
     private boolean jaEncerrado(Evento evento) {
         LocalDateTime dataHoraEvento = LocalDateTime.of(evento.getData(), evento.getHorario());
-        return dataHoraEvento.isBefore(LocalDateTime.now());
+        return dataHoraEvento.isBefore(LocalDateTime.now(clock));
     }
 }

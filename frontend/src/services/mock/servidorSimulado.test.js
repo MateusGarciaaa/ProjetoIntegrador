@@ -4,6 +4,7 @@ import { lerUsuarioDoToken } from '../../utils/jwt';
 import { criarBanco } from './bancoEmMemoria';
 import { CONTAS_DEMO, SENHA_DEMO } from './contasDemo';
 import { esqueciSenha, redefinirSenha } from './handlers/auth';
+import { MENSAGEM_RN09 } from './handlers/eventos';
 import { MENSAGEM_RN14 } from './handlers/membros';
 import { criarMembrosIniciais } from './dadosIniciais';
 import { criarServidorSimulado } from './servidorSimulado';
@@ -493,5 +494,106 @@ describe('membros simulados: contrato do módulo Membros', () => {
     expect(data).toEqual(MEMBROS[2]);
     expect(atender({ metodo: 'get', url: '/members/00000000-0000-4000-8000-999999999999', authorization }).status).toBe(404);
     expect(atender({ metodo: 'get', url: '/members/abc', authorization }).status).toBe(400);
+  });
+});
+
+describe('eventos simulados (EventoController)', () => {
+  // AGORA = 30/09/2026 (quarta-feira), 09:00 em São Paulo.
+  const ENCERRADO = '5e1f0c2a-8d3b-4c7e-a6f1-000000000007'; // Culto de ação de graças, 23/09 às 19:00
+  const FUTURO = '5e1f0c2a-8d3b-4c7e-a6f1-000000000006'; // Conferência de famílias, 30/10 às 19:00
+  const novoEvento = { titulo: 'Vigília', descricao: null, data: '2026-11-05', horario: '19:30', local: null };
+
+  function listarEventos(atender, authorization, params = {}) {
+    return atender({ metodo: 'get', url: '/events', authorization, params });
+  }
+
+  it('dados de demonstração iguais aos do DadosDemonstracaoService, em volta de hoje', () => {
+    const atender = novoServidor();
+    // Sem sort: vale a ordenação padrão do controller (data, horário, id).
+    const { data } = listarEventos(atender, entrar(atender, 'MEMBRO'));
+    expect(data.content.map((e) => [e.data, e.horario, e.titulo])).toEqual([
+      ['2026-09-23', '19:00:00', 'Culto de ação de graças'],
+      ['2026-10-03', '19:30:00', 'Encontro de jovens'],
+      ['2026-10-04', '09:00:00', 'Escola Bíblica Dominical'],
+      ['2026-10-04', '19:00:00', 'Culto de celebração'],
+      ['2026-10-07', '20:00:00', 'Reunião de oração'],
+      ['2026-10-12', '08:30:00', 'Ação social no bairro'],
+      ['2026-10-30', '19:00:00', 'Conferência de famílias'],
+    ]);
+  });
+
+  it('perfis do @PreAuthorize: todos consultam (isAuthenticated); S cadastra e edita; só A exclui', () => {
+    const atender = novoServidor();
+    const como = (perfil) => entrar(atender, perfil);
+    expect(listarEventos(atender, como('TESOUREIRO')).status).toBe(200);
+    expect(atender({ metodo: 'get', url: `/events/${FUTURO}`, authorization: como('TESOUREIRO') }).status).toBe(200);
+    expect(listarEventos(atender, null).status).toBe(401);
+    expect(atender({ metodo: 'post', url: '/events', authorization: como('TESOUREIRO'), corpo: novoEvento }).status).toBe(403);
+    expect(atender({ metodo: 'post', url: '/events', authorization: como('PASTOR'), corpo: novoEvento }).status).toBe(403);
+    expect(atender({ metodo: 'post', url: '/events', authorization: como('MEMBRO'), corpo: novoEvento }).status).toBe(403);
+    expect(atender({ metodo: 'post', url: '/events', authorization: como('SECRETARIO'), corpo: novoEvento }).status).toBe(201);
+    expect(atender({ metodo: 'delete', url: `/events/${FUTURO}`, authorization: como('SECRETARIO') }).status).toBe(403);
+    expect(atender({ metodo: 'delete', url: `/events/${FUTURO}`, authorization: como('ADMINISTRADOR') }).status).toBe(204);
+    expect(atender({ metodo: 'get', url: `/events/${FUTURO}`, authorization: como('PASTOR') })).toMatchObject({
+      status: 404,
+      data: { message: 'Evento não encontrado' },
+    });
+  });
+
+  it('filtra pelo período (inclusivo) só quando vêm os dois limites, como o EventoService.listar', () => {
+    const atender = novoServidor();
+    const authorization = entrar(atender, 'PASTOR');
+    const periodo = listarEventos(atender, authorization, { dataInicio: '2026-10-04', dataFim: '2026-10-07' });
+    expect(periodo.data.content.map((e) => e.titulo).sort()).toEqual(['Culto de celebração', 'Escola Bíblica Dominical', 'Reunião de oração']);
+    expect(listarEventos(atender, authorization, { dataInicio: '2026-10-04' }).data.totalElements).toBe(7);
+    expect(listarEventos(atender, authorization, { dataFim: '2026-10-04' }).data.totalElements).toBe(7);
+  });
+
+  it('data mal formada na query e sort inexistente geram 400', () => {
+    const atender = novoServidor();
+    const authorization = entrar(atender, 'MEMBRO');
+    expect(listarEventos(atender, authorization, { dataInicio: '04/10/2026', dataFim: '2026-10-07' }).data.message).toBe(
+      "Valor inválido para o parâmetro 'dataInicio'.",
+    );
+    expect(listarEventos(atender, authorization, { sort: 'inicio,asc' }).data.message).toBe("Campo de ordenação inválido: 'inicio'.");
+  });
+
+  it('cadastro valida como o EventoRequest e devolve o horário com segundos, sem mexer na data', () => {
+    const atender = novoServidor();
+    const authorization = entrar(atender, 'SECRETARIO');
+    const semData = atender({ metodo: 'post', url: '/events', authorization, corpo: { ...novoEvento, titulo: ' ', data: null, horario: null } });
+    expect(semData).toMatchObject({ status: 400, data: { message: 'O título é obrigatório, A data é obrigatória, O horário é obrigatório' } });
+    expect(atender({ metodo: 'post', url: '/events', authorization, corpo: { ...novoEvento, data: '2026-02-30' } }).data.message).toMatch(
+      /^Corpo da requisição inválido/,
+    );
+    expect(atender({ metodo: 'post', url: '/events', authorization, corpo: { ...novoEvento, horario: '25:00' } }).status).toBe(400);
+
+    const { status, data } = atender({ metodo: 'post', url: '/events', authorization, corpo: novoEvento });
+    expect(status).toBe(201);
+    expect(data).toMatchObject({ titulo: 'Vigília', data: '2026-11-05', horario: '19:30:00', descricao: null, local: null });
+  });
+
+  it('RN09: evento encerrado só o ADMINISTRADOR edita; o SECRETARIO recebe 409 com a mensagem do serviço', () => {
+    const atender = novoServidor();
+    const corpo = { ...novoEvento, titulo: 'Culto de ação de graças (editado)' };
+    const secretario = atender({ metodo: 'put', url: `/events/${ENCERRADO}`, authorization: entrar(atender, 'SECRETARIO'), corpo });
+    expect(secretario).toMatchObject({ status: 409, data: { message: MENSAGEM_RN09 } });
+
+    const futuro = atender({ metodo: 'put', url: `/events/${FUTURO}`, authorization: entrar(atender, 'SECRETARIO'), corpo });
+    expect(futuro.status).toBe(200);
+
+    const admin = atender({ metodo: 'put', url: `/events/${ENCERRADO}`, authorization: entrar(atender, 'ADMINISTRADOR'), corpo });
+    expect(admin).toMatchObject({ status: 200, data: { titulo: 'Culto de ação de graças (editado)' } });
+  });
+
+  it('RN09 olha o relógio de São Paulo: o evento encerra no horário de início', () => {
+    const noInicio = Date.UTC(2026, 9, 30, 22, 0, 0); // 30/10, 19:00 em São Paulo
+    let agora = noInicio - 1000;
+    const atender = novoServidor(() => agora);
+    const authorization = entrar(atender, 'SECRETARIO');
+    const editar = () => atender({ metodo: 'put', url: `/events/${FUTURO}`, authorization, corpo: { ...novoEvento, data: '2026-10-30', horario: '19:00' } });
+    expect(editar().status).toBe(200);
+    agora = noInicio;
+    expect(editar()).toMatchObject({ status: 409, data: { message: MENSAGEM_RN09 } });
   });
 });

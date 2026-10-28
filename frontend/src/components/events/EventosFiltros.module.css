@@ -1,0 +1,42 @@
+.filtros {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: var(--space-3);
+  flex: 1 1 32rem;
+}
+
+.periodo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: var(--space-3);
+  flex: 1 1 28rem;
+}
+
+.data {
+  flex: 0 1 10rem;
+}
+
+/* Alinha os botões com os campos (o rótulo ocupa a primeira linha). */
+.botoes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  padding-top: 1.625rem;
+}
+
+.ordenacao {
+  flex: 1 1 12rem;
+}
+
+@media (max-width: 599px) {
+  .data {
+    flex: 1 1 8rem;
+  }
+
+  .botoes {
+    padding-top: 0;
+    width: 100%;
+  }
+}

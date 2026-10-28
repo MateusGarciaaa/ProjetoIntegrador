@@ -34,11 +34,14 @@ USER churchhub
 
 COPY --from=build --chown=churchhub:churchhub /workspace/app.jar app.jar
 
-ENV TZ=America/Sao_Paulo \
-    JAVA_OPTS="-XX:MaxRAMPercentage=75 -Duser.timezone=America/Sao_Paulo"
+# APP_TIMEZONE é a única fonte do fuso: a aplicação cria o Clock nele (app.time.zone) e a JVM
+# o usa como padrão (-Duser.timezone no ENTRYPOINT) para logs e datas fora das regras de negócio.
+# O docker-compose repassa o valor do .env; sem ele, vale o padrão abaixo.
+ENV APP_TIMEZONE=America/Sao_Paulo \
+    JAVA_OPTS="-XX:MaxRAMPercentage=75"
 
 EXPOSE 8080
 
 # "exec" faz o Java ser o PID 1 e receber o sinal de parada corretamente
 # (docker compose down encerra a aplicação de forma limpa).
-ENTRYPOINT ["sh", "-c", "exec java $JAVA_OPTS -jar app.jar"]
+ENTRYPOINT ["sh", "-c", "exec java $JAVA_OPTS -Duser.timezone=$APP_TIMEZONE -jar app.jar"]

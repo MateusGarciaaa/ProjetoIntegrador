@@ -55,6 +55,14 @@ export function TextField({ id, rotulo, obrigatorio, dica, erro, className, acao
   );
 }
 
+export function TextAreaField({ id, rotulo, obrigatorio, dica, erro, className, ...propsDoTextarea }) {
+  return (
+    <FormField id={id} rotulo={rotulo} obrigatorio={obrigatorio} dica={dica} erro={erro} className={className}>
+      {(acessibilidade) => <textarea className={styles.entrada} {...acessibilidade} {...propsDoTextarea} />}
+    </FormField>
+  );
+}
+
 export function SelectField({ id, rotulo, obrigatorio, dica, erro, className, opcoes, ...propsDoSelect }) {
   return (
     <FormField id={id} rotulo={rotulo} obrigatorio={obrigatorio} dica={dica} erro={erro} className={className}>

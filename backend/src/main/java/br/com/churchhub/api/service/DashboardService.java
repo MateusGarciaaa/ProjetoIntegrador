@@ -13,6 +13,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
+import java.time.Clock;
 import java.time.LocalDate;
 
 @Service
@@ -22,31 +23,33 @@ public class DashboardService {
     private final MembroRepository membroRepository;
     private final EventoRepository eventoRepository;
     private final MovimentacaoFinanceiraRepository movimentacaoRepository;
+    /** "Hoje" e "mês atual" no fuso da igreja (ClockConfig), não no da JVM. */
+    private final Clock clock;
 
     public DashboardResponse gerar(boolean incluirDadosFinanceiros) {
+        LocalDate hoje = LocalDate.now(clock);
         long totalMembros = membroRepository.count();
         long membrosAtivos = membroRepository.countByStatus(StatusMembro.ATIVO);
 
         var proximosEventos = eventoRepository
-                .findTop5ByDataGreaterThanEqualOrderByDataAscHorarioAsc(LocalDate.now())
+                .findTop5ByDataGreaterThanEqualOrderByDataAscHorarioAsc(hoje)
                 .stream()
                 .map(e -> new ProximoEventoResponse(e.getId(), e.getTitulo(), e.getData(), e.getHorario()))
                 .toList();
 
-        var aniversariantes = membroRepository.buscarAniversariantesDoMes()
+        var aniversariantes = membroRepository.buscarAniversariantesDoMes(hoje.getMonthValue())
                 .stream()
                 .map(m -> new AniversarianteResponse(m.getId(), m.getNome(), m.getDataNascimento()))
                 .toList();
 
         ResumoFinanceiroResponse resumoFinanceiro = incluirDadosFinanceiros
-                ? montarResumoFinanceiroDoMes()
+                ? montarResumoFinanceiroDoMes(hoje)
                 : null;
 
         return new DashboardResponse(totalMembros, membrosAtivos, proximosEventos, aniversariantes, resumoFinanceiro);
     }
 
-    private ResumoFinanceiroResponse montarResumoFinanceiroDoMes() {
-        LocalDate hoje = LocalDate.now();
+    private ResumoFinanceiroResponse montarResumoFinanceiroDoMes(LocalDate hoje) {
         LocalDate inicioMes = hoje.withDayOfMonth(1);
         LocalDate fimMes = hoje.withDayOfMonth(hoje.lengthOfMonth());
 

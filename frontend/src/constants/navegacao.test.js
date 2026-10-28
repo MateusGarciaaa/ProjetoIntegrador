@@ -11,7 +11,7 @@ describe('menu por perfil', () => {
     expect(rotulos(PERFIS.ADMINISTRADOR)).toEqual(['Painel', 'Membros', 'Eventos', 'Financeiro']);
     expect(rotulos(PERFIS.PASTOR)).toEqual(['Painel', 'Membros', 'Eventos', 'Financeiro']);
     expect(rotulos(PERFIS.SECRETARIO)).toEqual(['Membros', 'Eventos']);
-    expect(rotulos(PERFIS.TESOUREIRO)).toEqual(['Financeiro']);
+    expect(rotulos(PERFIS.TESOUREIRO)).toEqual(['Eventos', 'Financeiro']);
     expect(rotulos(PERFIS.MEMBRO)).toEqual(['Eventos']);
   });
 

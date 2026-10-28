@@ -1,0 +1,23 @@
+.secundario {
+  color: var(--color-ink-muted);
+  overflow-wrap: anywhere;
+}
+
+.numero {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.semValor {
+  color: var(--color-ink-subtle);
+}
+
+.titulo {
+  color: inherit;
+  text-decoration: none;
+}
+
+.titulo:hover {
+  color: var(--color-primary);
+  text-decoration: underline;
+}

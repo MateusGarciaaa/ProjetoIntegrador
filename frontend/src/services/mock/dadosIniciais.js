@@ -1,5 +1,7 @@
 import { STATUS_MEMBRO } from '../../constants/statusMembro';
+import { somarDias } from '../../utils/calendario';
 import { calcularDigitosVerificadoresCpf } from '../../utils/cpf';
+import { diaDaSemana } from '../../utils/datas';
 
 const { ATIVO, AFASTADO, VISITANTE } = STATUS_MEMBRO;
 
@@ -60,4 +62,41 @@ const EMAILS_COM_MOVIMENTACAO = ['ana.carvalho@email.com', 'andre.fontana@email.
 
 export function idsComMovimentacao(membros) {
   return new Set(membros.filter((m) => EMAILS_COM_MOVIMENTACAO.includes(m.email)).map((m) => m.id));
+}
+
+const DOMINGO = 0;
+const QUARTA = 3;
+const SABADO = 6;
+
+/** TemporalAdjusters.next(dia): o próximo dia da semana, sempre depois de hoje (nunca o próprio hoje). */
+function proximo(hoje, diaSemana) {
+  return somarDias(hoje, (diaSemana - diaDaSemana(hoje) + 7) % 7 || 7);
+}
+
+/** [título, descrição, quando (função de hoje → data ISO), hora, minuto, local] — DadosDemonstracaoService.criarEventos. */
+const EVENTOS = [
+  ['Escola Bíblica Dominical', 'Classes para crianças, jovens e adultos.', (hoje) => proximo(hoje, DOMINGO), 9, 0, 'Salas de estudo'],
+  ['Culto de celebração', 'Culto dominical com Santa Ceia.', (hoje) => proximo(hoje, DOMINGO), 19, 0, 'Templo principal'],
+  ['Reunião de oração', null, (hoje) => proximo(hoje, QUARTA), 20, 0, 'Templo principal'],
+  ['Encontro de jovens', 'Louvor, palavra e lanche.', (hoje) => proximo(hoje, SABADO), 19, 30, 'Salão social'],
+  ['Ação social no bairro', 'Entrega de cestas básicas às famílias cadastradas.', (hoje) => somarDias(hoje, 12), 8, 30, 'Praça em frente ao templo'],
+  ['Conferência de famílias', 'Dois dias de palestras e louvor.', (hoje) => somarDias(hoje, 30), 19, 0, 'Templo principal'],
+  // Já encerrado: demonstra a RN09 (só o administrador pode editar).
+  ['Culto de ação de graças', 'Evento já realizado.', (hoje) => somarDias(hoje, -7), 19, 0, 'Templo principal'],
+];
+
+function idDoEvento(indice) {
+  return `5e1f0c2a-8d3b-4c7e-a6f1-${String(indice + 1).padStart(12, '0')}`;
+}
+
+/** Os 7 eventos de demonstração do backend, com datas relativas a hoje (AAAA-MM-DD). Horário como o Jackson devolve (HH:mm:ss). */
+export function criarEventosIniciais(hoje) {
+  return EVENTOS.map(([titulo, descricao, quando, hora, minuto, local], indice) => ({
+    id: idDoEvento(indice),
+    titulo,
+    descricao,
+    data: quando(hoje),
+    horario: `${String(hora).padStart(2, '0')}:${String(minuto).padStart(2, '0')}:00`,
+    local,
+  }));
 }

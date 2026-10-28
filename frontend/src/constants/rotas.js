@@ -12,6 +12,9 @@ export const ROTAS = Object.freeze({
   MEMBRO_DETALHES: '/membros/:id',
   MEMBRO_EDICAO: '/membros/:id/editar',
   EVENTOS: '/eventos',
+  EVENTO_NOVO: '/eventos/novo',
+  EVENTO_DETALHES: '/eventos/:id',
+  EVENTO_EDICAO: '/eventos/:id/editar',
   FINANCEIRO: '/financeiro',
 });
 
@@ -21,6 +24,19 @@ export function caminhoDoMembro(id) {
 
 export function caminhoEdicaoMembro(id) {
   return `${caminhoDoMembro(id)}/editar`;
+}
+
+export function caminhoDoEvento(id) {
+  return `${ROTAS.EVENTOS}/${encodeURIComponent(id)}`;
+}
+
+export function caminhoEdicaoEvento(id) {
+  return `${caminhoDoEvento(id)}/editar`;
+}
+
+/** Cadastro de evento com a data já preenchida (dia clicado no calendário). */
+export function caminhoNovoEvento(dataIso) {
+  return dataIso ? `${ROTAS.EVENTO_NOVO}?data=${encodeURIComponent(dataIso)}` : ROTAS.EVENTO_NOVO;
 }
 
 /**

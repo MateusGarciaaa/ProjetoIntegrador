@@ -28,17 +28,19 @@ public class EventoController {
 
     private final EventoService eventoService;
 
+    /** A agenda não é informação sensível: qualquer perfil autenticado consulta (inclusive o TESOUREIRO). */
     @GetMapping
-    @PreAuthorize("hasAnyRole('ADMINISTRADOR','PASTOR','SECRETARIO','MEMBRO')")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<Page<EventoResponse>> listar(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dataInicio,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dataFim,
-            @PageableDefault(size = 20, sort = "data") Pageable pageable) {
+            // Eventos do mesmo dia em ordem de horário; o id deixa a paginação estável entre simultâneos.
+            @PageableDefault(size = 20, sort = {"data", "horario", "id"}) Pageable pageable) {
         return ResponseEntity.ok(eventoService.listar(dataInicio, dataFim, pageable));
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMINISTRADOR','PASTOR','SECRETARIO','MEMBRO')")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<EventoResponse> buscarPorId(@PathVariable UUID id) {
         return ResponseEntity.ok(eventoService.buscarPorId(id));
     }

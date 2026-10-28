@@ -1,0 +1,39 @@
+.calendario {
+  display: grid;
+}
+
+.navegacao {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--color-line);
+}
+
+.mes {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  color: var(--color-primary);
+}
+
+.mes::first-letter {
+  text-transform: uppercase;
+}
+
+.botoes {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.aviso {
+  margin: var(--space-3) var(--space-4) 0;
+}
+
+.atualizando {
+  opacity: 0.55;
+  transition: opacity var(--duration-base) var(--easing);
+  pointer-events: none;
+}
