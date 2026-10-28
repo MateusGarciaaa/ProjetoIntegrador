@@ -15,6 +15,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.Clock;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -50,6 +51,8 @@ public class DadosDemonstracaoService {
     private final EventoService eventoService;
     private final CategoriaFinanceiraService categoriaService;
     private final MovimentacaoFinanceiraService movimentacaoService;
+    /** O "hoje" da carga no fuso da igreja: próximos eventos e mês atual batem com o dashboard. */
+    private final Clock clock;
 
     @Transactional
     public void carregar(String senhaDasContas) {
@@ -59,7 +62,7 @@ public class DadosDemonstracaoService {
             return;
         }
 
-        LocalDate hoje = LocalDate.now();
+        LocalDate hoje = LocalDate.now(clock);
         List<UUID> membros = criarMembros(hoje);
         int eventos = criarEventos(hoje);
         int movimentacoes = criarMovimentacoes(hoje, garantirCategorias(), membros);

@@ -6,6 +6,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import java.util.List;
 import java.util.Optional;
@@ -30,8 +31,9 @@ public interface MembroRepository extends JpaRepository<Membro, UUID> {
     @Query("""
             SELECT m FROM Membro m
             WHERE m.dataNascimento IS NOT NULL
-            AND EXTRACT(MONTH FROM m.dataNascimento) = EXTRACT(MONTH FROM CURRENT_DATE)
+            AND EXTRACT(MONTH FROM m.dataNascimento) = :mes
             ORDER BY EXTRACT(DAY FROM m.dataNascimento) ASC
             """)
-    List<Membro> buscarAniversariantesDoMes();
+    // O mês vem do Clock da aplicação: CURRENT_DATE seguiria o fuso da sessão JDBC (o da JVM).
+    List<Membro> buscarAniversariantesDoMes(@Param("mes") int mes);
 }

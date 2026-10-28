@@ -23,6 +23,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
@@ -39,6 +40,8 @@ public class AuthService {
     private final JwtService jwtService;
     private final MailSender mailSender;
     private final long resetTokenExpirationMinutes;
+    /** Validade do link de redefinição medida no relógio da aplicação (ClockConfig). */
+    private final Clock clock;
 
     public AuthService(
             AuthenticationManager authenticationManager,
@@ -47,7 +50,8 @@ public class AuthService {
             PasswordEncoder passwordEncoder,
             JwtService jwtService,
             MailSender mailSender,
-            @Value("${app.jwt.reset-token-expiration-minutes}") long resetTokenExpirationMinutes) {
+            @Value("${app.jwt.reset-token-expiration-minutes}") long resetTokenExpirationMinutes,
+            Clock clock) {
         this.authenticationManager = authenticationManager;
         this.usuarioRepository = usuarioRepository;
         this.resetTokenRepository = resetTokenRepository;
@@ -55,6 +59,7 @@ public class AuthService {
         this.jwtService = jwtService;
         this.mailSender = mailSender;
         this.resetTokenExpirationMinutes = resetTokenExpirationMinutes;
+        this.clock = clock;
     }
 
     public LoginResponse login(LoginRequest request) {
@@ -91,7 +96,7 @@ public class AuthService {
         PasswordResetToken resetToken = new PasswordResetToken();
         resetToken.setToken(UUID.randomUUID().toString());
         resetToken.setUsuario(usuario);
-        resetToken.setExpiraEm(LocalDateTime.now().plusMinutes(resetTokenExpirationMinutes));
+        resetToken.setExpiraEm(LocalDateTime.now(clock).plusMinutes(resetTokenExpirationMinutes));
         resetTokenRepository.save(resetToken);
 
         mailSender.sendPasswordResetEmail(usuario.getEmail(), resetToken.getToken());
@@ -102,7 +107,7 @@ public class AuthService {
         // Usuário desativado depois do pedido também não redefine: o link pendente deixa de valer.
         PasswordResetToken resetToken = resetTokenRepository.findByToken(request.token())
                 .filter(t -> !t.isUsado())
-                .filter(t -> t.getExpiraEm().isAfter(LocalDateTime.now()))
+                .filter(t -> t.getExpiraEm().isAfter(LocalDateTime.now(clock)))
                 .filter(t -> t.getUsuario().isAtivo())
                 .orElseThrow(InvalidOrExpiredResetTokenException::new);
 
