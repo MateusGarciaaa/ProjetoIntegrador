@@ -7,6 +7,7 @@ import { CarregandoPagina } from '../components/ui/CarregandoPagina';
 import { Icon } from '../components/ui/Icon';
 import { itensMenuDoPerfil, trilhaDoCaminho } from '../constants/navegacao';
 import { useFocusTrap } from '../hooks/useFocusTrap';
+import { useMediaQuery } from '../hooks/useMediaQuery';
 import { usePermissao } from '../hooks/usePermissao';
 import { cx } from '../utils/classNames';
 import { AppHeader } from './AppHeader';
@@ -23,6 +24,7 @@ export function AppLayout() {
   const menuRef = useRef(null);
   const { pathname } = useLocation();
   const { perfil } = usePermissao();
+  const desktop = useMediaQuery(MEDIA_DESKTOP);
   useFocusTrap(menuRef, menuAberto);
 
   useEffect(() => {
@@ -30,11 +32,8 @@ export function AppLayout() {
   }, [pathname]);
 
   useEffect(() => {
-    const consulta = window.matchMedia(MEDIA_DESKTOP);
-    const fecharNoDesktop = (evento) => evento.matches && setMenuAberto(false);
-    consulta.addEventListener('change', fecharNoDesktop);
-    return () => consulta.removeEventListener('change', fecharNoDesktop);
-  }, []);
+    if (desktop) setMenuAberto(false);
+  }, [desktop]);
 
   function aoPressionarTecla(evento) {
     if (evento.key === 'Escape' && menuAberto) setMenuAberto(false);

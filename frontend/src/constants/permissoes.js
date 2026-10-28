@@ -36,9 +36,10 @@ const MATRIZ = Object.freeze({
   [PERMISSOES.MEMBROS_BUSCAR]: [ADMINISTRADOR, PASTOR, SECRETARIO, TESOUREIRO], // GET /members/lookup (id, nome, status)
 
   // EventoController
-  [PERMISSOES.EVENTOS_VISUALIZAR]: [ADMINISTRADOR, PASTOR, SECRETARIO, MEMBRO], // GET /events e /events/{id}
+  // GET /events e /events/{id}: isAuthenticated() — a agenda não é sensível, todo perfil consulta.
+  [PERMISSOES.EVENTOS_VISUALIZAR]: [ADMINISTRADOR, PASTOR, SECRETARIO, TESOUREIRO, MEMBRO],
   [PERMISSOES.EVENTOS_CRIAR]: [ADMINISTRADOR, SECRETARIO], // POST /events
-  [PERMISSOES.EVENTOS_EDITAR]: [ADMINISTRADOR, SECRETARIO], // PUT /events/{id} (RN09: evento passado só A; 400 para S)
+  [PERMISSOES.EVENTOS_EDITAR]: [ADMINISTRADOR, SECRETARIO], // PUT /events/{id} (RN09: evento encerrado só A; 409 para S)
   [PERMISSOES.EVENTOS_EXCLUIR]: [ADMINISTRADOR], // DELETE /events/{id}
 
   // MovimentacaoFinanceiraController

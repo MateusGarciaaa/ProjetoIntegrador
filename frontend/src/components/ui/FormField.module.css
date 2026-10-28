@@ -59,6 +59,13 @@ select.entrada {
   background-position: right var(--space-3) center;
 }
 
+textarea.entrada {
+  min-height: 7rem;
+  padding: var(--space-2) var(--space-3);
+  resize: vertical;
+  line-height: var(--leading-normal);
+}
+
 .comAcao {
   padding-right: calc(var(--control-height) + var(--space-1));
 }

@@ -1,0 +1,172 @@
+.calendario {
+  display: grid;
+}
+
+.semana,
+.grade {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+}
+
+.diaDaSemana {
+  padding: var(--space-2) var(--space-2);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+  color: var(--color-ink-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border-bottom: 1px solid var(--color-line);
+}
+
+.grade {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.dia {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-height: 7.25rem;
+  min-width: 0;
+  padding: var(--space-2);
+  border-right: 1px solid var(--color-line);
+  border-bottom: 1px solid var(--color-line);
+}
+
+.dia:nth-child(7n) {
+  border-right: 0;
+}
+
+.dia:nth-last-child(-n + 7) {
+  border-bottom: 0;
+}
+
+.foraDoMes {
+  background: var(--color-surface-sunken);
+}
+
+.foraDoMes .numero {
+  color: var(--color-ink-subtle);
+}
+
+.cabecalhoDia {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 1.75rem;
+}
+
+.numero {
+  display: inline-grid;
+  place-items: center;
+  min-width: 1.75rem;
+  height: 1.75rem;
+  border-radius: var(--radius-pill);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  font-variant-numeric: tabular-nums;
+}
+
+.hoje .numero {
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+}
+
+/* O "+" aparece ao passar o mouse ou focar o dia; no toque, fica sempre visível. */
+.novo {
+  display: inline-grid;
+  place-items: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: var(--radius-sm);
+  color: var(--color-ink-muted);
+  opacity: 0;
+  transition: opacity var(--duration-fast) var(--easing);
+}
+
+.dia:hover .novo,
+.novo:focus-visible {
+  opacity: 1;
+}
+
+.novo:hover {
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+}
+
+.novo:focus-visible {
+  outline: 2px solid var(--color-focus);
+}
+
+@media (hover: none) {
+  .novo {
+    opacity: 1;
+  }
+}
+
+.eventos {
+  display: grid;
+  gap: 0.1875rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.evento {
+  display: flex;
+  gap: 0.375rem;
+  min-width: 0;
+  padding: 0.125rem 0.375rem;
+  border-radius: var(--radius-sm);
+  border-left: 3px solid var(--color-primary);
+  background: var(--color-primary-soft);
+  color: var(--color-ink);
+  font-size: var(--text-xs);
+  line-height: 1.4;
+  text-decoration: none;
+}
+
+.evento:hover {
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+}
+
+.evento:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 1px;
+}
+
+.encerrado {
+  border-left-color: var(--color-line-strong);
+  background: var(--color-surface-sunken);
+  color: var(--color-ink-muted);
+}
+
+.horario {
+  flex: none;
+  font-weight: var(--weight-semibold);
+  font-variant-numeric: tabular-nums;
+}
+
+.titulo {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mais {
+  align-self: flex-start;
+  padding: 0 0.375rem;
+  border: 0;
+  background: none;
+  color: var(--color-primary);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+  cursor: pointer;
+}
+
+.mais:hover {
+  text-decoration: underline;
+}

@@ -21,6 +21,9 @@ const RedefinirSenhaPage = carregarPagina(() => import('../pages/RedefinirSenhaP
 const MembrosPage = carregarPagina(() => import('../pages/MembrosPage'), 'MembrosPage');
 const MembroDetalhesPage = carregarPagina(() => import('../pages/MembroDetalhesPage'), 'MembroDetalhesPage');
 const MembroFormPage = carregarPagina(() => import('../pages/MembroFormPage'), 'MembroFormPage');
+const EventosPage = carregarPagina(() => import('../pages/EventosPage'), 'EventosPage');
+const EventoDetalhesPage = carregarPagina(() => import('../pages/EventoDetalhesPage'), 'EventoDetalhesPage');
+const EventoFormPage = carregarPagina(() => import('../pages/EventoFormPage'), 'EventoFormPage');
 const EmConstrucaoPage = carregarPagina(() => import('../pages/EmConstrucaoPage'), 'EmConstrucaoPage');
 const NotFoundPage = carregarPagina(() => import('../pages/NotFoundPage'), 'NotFoundPage');
 
@@ -69,7 +72,11 @@ export function AppRoutes() {
           {rotaProtegida(ROTAS.MEMBRO_NOVO, PERMISSOES.MEMBROS_CRIAR, 'Membros', <MembroFormPage />)}
           {rotaProtegida(ROTAS.MEMBRO_DETALHES, PERMISSOES.MEMBROS_VISUALIZAR, 'Membros', <MembroDetalhesPage />)}
           {rotaProtegida(ROTAS.MEMBRO_EDICAO, PERMISSOES.MEMBROS_EDITAR, 'Membros', <MembroFormPage />)}
-          {rotaProtegida(ROTAS.EVENTOS, PERMISSOES.EVENTOS_VISUALIZAR, 'Eventos', <EmConstrucaoPage titulo="Eventos" />)}
+          {rotaProtegida(ROTAS.EVENTOS, PERMISSOES.EVENTOS_VISUALIZAR, 'Eventos', <EventosPage />)}
+          {/* /eventos/novo tem prioridade sobre /eventos/:id (o React Router prefere o segmento fixo). */}
+          {rotaProtegida(ROTAS.EVENTO_NOVO, PERMISSOES.EVENTOS_CRIAR, 'Eventos', <EventoFormPage />)}
+          {rotaProtegida(ROTAS.EVENTO_DETALHES, PERMISSOES.EVENTOS_VISUALIZAR, 'Eventos', <EventoDetalhesPage />)}
+          {rotaProtegida(ROTAS.EVENTO_EDICAO, PERMISSOES.EVENTOS_EDITAR, 'Eventos', <EventoFormPage />)}
           {rotaProtegida(ROTAS.FINANCEIRO, PERMISSOES.FINANCEIRO_VISUALIZAR, 'Financeiro', <EmConstrucaoPage titulo="Financeiro" />)}
           <Route path="*" element={<NotFoundPage />} />
         </Route>

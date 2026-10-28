@@ -20,7 +20,8 @@ const menu = () => screen.getByRole('navigation', { name: 'Seções' });
 describe('rotas por perfil', () => {
   it('MEMBRO entra direto em Eventos e só vê Eventos no menu', async () => {
     abrir('/', PERFIS.MEMBRO);
-    expect(await screen.findByRole('heading', { name: 'Eventos' })).toBeTruthy();
+    // 1º teste do arquivo: paga a importação a frio da página (React.lazy), lenta com a suíte inteira rodando.
+    expect(await screen.findByRole('heading', { name: 'Eventos' }, { timeout: 5000 })).toBeTruthy();
     expect(menu().textContent).toBe('Eventos');
   });
 
@@ -32,7 +33,7 @@ describe('rotas por perfil', () => {
   it('TESOUREIRO não vê Membros no menu nem abre /membros', async () => {
     abrir('/membros', PERFIS.TESOUREIRO);
     expect(await screen.findByRole('heading', { name: 'Sem acesso à área Membros' })).toBeTruthy();
-    expect(menu().textContent).toBe('Financeiro');
+    expect(menu().textContent).toBe('EventosFinanceiro');
   });
 
   it('MEMBRO não acessa a gestão de membros (lista nem detalhes)', async () => {
@@ -58,6 +59,27 @@ describe('rotas por perfil', () => {
     // SECRETARIO cadastra (o formulário abre sem chamar o backend).
     abrir('/membros/novo', PERFIS.SECRETARIO);
     expect(await screen.findByRole('heading', { name: 'Novo membro' })).toBeTruthy();
+  });
+
+  it('subpáginas de eventos seguem as permissões do backend', async () => {
+    const ID = '5e1f0c2a-8d3b-4c7e-a6f1-000000000001';
+    const semAcesso = { name: 'Sem acesso à área Eventos' };
+
+    // A agenda é de todos (isAuthenticated()), mas o TESOUREIRO só consulta.
+    abrir('/eventos/novo', PERFIS.TESOUREIRO);
+    expect(await screen.findByRole('heading', semAcesso)).toBeTruthy();
+    cleanup();
+    // PASTOR e MEMBRO só consultam.
+    abrir('/eventos/novo', PERFIS.PASTOR);
+    expect(await screen.findByRole('heading', semAcesso)).toBeTruthy();
+    cleanup();
+    abrir(`/eventos/${ID}/editar`, PERFIS.MEMBRO);
+    expect(await screen.findByRole('heading', semAcesso)).toBeTruthy();
+    cleanup();
+
+    // SECRETARIO cadastra (vale o 04-CasosDeUso, que é o que o backend aplica).
+    abrir('/eventos/novo', PERFIS.SECRETARIO);
+    expect(await screen.findByRole('heading', { name: 'Novo evento' })).toBeTruthy();
   });
 
   it('URL de área não permitida mostra "Sem acesso", sem deslogar', async () => {

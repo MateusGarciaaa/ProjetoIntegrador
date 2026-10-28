@@ -19,7 +19,8 @@
     color var(--duration-fast) var(--easing);
 }
 
-.botao:disabled {
+.botao:disabled,
+.botao[aria-disabled='true']:not([aria-busy='true']) {
   cursor: not-allowed;
   opacity: 0.6;
 }
@@ -33,7 +34,7 @@
   color: var(--color-on-primary);
 }
 
-.primario:hover:not(:disabled) {
+.primario:hover:not(:disabled):not([aria-disabled='true']) {
   background: var(--color-primary-hover);
 }
 
@@ -43,7 +44,7 @@
   color: var(--color-ink);
 }
 
-.secundario:hover:not(:disabled) {
+.secundario:hover:not(:disabled):not([aria-disabled='true']) {
   border-color: var(--color-primary);
   color: var(--color-primary);
 }
@@ -53,7 +54,7 @@
   color: var(--color-ink-muted);
 }
 
-.fantasma:hover:not(:disabled) {
+.fantasma:hover:not(:disabled):not([aria-disabled='true']) {
   background: var(--color-primary-soft);
   color: var(--color-primary);
 }
@@ -63,7 +64,7 @@
   color: #fff;
 }
 
-.perigo:hover:not(:disabled) {
+.perigo:hover:not(:disabled):not([aria-disabled='true']) {
   background: var(--color-danger-hover);
 }
 
@@ -72,7 +73,7 @@
   color: var(--color-danger);
 }
 
-.perigoSuave:hover:not(:disabled) {
+.perigoSuave:hover:not(:disabled):not([aria-disabled='true']) {
   background: var(--color-danger-soft);
 }
 

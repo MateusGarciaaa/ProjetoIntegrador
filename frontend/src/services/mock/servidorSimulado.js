@@ -1,5 +1,8 @@
 import { criarBanco } from './bancoEmMemoria';
+import { FUSO_HORARIO_SERVIDOR } from '../../constants/eventos';
+import { agoraNoFuso } from '../../utils/datas';
 import { ROTAS_AUTH } from './handlers/auth';
+import { ROTAS_EVENTOS } from './handlers/eventos';
 import { ROTAS_MEMBROS } from './handlers/membros';
 import { verificarTokenFalso } from './mockJwt';
 import { corpoInvalido, erroApi, MENSAGENS_BACKEND, naoAutenticado } from './respostas';
@@ -16,7 +19,7 @@ const PREFIXO_PUBLICO = '/auth/';
  *     corpo?: { ilegivel(corpo), validar(corpo) → mensagens }, executar(contexto) }
  * Módulo novo = um arquivo de handlers + uma linha aqui.
  */
-const ROTAS = [...ROTAS_AUTH, ...ROTAS_MEMBROS];
+const ROTAS = [...ROTAS_AUTH, ...ROTAS_MEMBROS, ...ROTAS_EVENTOS];
 
 function autenticar(banco, cabecalhoAuthorization, agoraMs) {
   if (typeof cabecalhoAuthorization !== 'string' || !cabecalhoAuthorization.startsWith('Bearer ')) return null;
@@ -47,7 +50,8 @@ function validarCorpo(rota, corpo, corpoMalformado, caminho) {
  * aoEnviarEmail({ para, link }) faz o papel do MailSender (no real, o link só vai para o log).
  */
 export function criarServidorSimulado({ validadeTokenSegundos, relogio = () => Date.now(), aoEnviarEmail = null }) {
-  const banco = criarBanco();
+  // Os eventos de demonstração ficam em volta do "hoje" do relógio do servidor simulado.
+  const banco = criarBanco({ hoje: agoraNoFuso(FUSO_HORARIO_SERVIDOR, new Date(relogio())).data });
 
   return function atender({ metodo, url, params = {}, corpo = null, authorization = null, corpoMalformado = false }) {
     const caminho = url.split('?')[0];
@@ -79,6 +83,6 @@ export function criarServidorSimulado({ validadeTokenSegundos, relogio = () => D
       return erroApi(403, 'Você não possui permissão para acessar este recurso.', caminho);
     }
 
-    return rota.executar({ banco, id, corpo, params, caminho });
+    return rota.executar({ banco, id, corpo, params, caminho, usuario, agoraMs });
   };
 }

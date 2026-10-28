@@ -69,4 +69,4 @@ Layered: `controller` → `service` → `repository`, with `dto` (Java records, 
 - Config/env is read only through `src/config/env.js`. `VITE_*` vars are baked in at build time.
 - Field names match backend DTOs exactly. Frontend sends CPF/phone as digits only, email lowercased, empty fields as `null`.
 
-Only login and members are implemented in the frontend; events, finances, dashboard and password reset exist only in the backend. Adding a frontend module: permissions in `constants/permissoes.js` (mirroring the controller) → `services/<modulo>/` → `schemas/` → `components/<modulo>/` → page → protected route with `RequirePermission` in `routes/AppRoutes.jsx` → menu item in `constants/navegacao.js`.
+Implemented in the frontend: login and password reset, members, and events (calendar + list). Finances and dashboard exist only in the backend (pages are "Em construção"). Adding a frontend module: permissions in `constants/permissoes.js` (mirroring the controller) → `services/<modulo>/` → `schemas/` → `components/<modulo>/` → page → protected route with `RequirePermission` in `routes/AppRoutes.jsx` → menu item in `constants/navegacao.js`.

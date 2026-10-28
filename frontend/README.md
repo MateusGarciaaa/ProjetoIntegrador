@@ -80,6 +80,20 @@ A listagem usa `page` a partir de 0, `size=10` e `sort` repetido com desempate (
 
 **Campos** (`MembroRequest`/`MembroResponse`, mesmos nomes em todo o frontend): `id`, `nome`, `cpf`, `email`, `telefone`, `endereco`, `dataNascimento`, `dataBatismo`, `dataConversao` (`AAAA-MM-DD`) e `status` (`ATIVO`, `AFASTADO`, `VISITANTE`; nulo vira `ATIVO`). Obrigatórios: `nome`, `cpf` (`\d{11}`) e `email`. Colunas: nome 150, cpf 11, email 150, telefone 20, endereço 255. CPF e e-mail são únicos (o e-mail é checado primeiro). O frontend envia CPF e telefone só com dígitos, e-mail em minúsculas e campos vazios como `null`.
 
+**Eventos** (`/api/v1/events`):
+
+| Método e rota | Perfis (`@PreAuthorize`) | Resposta |
+|---|---|---|
+| `GET /events?dataInicio=&dataFim=&page=&size=&sort=` | qualquer usuário autenticado (`isAuthenticated()`) | 200, `Page<EventoResponse>`; período só vale com as **duas** datas (inclusivo); data mal formada → 400; ordem padrão `data`, `horario`, `id` |
+| `GET /events/{id}` | qualquer usuário autenticado | 200 ou 404 `"Evento não encontrado"` |
+| `POST /events` | ADMINISTRADOR, SECRETARIO | 201 ou 400 |
+| `PUT /events/{id}` | ADMINISTRADOR, SECRETARIO | 200, 400 (validação), **409** (RN09: evento já encerrado e quem edita não é ADMINISTRADOR), 404 |
+| `DELETE /events/{id}` | ADMINISTRADOR | 204 ou 404 |
+
+A agenda é de todos os perfis (o TESOUREIRO também consulta); só ADMINISTRADOR e SECRETARIO cadastram e editam, e só o ADMINISTRADOR exclui. "Encerrado" (RN09) é o critério do `EventoService`: data + horário de **início** antes de agora, no `Clock` da API no fuso `APP_TIMEZONE` (padrão `America/Sao_Paulo`); não há status nem hora de término. O frontend aplica o mesmo critério no mesmo fuso (`schemas/regrasEvento.js`) só para desabilitar "Editar" com o motivo; quem decide é o backend.
+
+**Telas de eventos.** `/eventos` abre no calendário do mês (grade de domingo a sábado, sem biblioteca: `utils/calendario.js`; no celular, agenda por dia) ou na lista (período De/Até, ordenação por data ou título, paginação de 10). Visão, mês, período, página e ordem ficam na URL (ex.: `?mes=2026-11`, `?visao=lista&de=2026-11-01&ate=2026-11-30&pagina=2`). `/eventos/:id` (detalhes), `/eventos/novo` (`?data=AAAA-MM-DD` pré-preenche, vindo do "+" do calendário) e `/eventos/:id/editar` usam o mesmo formulário. **Campos** (`EventoRequest`/`EventoResponse`): `titulo` (obrigatório, 150), `descricao` (1000), `data` (obrigatória, RN08, `AAAA-MM-DD`), `horario` (obrigatório; resposta `"HH:mm:ss"`, o front envia `"HH:mm"`), `local` (255). Data e horário são digitados como DD/MM/AAAA e HH:MM (24 h) e enviados exatamente assim, sem passar por `Date`: o que se digita é o que aparece depois.
+
 **Erros.** Corpo `{ timestamp, status, error, message, path }`, sem lista por campo. Em 400 de validação, as mensagens vêm juntas em `message`, separadas por `", "`. Mensagens fixas: 401 `"Sessão inválida ou expirada. Faça login novamente."` (token ausente, vencido ou adulterado), 403 (do `@PreAuthorize`) `"Você não possui permissão para acessar este recurso."`, 404 `"Membro não encontrado"`, 409 `"Já existe um membro com este e-mail"` / `"Já existe um membro com este CPF"` / membro com movimentações financeiras (RN14), 500 `"Ocorreu um erro interno no servidor."`. Entradas inválidas (JSON malformado, `{id}` que não é UUID, `sort` com campo inexistente, texto maior que a coluna) voltam como 400, nunca 500.
 
 ## Decisões de arquitetura
@@ -98,7 +112,7 @@ A listagem usa `page` a partir de 0, `size=10` e `sort` repetido com desempate (
 
 **Erro ao lado do campo, por enquanto pelo texto.** O backend não diz a que campo pertence cada erro. `schemas/errosServidor.js` (`criarMapeadorDeErros`) deduz o campo pela mensagem exata do DTO (400) ou por palavra-chave (409: e-mail, CPF). É provisório: se o backend mudar o texto, o erro só passa para o topo do formulário. O formato estruturado proposto está em `docs/frontend-integracao.md`.
 
-**Permissões só escondem, não autorizam.** `constants/permissoes.js` espelha os `@PreAuthorize` de todos os controllers linha a linha, e um teste transcreve a mesma tabela: se o backend mudar, o teste obriga a revisar. `usePermissao().pode(...)` e `<PodeAcessar permissao senao>` escondem botões e blocos; `RequirePermission` protege rotas (mostra "Sem acesso", sem deslogar); o menu (`itensMenuDoPerfil`) só lista áreas permitidas; e cada perfil começa na sua área (`rotaInicialDoPerfil`: A/P → Painel, S → Membros, T → Financeiro, M → Eventos). Painel, Eventos e Financeiro ainda são páginas "Em construção".
+**Permissões só escondem, não autorizam.** `constants/permissoes.js` espelha os `@PreAuthorize` de todos os controllers linha a linha, e um teste transcreve a mesma tabela: se o backend mudar, o teste obriga a revisar. `usePermissao().pode(...)` e `<PodeAcessar permissao senao>` escondem botões e blocos; `RequirePermission` protege rotas (mostra "Sem acesso", sem deslogar); o menu (`itensMenuDoPerfil`) só lista áreas permitidas; e cada perfil começa na sua área (`rotaInicialDoPerfil`: A/P → Painel, S → Membros, T → Financeiro, M → Eventos). Painel e Financeiro ainda são páginas "Em construção".
 
 **Datas como texto.** `LocalDate`, `LocalTime` e `LocalDateTime` chegam sem fuso. `utils/datas.js` os formata fatiando a string, nunca com `new Date("AAAA-MM-DD")` (que no Brasil mostraria o dia anterior). Moeda: `utils/moeda.js` (`Intl.NumberFormat` BRL, arredondamento para 2 casas antes de enviar).
 
@@ -120,22 +134,22 @@ src/
     mock/        backend simulado (núcleo, handlers/<módulo> com as próprias rotas, página DIRECT, dados, JWT falso)
   routes/        rotas (páginas com React.lazy) e guards (visitante, autenticado, permissão)
   layouts/       tela dividida do login e estrutura autenticada (menu por perfil, breadcrumb)
-  pages/         Login, Esqueci a senha, Redefinir senha, Membros (lista, detalhes, formulário), Em construção, Sem acesso, 404
-  components/    ui (genéricos: Button, campos, Card, Table, Modal, ConfirmDialog, Pagination, Breadcrumb...), members, auth, brand
+  pages/         Login, Esqueci a senha, Redefinir senha, Membros e Eventos (lista/calendário, detalhes, formulário), Em construção, Sem acesso, 404
+  components/    ui (genéricos: Button, campos, Card, Table, Modal, ConfirmDialog, Pagination, Breadcrumb...), members, events, auth, brand
   styles/        tokens (cores, tipos, espaçamentos) e estilos globais
-  utils/         CPF, telefone, datas, moeda, JWT, strings
+  utils/         CPF, telefone, datas (e agora no fuso do servidor), calendário, moeda, JWT, strings
   test-utils/    apoio usado só pelos testes (tokens, render com perfil, app inteiro numa rota, transporte HTTP falso ou pelo servidor simulado)
 ```
 
 ## Testes
 
-`npm test` roda 343 testes em 28 arquivos: telas de membros (paginação, busca com espera, filtro por status, ordenação, estado na URL, vazio e carregando; formulário com validação, máscaras e 409 de e-mail/CPF no campo; detalhes; exclusão e RN14; botões por perfil), login (sucesso, credenciais erradas, envio duplo, logout), esqueci a senha (mensagem neutra em qualquer desfecho), redefinição (token inválido, regras da senha), validação e máscara de CPF, máscara de telefone, schema do formulário de membro, mapeamento de erros 400/409 para campos (uma mensagem por campo, a primeira), matriz de permissões de todos os controllers, menu, breadcrumb e rota inicial por perfil, formatadores de data/hora e moeda, leitura do perfil a partir do JWT, sessão e expiração, normalização e montagem da página, conversão de erros da API, cliente HTTP (Bearer, 401, 403, 400, 409, tempo esgotado e rede), redirecionamento seguro após login e fidelidade do backend simulado ao real.
+`npm test` roda 430 testes em 35 arquivos: telas de eventos (lista, paginação, ordenação, período, alternância calendário/lista na URL, calendário e agenda, RN09 por perfil, formulário com data obrigatória, detalhes e exclusão), telas de membros (paginação, busca com espera, filtro por status, ordenação, estado na URL, vazio e carregando; formulário com validação, máscaras e 409 de e-mail/CPF no campo; detalhes; exclusão e RN14; botões por perfil), login (sucesso, credenciais erradas, envio duplo, logout), esqueci a senha (mensagem neutra em qualquer desfecho), redefinição (token inválido, regras da senha), validação e máscara de CPF, máscara de telefone, schema do formulário de membro, mapeamento de erros 400/409 para campos (uma mensagem por campo, a primeira), matriz de permissões de todos os controllers, menu, breadcrumb e rota inicial por perfil, formatadores de data/hora e moeda, leitura do perfil a partir do JWT, sessão e expiração, normalização e montagem da página, conversão de erros da API, cliente HTTP (Bearer, 401, 403, 400, 409, tempo esgotado e rede), redirecionamento seguro após login e fidelidade do backend simulado ao real.
 
 O ambiente padrão é `node` (funções puras, `*.test.js`). Testes de componente usam `*.test.jsx` com `// @vitest-environment jsdom` na primeira linha e `renderizarComPerfil` (`test-utils/componentes.jsx`), que simula o usuário logado e desmonta entre os testes. Exemplos: `PodeAcessar.test.jsx`, `Table.test.jsx` e `AppRoutes.test.jsx` (rotas por perfil). Para uma tela inteira com dados, `abrirAppComServidor(caminho, perfil)` (`test-utils/app.jsx`) abre o app logado e responde com o servidor simulado, expondo a URL atual (ex.: `MembrosPage.test.jsx`). Para testar uma tela com o HTTP de verdade, `instalarTransporte` (`test-utils/transporte.js`) troca só o adaptador do axios: serviços, interceptores e `ApiError` continuam os reais (ex.: `LoginForm.test.jsx`).
 
 ## Como crescer (TCC)
 
-O backend já tem eventos, finanças e dashboard. Permissões, rotas, itens de menu e páginas provisórias desses módulos já existem. Para cada um, falta: criar o serviço em `services/<modulo>/` (com `montarParametrosPagina` + `normalizarPagina`), o schema em `schemas/` (com `criarMapeadorDeErros`), os componentes em `components/<modulo>/`, trocar o `EmConstrucaoPage` da rota em `routes/AppRoutes.jsx` pela página real e acrescentar `handlers/<modulo>.js` ao backend simulado (as rotas entram em `ROTAS` de `servidorSimulado.js`).
+O backend já tem finanças e dashboard (eventos já está integrado e serve de segundo exemplo, junto de membros). Permissões, rotas, itens de menu e páginas provisórias desses módulos já existem. Para cada um, falta: criar o serviço em `services/<modulo>/` (com `montarParametrosPagina` + `normalizarPagina`), o schema em `schemas/` (com `criarMapeadorDeErros`), os componentes em `components/<modulo>/`, trocar o `EmConstrucaoPage` da rota em `routes/AppRoutes.jsx` pela página real e acrescentar `handlers/<modulo>.js` ao backend simulado (as rotas entram em `ROTAS` de `servidorSimulado.js`).
 
 ## Integração com o backend
 

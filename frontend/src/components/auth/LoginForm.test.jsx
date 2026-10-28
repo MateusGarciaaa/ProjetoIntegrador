@@ -98,7 +98,9 @@ describe('login', () => {
     await waitFor(() => expect(transporte.adapter).toHaveBeenCalled());
     concluir();
     expect(await screen.findByRole('heading', { name: 'Eventos' })).toBeTruthy();
-    expect(transporte.adapter).toHaveBeenCalledTimes(1);
+    // Só o login conta: a tela de Eventos, aberta em seguida, faz as próprias consultas.
+    const logins = transporte.adapter.mock.calls.filter(([config]) => config.url === '/auth/login');
+    expect(logins).toHaveLength(1);
   });
 
   it('"Sair" limpa a sessão e o próximo login não volta para a tela anterior', async () => {
