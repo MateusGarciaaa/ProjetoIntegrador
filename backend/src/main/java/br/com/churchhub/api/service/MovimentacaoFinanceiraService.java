@@ -11,6 +11,7 @@ import br.com.churchhub.api.exception.BusinessException;
 import br.com.churchhub.api.exception.ResourceNotFoundException;
 import br.com.churchhub.api.mapper.MovimentacaoFinanceiraMapper;
 import br.com.churchhub.api.repository.MembroRepository;
+import br.com.churchhub.api.repository.MovimentacaoFinanceiraFiltros;
 import br.com.churchhub.api.repository.MovimentacaoFinanceiraRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -31,14 +32,17 @@ public class MovimentacaoFinanceiraService {
     private final MembroRepository membroRepository;
     private final MovimentacaoFinanceiraMapper movimentacaoMapper;
 
-    /** Leituras transacionais: o mapper acessa categoria e membro (open-in-view está desligado). */
+    /**
+     * Leituras transacionais: o mapper acessa categoria e membro (open-in-view está desligado).
+     * Categoria inexistente não é erro: é um filtro como os outros, e nenhuma movimentação a tem
+     * (página vazia, sem consulta extra para conferir a categoria).
+     */
     @Transactional(readOnly = true)
-    public Page<MovimentacaoFinanceiraResponse> listar(LocalDate dataInicio, LocalDate dataFim, Pageable pageable) {
-        Page<MovimentacaoFinanceira> pagina = (dataInicio != null && dataFim != null)
-                ? movimentacaoRepository.findByDataBetween(dataInicio, dataFim, pageable)
-                : movimentacaoRepository.findAll(pageable);
-
-        return pagina.map(movimentacaoMapper::toResponse);
+    public Page<MovimentacaoFinanceiraResponse> listar(LocalDate dataInicio, LocalDate dataFim,
+                                                       TipoMovimentacao tipo, UUID categoriaId, Pageable pageable) {
+        return movimentacaoRepository
+                .findAll(MovimentacaoFinanceiraFiltros.de(dataInicio, dataFim, tipo, categoriaId), pageable)
+                .map(movimentacaoMapper::toResponse);
     }
 
     @Transactional(readOnly = true)
