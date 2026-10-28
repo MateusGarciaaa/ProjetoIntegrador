@@ -23,13 +23,17 @@ public class MembroController {
 
     private final MembroService membroService;
 
-    /** Ficha completa (CPF, contato, endereço, datas): só quem cuida do rol de membros. */
+    /**
+     * Ficha completa (CPF, contato, endereço, datas): só quem cuida do rol de membros.
+     * Filtros opcionais: nome (contém, ignora maiúsculas) e status (valor inválido → 400).
+     */
     @GetMapping
     @PreAuthorize("hasAnyRole('ADMINISTRADOR','PASTOR','SECRETARIO')")
     public ResponseEntity<Page<MembroResponse>> listar(
             @RequestParam(required = false) String nome,
+            @RequestParam(required = false) StatusMembro status,
             @PageableDefault(size = 20, sort = "nome") Pageable pageable) {
-        return ResponseEntity.ok(membroService.listar(nome, pageable));
+        return ResponseEntity.ok(membroService.listar(nome, status, pageable));
     }
 
     /**

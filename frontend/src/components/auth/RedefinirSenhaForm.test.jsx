@@ -79,4 +79,18 @@ describe('redefinir senha', () => {
     expect(await screen.findByText('A nova senha deve ter entre 6 e 72 caracteres')).toBeTruthy();
     expect(screen.getByLabelText('Nova senha').getAttribute('aria-invalid')).toBe('true');
   });
+
+  it('várias mensagens para a nova senha: mostra só a primeira', async () => {
+    // Senha ASCII com 73+ caracteres: o backend devolve @Size e @CabeNoBcrypt juntos.
+    const duas =
+      'A nova senha deve ter entre 6 e 72 caracteres, A nova senha é longa demais: o limite é de 72 bytes (letras acentuadas e símbolos ocupam 2 ou mais)';
+    transporte = instalarTransporte(resposta(400, corpoApi(400, duas, CAMINHO)));
+    abrir(`/reset-password?token=${TOKEN}`);
+
+    enviar('novaSenha1');
+
+    expect(await screen.findByText('A nova senha deve ter entre 6 e 72 caracteres')).toBeTruthy();
+    expect(screen.queryByText(/longa demais/)).toBeNull();
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
 });

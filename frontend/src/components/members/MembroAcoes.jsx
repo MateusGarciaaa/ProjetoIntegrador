@@ -1,16 +1,27 @@
-import { Button } from '../ui/Button';
+import { caminhoEdicaoMembro } from '../../constants/rotas';
+import { Button, ButtonLink } from '../ui/Button';
 
-/** Botões por linha. O nome do membro entra no rótulo acessível para diferenciar as linhas. */
-export function MembroAcoes({ membro, podeEditar, podeExcluir, onEditar, onExcluir }) {
+/**
+ * Ações de um membro (na linha da lista e nos detalhes). O nome entra no rótulo acessível
+ * para diferenciar as linhas. `estado` segue no link (ex.: para onde voltar depois).
+ */
+export function MembroAcoes({ membro, podeEditar, podeExcluir, onExcluir, estado, pequeno = true }) {
   return (
     <>
       {podeEditar && (
-        <Button variante="fantasma" pequeno icone="editar" aria-label={`Editar ${membro.nome}`} onClick={() => onEditar(membro)}>
+        <ButtonLink
+          variante={pequeno ? 'fantasma' : 'secundario'}
+          pequeno={pequeno}
+          icone="editar"
+          aria-label={`Editar ${membro.nome}`}
+          to={caminhoEdicaoMembro(membro.id)}
+          state={estado}
+        >
           Editar
-        </Button>
+        </ButtonLink>
       )}
       {podeExcluir && (
-        <Button variante="perigoSuave" pequeno icone="excluir" aria-label={`Excluir ${membro.nome}`} onClick={() => onExcluir(membro)}>
+        <Button variante="perigoSuave" pequeno={pequeno} icone="excluir" aria-label={`Excluir ${membro.nome}`} onClick={() => onExcluir(membro)}>
           Excluir
         </Button>
       )}

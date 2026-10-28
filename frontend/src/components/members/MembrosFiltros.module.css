@@ -1,0 +1,25 @@
+.filtros {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-3);
+  flex: 1 1 32rem;
+}
+
+.busca {
+  flex: 1 1 16rem;
+}
+
+.status {
+  flex: 0 0 10rem;
+}
+
+.ordenacao {
+  flex: 1 1 12rem;
+}
+
+@media (max-width: 599px) {
+  .status {
+    flex: 1 1 10rem;
+  }
+}

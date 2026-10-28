@@ -59,10 +59,12 @@ function filtrosPreenchidos(filtros) {
 /**
  * Query string do Pageable (page base 0, size, sort "campo,asc|desc") mais os filtros
  * da rota. Filtros vazios não são enviados: o backend os trataria como o texto "".
+ * `ordenacao` pode ser uma lista (critérios de desempate): vira sort=a&sort=b.
  */
 export function montarParametrosPagina({ pagina = 0, tamanho, ordenacao, filtros = {} } = {}) {
   const parametros = { ...filtrosPreenchidos(filtros), page: Math.max(0, Number.parseInt(pagina, 10) || 0) };
   if (tamanho !== undefined) parametros.size = Math.min(Math.max(1, tamanho), TAMANHO_MAXIMO_PAGINA);
-  if (ordenacao) parametros.sort = ordenacao;
+  const criterios = [ordenacao].flat().filter(Boolean);
+  if (criterios.length) parametros.sort = criterios.length === 1 ? criterios[0] : criterios;
   return parametros;
 }

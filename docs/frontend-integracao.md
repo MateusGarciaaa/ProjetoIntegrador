@@ -1,6 +1,6 @@
 # Integração frontend × backend — diagnóstico
 
-> Fotografia de 2026-10-26 (commit 2087a3c), atualizada ao fim da Fundação e da Autenticação no mesmo dia. Ler no início de cada sessão. Atualizar a tabela e o checklist ao concluir cada módulo.
+> Fotografia de 2026-10-26 (commit 2087a3c), atualizada ao fim da Fundação e da Autenticação no mesmo dia e ao fim de Membros em 2026-10-27. Ler no início de cada sessão. Atualizar a tabela e o checklist ao concluir cada módulo.
 > Fontes: `backend/src/main/java/br/com/churchhub/api/{controller,dto,service,security,exception}` e `frontend/src/{services,constants,routes,schemas,hooks}`.
 
 ## 1. Convenções do backend (valem para todos os módulos)
@@ -33,12 +33,12 @@ Perfis: A = ADMINISTRADOR, P = PASTOR, S = SECRETARIO, T = TESOUREIRO, M = MEMBR
 | 2 | `POST /auth/forgot-password` | — | `{ email @NotBlank @Email }` (normalizado; só usuário **ativo** recebe link; pedido novo invalida os links pendentes) | 200 `{ message: "Se o e-mail existir em nossa base, um link de redefinição foi enviado." }` (sempre a mesma) | público | **INTEGRADO** (`/esqueci-senha`; front envia minúsculas e mostra sempre a mensagem neutra própria) |
 | 3 | `POST /auth/reset-password` | — | `{ token @NotBlank, newPassword @NotBlank @Size(6..72) @CabeNoBcrypt (≤ 72 bytes) }` | 204; 400 `"Token de redefinição inválido ou expirado"` (inexistente, já usado, substituído por um pedido mais novo, > 30 min ou usuário inativo) | público | **INTEGRADO** (`/reset-password?token=<UUID>`, caminho do link do `LoggingMailSender`) |
 | — | `POST /auth/refresh` | — | — | **não existe** (conferido no `AuthController` em 2026-10-26) | — | — |
-| 4 | `GET /members` | `nome` (contém, ignora maiúsc., diferencia acento), `page`, `size`=20, `sort`=`nome` | — | 200 `Page<MembroResponse>` | A P S | **INTEGRADO** (front: `size=10`, `sort=nome,asc`) |
+| 4 | `GET /members` | `nome` (contém, ignora maiúsc., diferencia acento), `status` opcional (inválido → 400 `"Valor inválido para o parâmetro 'status'."`; mesmo `buscarPorNomeEStatus` do lookup), `page`, `size`=20, `sort`=`nome` (ordenação do cliente respeitada) | — | 200 `Page<MembroResponse>` | A P S | **INTEGRADO** (`/membros`: `size=10`, `status` quando escolhido, `sort` repetido com desempate — ex. `sort=email,desc&sort=nome,asc&sort=id,asc`; colunas ordenáveis: nome, e-mail, telefone, status) |
 | 4b | `GET /members/lookup` | `nome` (contém), `status` (inválido → 400 `"Valor inválido para o parâmetro 'status'."`), `page`, `size` (máx. **20**, acima disso reduz); `sort` do cliente é ignorado (sempre `nome`, `id`) | — | 200 `Page<MembroResumoResponse { id, nome, status }>` | A P S T | **NÃO USADO** (`membrosService.buscarResumo` e mock prontos; seletor de membro do Financeiro) |
-| 5 | `GET /members/{id}` | `id` UUID | — | 200 `MembroResponse`; 404 | A P S | **NÃO USADO** (mock implementa; front edita a partir da linha da lista) |
+| 5 | `GET /members/{id}` | `id` UUID | — | 200 `MembroResponse`; 404 | A P S | **INTEGRADO** (`/membros/:id` detalhes e `/membros/:id/editar`, sempre relido do servidor; id não-UUID → 400 tratado como "não encontrado") |
 | 6 | `POST /members` | — | `MembroRequest { nome @NotBlank @Size150, cpf @NotBlank @Pattern \d{11}, email @NotBlank @Email @Size150, telefone @Size20, endereco @Size255, dataNascimento, dataBatismo, dataConversao (LocalDate), status (nulo→ATIVO) }` | 201 `MembroResponse`; 409 e-mail/CPF | A S | **INTEGRADO** |
 | 7 | `PUT /members/{id}` | `id` | `MembroRequest` | 200; 404; 409 | A S | **INTEGRADO** |
-| 8 | `DELETE /members/{id}` | `id` | — | 204; 404; 409 RN14 (tem movimentação financeira) | A | **INTEGRADO** (409 RN14 só existe no real; mock não simula) |
+| 8 | `DELETE /members/{id}` | `id` | — | 204; 404; 409 RN14 (tem movimentação financeira) | A | **INTEGRADO** (409 RN14 → diálogo "Não é possível excluir" com a mensagem do backend e atalho "Alterar status"; mock simula) |
 | 9 | `GET /events` | `dataInicio`, `dataFim` (ISO; **só filtra se os dois vierem**), `page`, `size`=20, `sort`=`data` | — | 200 `Page<EventoResponse>` | A P S M | **NÃO USADO** |
 | 10 | `GET /events/{id}` | `id` | — | 200 `EventoResponse { id, titulo, descricao, data, horario, local }`; 404 | A P S M | **NÃO USADO** |
 | 11 | `POST /events` | — | `EventoRequest { titulo @NotBlank @Size150, descricao @Size1000, data @NotNull, horario @NotNull (LocalTime), local @Size255 }` | 201 | A S | **NÃO USADO** |
@@ -68,13 +68,13 @@ Perfis: A = ADMINISTRADOR, P = PASTOR, S = SECRETARIO, T = TESOUREIRO, M = MEMBR
 | Financeiro | Filtro por `tipo`, `categoriaId`, `membroId` na listagem | Não existe (só período) |
 | Financeiro | Fluxo de caixa / relatório por categoria / exportação | Não existe (só `summary` por período) |
 | Financeiro | Editar/excluir/buscar categoria (`GET/PUT/DELETE /financial-categories/{id}`) | Não existe |
-| Membros | Filtro por status, busca por CPF/e-mail, busca sem acento | Não existe |
+| Membros | Busca por CPF/e-mail, busca sem acento | Não existe (backlog, pendência 10). ~~Filtro por status~~ → **feito** (`feat(api)`, 2026-10-27) |
 | Usuários (admin) | CRUD de usuários, perfil, ativar/desativar (RN02) | Não existe (`UsuarioService` só serve à carga inicial) |
 | Meu perfil | `GET/PUT /me`, trocar senha logado | Não existe; `Usuario` não tem vínculo com `Membro` → exige migration |
 
 ## 3. Divergências mock × backend real
 
-O mock (`services/mock/`) implementa as 3 rotas de `/auth` (login, forgot-password, reset-password) e as rotas de `/members`. Rotas públicas passam pelo mesmo `@Valid` simulado das protegidas (`corpo.validar`). O `MailSender` simulado é a "caixa de e-mail" (`mock/caixaDeSaida.js`), exibida só no modo simulado na tela "Esqueci minha senha" (bloco "E-mails simulados", com o link `/reset-password?token=…`). Qualquer outra rota no mock: em `/auth/**` → 404 sem token (como o `permitAll`); nas demais, sem token → 401, com token → 404. Cada módulo exporta suas rotas em `handlers/<modulo>.js` (`ROTAS_AUTH`, `ROTAS_MEMBROS`), reunidas em `ROTAS` de `servidorSimulado.js`; paginação simulada em `mock/paginacao.js` (`lerPageable`, `paginaSpring`).
+O mock (`services/mock/`) implementa as 3 rotas de `/auth` (login, forgot-password, reset-password) e as rotas de `/members` (inclusive RN14 e `sort` repetido). Rotas públicas passam pelo mesmo `@Valid` simulado das protegidas (`corpo.validar`). O `MailSender` simulado é a "caixa de e-mail" (`mock/caixaDeSaida.js`), exibida só no modo simulado na tela "Esqueci minha senha" (bloco "E-mails simulados", com o link `/reset-password?token=…`). Qualquer outra rota no mock: em `/auth/**` → 404 sem token (como o `permitAll`); nas demais, sem token → 401, com token → 404. Cada módulo exporta suas rotas em `handlers/<modulo>.js` (`ROTAS_AUTH`, `ROTAS_MEMBROS`), reunidas em `ROTAS` de `servidorSimulado.js`; paginação simulada em `mock/paginacao.js` (`lerPageable`, `paginaSpring`).
 
 | # | Assunto | Mock | Backend real | Impacto |
 |---|---|---|---|---|
@@ -83,9 +83,9 @@ O mock (`services/mock/`) implementa as 3 rotas de `/auth` (login, forgot-passwo
 | 3 | E-mail no login e no forgot-password | ~~comparação exata~~ → **corrigido na Autenticação**: normaliza nos dois, como o real; forgot-password também ignora usuário inativo e invalida links pendentes | idem (`NormalizadorEmail`) | Nenhum |
 | 4 | Mensagens de validação de auth | ~~padrões do Hibernate~~ → **corrigido na Autenticação**: mensagens do `LoginRequest`, `ForgotPasswordRequest` e `ResetPasswordRequest` | do DTO | Ordem das mensagens unidas: o Spring não garante a ordem dos `FieldError`; o mock usa a ordem dos campos no record |
 | 4b | Envio do link de redefinição | caixa de e-mail simulada na tela | `LoggingMailSender` só registra no log | Ver pendência 3 da seção 5 |
-| 5 | RN14 (excluir membro com movimentação) | sempre 204 | 409 com mensagem | Caminho de erro do `ExcluirMembroDialog` não é exercitado no mock |
+| 5 | RN14 (excluir membro com movimentação) | ~~sempre 204~~ → **corrigido em Membros**: 409 com a mensagem exata para os 4 membros com dízimo no `DadosDemonstracaoService` (`banco.membrosComMovimentacao`; derivar das movimentações quando o mock tiver o Financeiro) | 409 com mensagem | Nenhum |
 | 6 | Formato da página | ~~VIA_DTO~~ → **corrigido na Fundação**: DIRECT idêntico ao real (mesmas chaves e valores; `size` > 2000 reduzido para 2000) | DIRECT (conferido em 2026-10-26 com `GET /members?page=2&size=10&sort=nome,asc`) | Nenhum |
-| 7 | Ordenação | `localeCompare('pt-BR')`; só o 1º `sort` | collation do Postgres; múltiplos `sort` | Ordem com acentos/maiúsculas pode diferir |
+| 7 | Ordenação | `localeCompare('pt-BR')`; ~~só o 1º `sort`~~ → **múltiplos `sort` desde Membros** (cada um desempata o anterior; campo inválido em qualquer um → 400) | collation do Postgres; múltiplos `sort` | Ordem com acentos/maiúsculas pode diferir |
 | 8 | `timestamp` do erro | ISO UTC com ms (23 chars) | `LocalDateTime` do servidor, até micros | Front não usa |
 | 9 | Unicidade de e-mail do membro | exata | exata (índice sem `lower`) | Iguais; ambos aceitam `Ana@x` e `ana@x` (front grava minúsculo) |
 | 10 | Dados de demo | 25 membros, 5 contas | idem com `DEMO_DATA_ENABLED=true` + eventos, categorias, movimentações | Mock não tem eventos/finanças |
@@ -117,6 +117,7 @@ Problemas de regra:
 3. **PASTOR e o bloco financeiro do dashboard — regra vigente confirmada no código.** `DashboardController.obter` calcula `incluirDadosFinanceiros` só quando a autoridade é `ROLE_ADMINISTRADOR`, e `DashboardService.gerar` devolve `resumoFinanceiroMesAtual = null` nos demais casos. É intencional (está explícito no código), mas inconsistente: o PASTOR tem `financeiro.visualizar` e pode chamar `/financial/summary` diretamente. O front espelha a regra como está (`dashboard.financeiro` = só A; teste dedicado em `permissoes.test.js`). Decisão em aberto para o módulo Dashboard: mostrar o bloco ao PASTOR via `/financial/summary` ou pedir a mudança no backend.
 4. **RN09**: SECRETARIO pode `PUT /events/{id}`, mas recebe **400** (não 403) se o evento já passou. Não cabe na matriz; o front deve desabilitar "Editar" em evento passado para não-admin e tratar o 400.
 5. **TESOUREIRO e a ficha de membros — corrigido em 2026-10-26.** O Tesoureiro estava nos `@PreAuthorize` de `GET /members` e `/members/{id}` desde a criação do controller (antes do módulo financeiro), sem justificativa registrada, e recebia CPF, contato e endereço. A única necessidade real é escolher o membro de um lançamento (`membroId` opcional); para isso existe agora `GET /members/lookup` (id, nome, status). A listagem de movimentações já traz `membroNome`, então o Tesoureiro não precisa de `/members/{id}`.
+6. **Módulo Membros × pedido da sessão (2026-10-27).** Pedido e backend coincidem para A (tudo), S (lista, cadastra, edita; não exclui), P (só consulta) e M (sem acesso). O pedido não citava o **TESOUREIRO**: segue o backend — sem acesso a `/membros` (lista, detalhes, formulário), só `/members/lookup`. Nenhuma mudança em `permissoes.js`. As subpáginas usam as permissões do endpoint que chamam: `/membros/novo` → `membros.criar`, `/membros/:id` → `membros.visualizar`, `/membros/:id/editar` → `membros.editar` (P abrindo a URL de edição vê "Sem acesso").
 
 ## 5. Pendências do backend
 
@@ -154,7 +155,10 @@ Por prioridade para o frontend (cada item que mude schema exige migration nova; 
 7. **Usuários**: CRUD `/users` (A), ativar/desativar, trocar perfil.
 8. **Meu perfil**: vínculo `usuarios.membro_id`, `GET/PUT /me`, `PUT /me/password`.
 9. **Nome do usuário**: claim `nome` no JWT ou `GET /auth/me` (o front já lê `payload.nome` se vier).
-10. **Membros**: filtro por status; busca sem acento (`unaccent`); unicidade de e-mail case-insensitive (`lower(email)`).
+10. **Membros** — backlog do TCC. (O filtro por status saiu daqui: feito no commit `feat(api)` de 2026-10-27, `GET /members?status=` com o mesmo `buscarPorNomeEStatus` do lookup.)
+    - Busca por e-mail e CPF (o pedido da tela previa nome/e-mail/CPF; a tela só busca por nome).
+    - Busca sem acento (`unaccent`); unicidade de e-mail case-insensitive (`lower(email)`).
+    - RN14 Fase 2 (confirmação administrativa para excluir membro com histórico): endpoint ou parâmetro a definir; no front entra como etapa nova em `hooks/useExclusaoMembro.js`.
 11. **Sessão**: `POST /auth/refresh` (opcional para o TCC). O front não tenta renovar; o ponto de extensão é `tratarErroResposta` em `services/http/httpClient.js`.
 
 ## 6. Checklist por módulo
@@ -190,11 +194,21 @@ Por prioridade para o frontend (cada item que mude schema exige migration nova; 
 - [ ] Encerrar as sessões abertas ao redefinir a senha (seção 5, item 3b.2): migration com `senha_alterada_em` em `usuarios` + recusa no `JwtAuthenticationFilter` de token com `iat` anterior.
 - [ ] Mitigar enumeração por tempo e força bruta (seção 5, item 3b.4): envio de e-mail assíncrono no forgot-password e rate limit em `/auth/login` e `/auth/forgot-password`.
 
-### Membros
-- [ ] Mock: simular 409 RN14 (ex.: membros com flag de movimentação, ou derivar das movimentações quando existirem).
-- [ ] Decidir se usa `GET /members/{id}` (detalhe/edição) ou mantém dados da lista.
+### Membros (concluído em 2026-10-27)
+- [x] Contrato conferido no `MembroController`/`MembroRequest`/`MembroService` (seção 2, linhas 4–8); permissões conferidas (seção 4, item 6).
+- [x] Listagem `/membros`: tabela paginada, ordenação por coluna (`aria-sort`; "Ordenar por" no modo cartões), busca por nome com espera de 400 ms, filtro por status, estados vazio (com e sem filtro), carregando e erro. Busca, status, página e ordem na URL (`schemas/consultaMembros.js`, `hooks/useConsultaMembrosUrl.js`); valores inválidos na URL voltam ao padrão (sem 400).
+- [x] `sort` com desempate (`nome,asc`, `id,asc`) para paginação estável; axios com `paramsSerializer: { indexes: null }` (`sort=a&sort=b`).
+- [x] Filtro por status no servidor: backend ganhou `status` no `GET /members` (`feat(api)`; testes em `MembroServiceTest` e `MembroControllerSecurityTest`); o front envia `?status=` e o mock filtra igual (400 para status inválido).
+- [x] Usa `GET /members/{id}` em detalhes e edição (decidido: rotas próprias, dados sempre frescos).
+- [x] Cadastro/edição: um só `MembroForm` (`MembroEditor` em `/membros/novo` e `/membros/:id/editar`); validação espelhando o `MembroRequest`; máscaras de CPF, telefone e data (DD/MM/AAAA → AAAA-MM-DD); RN03/RN04: 409 no campo e-mail/CPF; 400 por mensagem do DTO.
+- [x] RN11: status obrigatório com os valores do enum e rótulos Ativo/Afastado/Visitante.
+- [x] Detalhes `/membros/:id` com todos os campos.
+- [x] Exclusão sempre pelo `ConfirmDialog` com o nome; RN14 (409) com explicação e atalho "Alterar status"; extensível para a Fase 2 (`useExclusaoMembro`, `schemas/exclusaoMembro.js`).
 - [x] Checar mensagens de `@Size` (nome, e-mail, telefone, endereço) no `mapearErroDoServidor` (feito na Fundação).
-- [ ] (Se backend ganhar) filtro por status.
+- [x] Mock: RN14 simulado, `sort` repetido, `?status=` filtrado como no real (mesma função para `/members` e `/lookup`); testes em `servidorSimulado.test.js`.
+- [x] Testes: `MembrosPage.test.jsx` (paginação, busca, filtro, ordenação, URL, vazio, carregando, botões por perfil, exclusão e RN14), `MembroFormPage.test.jsx` (validação, máscaras, 409 e-mail/CPF, 400, payload, edição, 404), `MembroDetalhesPage.test.jsx` (dados e botões por perfil, exclusão), `AppRoutes.test.jsx` (subpáginas por perfil) e puros (`consultaMembros`, `exclusaoMembro`, `ordenacao`, `pagina`, `datas`, `membroSchema`, `Table`, `navegacao`).
+- [x] Erros do servidor: no máximo uma mensagem por campo (a primeira), regra genérica de `criarMapeadorDeErros`; testes no mapeador, no formulário de membro e na redefinição de senha.
+- [ ] Rodar o roteiro manual com o backend real (`DEMO_DATA_ENABLED=true`).
 
 ### Eventos
 - [ ] Permissões (seção 4) + `permissoes.test.js` + `ROTAS` do mock.

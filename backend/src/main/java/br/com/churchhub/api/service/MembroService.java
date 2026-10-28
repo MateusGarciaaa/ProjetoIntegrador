@@ -35,12 +35,12 @@ public class MembroService {
     private final MembroMapper membroMapper;
     private final MovimentacaoFinanceiraRepository movimentacaoRepository;
 
-    public Page<MembroResponse> listar(String nome, Pageable pageable) {
-        Page<Membro> pagina = StringUtils.hasText(nome)
-                ? membroRepository.findByNomeContainingIgnoreCase(nome, pageable)
-                : membroRepository.findAll(pageable);
-
-        return pagina.map(membroMapper::toResponse);
+    /**
+     * Ficha completa, filtrada por nome e/ou status (ambos opcionais). Mantém a paginação e a
+     * ordenação pedidas pelo cliente; o mesmo filtro do {@link #buscarResumo}.
+     */
+    public Page<MembroResponse> listar(String nome, StatusMembro status, Pageable pageable) {
+        return buscarPorNomeEStatus(nome, status, pageable).map(membroMapper::toResponse);
     }
 
     /**

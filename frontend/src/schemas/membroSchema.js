@@ -1,7 +1,7 @@
 import { LIMITES_MEMBRO } from '../constants/membros';
 import { isStatusValido, STATUS_PADRAO } from '../constants/statusMembro';
 import { formatarCpf, isCpfValido, TAMANHO_CPF } from '../utils/cpf';
-import { hojeIso, isDataIsoValida } from '../utils/datas';
+import { dataBrParaIso, formatarData, formatarDataDigitada, hojeIso } from '../utils/datas';
 import { contarLetras, normalizarEspacos, somenteDigitos, vazioParaNull } from '../utils/strings';
 import { formatarTelefone } from '../utils/telefone';
 import { isEmailValido } from './email';
@@ -22,7 +22,10 @@ export const CAMPOS_MEMBRO = Object.freeze([
 
 const CAMPOS_DATA = ['dataNascimento', 'dataConversao', 'dataBatismo'];
 
-/** Valores do formulário (sempre texto) a partir de um MembroResponse, ou vazios. */
+/** Tamanho de uma data completa digitada (DD/MM/AAAA). */
+export const TAMANHO_DATA_MASCARADA = 10;
+
+/** Valores do formulário (sempre texto; datas em DD/MM/AAAA) a partir de um MembroResponse, ou vazios. */
 export function valoresIniciaisMembro(membro) {
   return {
     nome: membro?.nome ?? '',
@@ -31,9 +34,9 @@ export function valoresIniciaisMembro(membro) {
     email: membro?.email ?? '',
     telefone: formatarTelefone(membro?.telefone ?? ''),
     endereco: membro?.endereco ?? '',
-    dataNascimento: membro?.dataNascimento ?? '',
-    dataConversao: membro?.dataConversao ?? '',
-    dataBatismo: membro?.dataBatismo ?? '',
+    dataNascimento: formatarData(membro?.dataNascimento),
+    dataConversao: formatarData(membro?.dataConversao),
+    dataBatismo: formatarData(membro?.dataBatismo),
   };
 }
 
@@ -41,6 +44,7 @@ export function valoresIniciaisMembro(membro) {
 export function formatarCampoMembro(campo, valor) {
   if (campo === 'cpf') return formatarCpf(valor);
   if (campo === 'telefone') return formatarTelefone(valor);
+  if (CAMPOS_DATA.includes(campo)) return formatarDataDigitada(valor);
   return valor;
 }
 
@@ -81,21 +85,24 @@ function validarEndereco(valor) {
     : null;
 }
 
+/** As comparações usam o ISO (AAAA-MM-DD), em que a ordem do texto é a ordem das datas. */
 function validarDatas(valores, hoje) {
   const erros = {};
+  const iso = {};
   CAMPOS_DATA.forEach((campo) => {
-    const valor = valores[campo];
+    const valor = valores[campo].trim();
     if (!valor) return;
-    if (!isDataIsoValida(valor)) erros[campo] = 'Informe uma data válida.';
-    else if (valor > hoje) erros[campo] = 'A data não pode estar no futuro.';
+    iso[campo] = dataBrParaIso(valor);
+    if (!iso[campo]) erros[campo] = 'Informe uma data válida, no formato DD/MM/AAAA.';
+    else if (iso[campo] > hoje) erros[campo] = 'A data não pode estar no futuro.';
   });
 
-  const nascimento = erros.dataNascimento ? '' : valores.dataNascimento;
+  const nascimento = erros.dataNascimento ? null : iso.dataNascimento;
   if (nascimento) {
-    if (valores.dataConversao && !erros.dataConversao && valores.dataConversao < nascimento) {
+    if (iso.dataConversao && !erros.dataConversao && iso.dataConversao < nascimento) {
       erros.dataConversao = 'A conversão não pode ser antes do nascimento.';
     }
-    if (valores.dataBatismo && !erros.dataBatismo && valores.dataBatismo < nascimento) {
+    if (iso.dataBatismo && !erros.dataBatismo && iso.dataBatismo < nascimento) {
       erros.dataBatismo = 'O batismo não pode ser antes do nascimento.';
     }
   }
@@ -116,7 +123,7 @@ export function validarMembro(valores, { hoje = hojeIso() } = {}) {
   return Object.fromEntries(Object.entries(erros).filter(([, mensagem]) => mensagem));
 }
 
-/** Monta o MembroRequest: só dígitos em CPF/telefone, e-mail minúsculo e vazios como null. */
+/** Monta o MembroRequest: só dígitos em CPF/telefone, e-mail minúsculo, datas ISO e vazios como null. */
 export function montarPayloadMembro(valores) {
   return {
     nome: normalizarEspacos(valores.nome),
@@ -124,9 +131,9 @@ export function montarPayloadMembro(valores) {
     email: valores.email.replace(/\s/g, '').toLowerCase(),
     telefone: vazioParaNull(somenteDigitos(valores.telefone)),
     endereco: vazioParaNull(normalizarEspacos(valores.endereco)),
-    dataNascimento: vazioParaNull(valores.dataNascimento),
-    dataBatismo: vazioParaNull(valores.dataBatismo),
-    dataConversao: vazioParaNull(valores.dataConversao),
+    dataNascimento: dataBrParaIso(valores.dataNascimento),
+    dataBatismo: dataBrParaIso(valores.dataBatismo),
+    dataConversao: dataBrParaIso(valores.dataConversao),
     status: valores.status,
   };
 }

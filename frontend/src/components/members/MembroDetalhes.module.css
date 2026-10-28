@@ -1,0 +1,32 @@
+.grupos {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.lista {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+  gap: var(--space-4);
+  margin: 0;
+}
+
+.dado {
+  display: grid;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.rotulo {
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+  color: var(--color-ink-muted);
+}
+
+.valor {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.vazio {
+  color: var(--color-ink-subtle);
+}

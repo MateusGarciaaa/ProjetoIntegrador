@@ -4,6 +4,7 @@ import { lerUsuarioDoToken } from '../../utils/jwt';
 import { criarBanco } from './bancoEmMemoria';
 import { CONTAS_DEMO, SENHA_DEMO } from './contasDemo';
 import { esqueciSenha, redefinirSenha } from './handlers/auth';
+import { MENSAGEM_RN14 } from './handlers/membros';
 import { criarMembrosIniciais } from './dadosIniciais';
 import { criarServidorSimulado } from './servidorSimulado';
 
@@ -408,5 +409,89 @@ describe('membros simulados', () => {
       status: 404,
       data: { message: 'Membro não encontrado' },
     });
+  });
+});
+
+describe('membros simulados: contrato do módulo Membros', () => {
+  const MEMBROS = criarMembrosIniciais();
+  const porEmail = (email) => MEMBROS.find((m) => m.email === email);
+
+  it('RN14: membro com movimentação financeira recebe 409 com a mensagem do MembroService', () => {
+    const atender = novoServidor();
+    const authorization = entrar(atender, 'ADMINISTRADOR');
+    const ana = porEmail('ana.carvalho@email.com');
+    expect(atender({ metodo: 'delete', url: `/members/${ana.id}`, authorization })).toMatchObject({
+      status: 409,
+      data: { message: MENSAGEM_RN14, path: `/api/v1/members/${ana.id}` },
+    });
+    // Continua no cadastro; um membro sem movimentação é excluído normalmente.
+    expect(atender({ metodo: 'get', url: `/members/${ana.id}`, authorization }).status).toBe(200);
+    const bruna = porEmail('bruna.kessler@email.com');
+    expect(atender({ metodo: 'delete', url: `/members/${bruna.id}`, authorization }).status).toBe(204);
+  });
+
+  it('RN14 usa os mesmos 4 membros com dízimo do DadosDemonstracaoService', () => {
+    const { membros, membrosComMovimentacao } = criarBanco();
+    expect(membros.filter((m) => membrosComMovimentacao.has(m.id)).map((m) => m.nome)).toEqual([
+      'Ana Beatriz Carvalho',
+      'André Luiz Fontana',
+      'João Pedro Zanella',
+      'Mateus Oliveira Cruz',
+    ]);
+  });
+
+  it('aceita sort repetido: cada critério desempata o anterior', () => {
+    const atender = novoServidor();
+    const authorization = entrar(atender, 'PASTOR');
+    const params = { size: 50, sort: ['status,desc', 'nome,asc', 'id,asc'] };
+    const { data } = atender({ metodo: 'get', url: '/members', authorization, params });
+
+    const ordemStatus = data.content.map((m) => m.status);
+    expect(ordemStatus.indexOf('VISITANTE')).toBe(0);
+    expect(ordemStatus.lastIndexOf('AFASTADO')).toBe(ordemStatus.length - 1);
+    const visitantes = data.content.filter((m) => m.status === 'VISITANTE').map((m) => m.nome);
+    expect(visitantes).toEqual([...visitantes].sort((a, b) => a.localeCompare(b, 'pt-BR')));
+  });
+
+  it('sort repetido com um campo inexistente gera 400', () => {
+    const atender = novoServidor();
+    const authorization = entrar(atender, 'PASTOR');
+    const params = { sort: ['nome,asc', 'idade,desc'] };
+    expect(atender({ metodo: 'get', url: '/members', authorization, params })).toMatchObject({
+      status: 400,
+      data: { message: "Campo de ordenação inválido: 'idade'." },
+    });
+  });
+
+  it('GET /members filtra por status (com ou sem nome) e mantém a ordenação do cliente', () => {
+    const atender = novoServidor();
+    const authorization = entrar(atender, 'SECRETARIO');
+    const params = { status: 'VISITANTE', size: 2, sort: 'nome,desc' };
+    const { data } = atender({ metodo: 'get', url: '/members', authorization, params });
+    expect(data.totalElements).toBe(MEMBROS.filter((m) => m.status === 'VISITANTE').length);
+    expect(data.content.map((m) => m.nome)).toEqual(['Rafael Siqueira', 'Isadora Pacheco']);
+    expect(data.content.every((m) => Object.keys(m).includes('cpf'))).toBe(true);
+
+    const comNome = atender({ metodo: 'get', url: '/members', authorization, params: { nome: 'lu', status: 'AFASTADO' } });
+    expect(comNome.data.content.map((m) => m.nome)).toEqual(['Lucas Moraes Teixeira']);
+  });
+
+  it('GET /members com status inválido gera 400 antes do @PreAuthorize', () => {
+    const atender = novoServidor();
+    const authorization = entrar(atender, 'TESOUREIRO');
+    expect(atender({ metodo: 'get', url: '/members', authorization, params: { status: 'INATIVO' } })).toMatchObject({
+      status: 400,
+      data: { message: "Valor inválido para o parâmetro 'status'.", path: '/api/v1/members' },
+    });
+  });
+
+  it('GET /members/{id}: ficha completa; 404 inexistente; 400 se não for UUID', () => {
+    const atender = novoServidor();
+    const authorization = entrar(atender, 'PASTOR');
+    const { status, data } = atender({ metodo: 'get', url: `/members/${MEMBROS[2].id}`, authorization });
+    expect(status).toBe(200);
+    expect(data).toEqual(MEMBROS[2]);
+    expect(atender({ metodo: 'get', url: '/members/00000000-0000-4000-8000-999999999999', authorization }).status).toBe(404);
+    expect(atender({ metodo: 'get', url: '/members/abc', authorization }).status).toBe(400);
   });
 });

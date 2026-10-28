@@ -18,16 +18,29 @@ export function itemMenuDoCaminho(caminho) {
   return ITENS_MENU.find((item) => caminho === item.caminho || caminho.startsWith(`${item.caminho}/`)) ?? null;
 }
 
+/** Rótulo do último nível da trilha em subpáginas: /area/novo, /area/:id e /area/:id/editar. */
+function rotuloDaSubpagina(caminho, item) {
+  if (caminho === item.caminho) return null;
+  if (caminho.endsWith('/novo')) return 'Novo';
+  if (caminho.endsWith('/editar')) return 'Editar';
+  return 'Detalhes';
+}
+
 /**
- * Trilha "Início › Área" do caminho atual. Na própria rota inicial do perfil (ou num
- * caminho fora do menu, como o 404) não há trilha.
+ * Trilha "Início › Área [› Subpágina]" do caminho atual. Na própria rota inicial do perfil
+ * (ou num caminho fora do menu, como o 404) não há trilha; quando a área já é o início do
+ * perfil, o "Início" não se repete.
  */
 export function trilhaDoCaminho(caminho, perfil) {
   const item = itemMenuDoCaminho(caminho);
+  if (!item) return [];
   const inicio = rotaInicialDoPerfil(perfil);
-  if (!item || caminho === inicio) return [];
+  const subpagina = rotuloDaSubpagina(caminho, item);
+  if (!subpagina && caminho === inicio) return [];
+
   return [
-    { rotulo: 'Início', caminho: inicio },
+    ...(item.caminho === inicio ? [] : [{ rotulo: 'Início', caminho: inicio }]),
     { rotulo: item.rotulo, caminho: item.caminho },
+    ...(subpagina ? [{ rotulo: subpagina }] : []),
   ];
 }

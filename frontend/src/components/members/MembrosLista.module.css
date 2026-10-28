@@ -11,3 +11,13 @@
 .semValor {
   color: var(--color-ink-subtle);
 }
+
+.nome {
+  color: inherit;
+  text-decoration: none;
+}
+
+.nome:hover {
+  color: var(--color-primary);
+  text-decoration: underline;
+}

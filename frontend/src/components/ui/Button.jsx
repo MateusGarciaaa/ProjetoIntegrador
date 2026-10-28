@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 import { cx } from '../../utils/classNames';
 import { Icon } from './Icon';
 import { Spinner } from './Spinner';
@@ -38,6 +39,16 @@ export function Button({
       {carregando ? <Spinner /> : icone && <Icon nome={icone} tamanho={18} />}
       {children}
     </button>
+  );
+}
+
+/** Navegação com cara de botão (ex.: "Novo membro", "Editar"): é um link, então abre em nova aba e entra no histórico. */
+export function ButtonLink({ variante = 'primario', pequeno = false, icone, className, children, ...propsDoLink }) {
+  return (
+    <Link className={cx(styles.botao, styles[variante], pequeno && styles.pequeno, className)} {...propsDoLink}>
+      {icone && <Icon nome={icone} tamanho={18} />}
+      {children}
+    </Link>
   );
 }
 

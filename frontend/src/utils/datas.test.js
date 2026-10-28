@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { dataBrParaIso, formatarData, formatarDataHora, formatarHorario, hojeIso, isDataIsoValida } from './datas';
+import { dataBrParaIso, formatarData, formatarDataDigitada, formatarDataHora, formatarHorario, hojeIso, isDataIsoValida } from './datas';
 
 describe('formatarData (LocalDate)', () => {
   afterEach(() => vi.unstubAllEnvs());
@@ -62,5 +62,22 @@ describe('hojeIso e isDataIsoValida', () => {
   it('valida dias reais (inclusive bissexto)', () => {
     expect(isDataIsoValida('2028-02-29')).toBe(true);
     expect(isDataIsoValida('2026-02-29')).toBe(false);
+  });
+});
+
+describe('formatarDataDigitada (máscara DD/MM/AAAA)', () => {
+  it('insere as barras enquanto a pessoa digita', () => {
+    expect(formatarDataDigitada('0')).toBe('0');
+    expect(formatarDataDigitada('05')).toBe('05');
+    expect(formatarDataDigitada('050')).toBe('05/0');
+    expect(formatarDataDigitada('0503')).toBe('05/03');
+    expect(formatarDataDigitada('05032')).toBe('05/03/2');
+    expect(formatarDataDigitada('05032026')).toBe('05/03/2026');
+  });
+
+  it('ignora o que não é dígito e corta em 8 dígitos', () => {
+    expect(formatarDataDigitada('05/03/2026999')).toBe('05/03/2026');
+    expect(formatarDataDigitada('5a-3')).toBe('53');
+    expect(formatarDataDigitada('')).toBe('');
   });
 });

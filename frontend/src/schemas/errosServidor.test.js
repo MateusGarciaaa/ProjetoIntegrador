@@ -20,6 +20,16 @@ describe('criarMapeadorDeErros', () => {
     });
   });
 
+  it('400: várias mensagens do mesmo campo → só a primeira aparece; as outras são descartadas', () => {
+    const mapearCpf = criarMapeadorDeErros({
+      campoPorMensagem: { 'O CPF é obrigatório': 'cpf', 'O CPF deve conter 11 dígitos numéricos': 'cpf', 'E-mail inválido': 'email' },
+    });
+    expect(mapearCpf(erro(400, 'O CPF é obrigatório, E-mail inválido, O CPF deve conter 11 dígitos numéricos'))).toEqual({
+      camposErro: { cpf: 'O CPF é obrigatório', email: 'E-mail inválido' },
+      erroGeral: null,
+    });
+  });
+
   it('400: mensagens não reconhecidas vão para o topo, com o separador original', () => {
     expect(mapear(erro(400, 'O CPF é obrigatório, Regra A, Regra B'))).toEqual({
       camposErro: { cpf: 'O CPF é obrigatório' },

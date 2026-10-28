@@ -8,15 +8,24 @@ function inteiroNaoNegativo(valor, padrao) {
   return Number.isInteger(numero) && numero >= 0 ? numero : padrao;
 }
 
-/** Lê page/size/sort como o PageableHandlerMethodArgumentResolver: size limitado a 2000, sem erro. */
+function lerCriterio(texto) {
+  const [campo, direcao = 'asc'] = String(texto).split(',');
+  return { campo, direcao: direcao.toLowerCase() === 'desc' ? 'DESC' : 'ASC' };
+}
+
+/**
+ * Lê page/size/sort como o PageableHandlerMethodArgumentResolver: size limitado a 2000, sem erro;
+ * sort pode se repetir (sort=a&sort=b) e cada critério desempata o anterior.
+ * campo/direcao repetem o 1º critério, para quem só usa um.
+ */
 export function lerPageable(params, ordenacaoPadrao) {
-  const primeira = Array.isArray(params.sort) ? params.sort[0] : params.sort;
-  const [campo, direcao = 'asc'] = String(primeira ?? ordenacaoPadrao).split(',');
+  const textos = [params.sort ?? ordenacaoPadrao].flat();
+  const criterios = textos.map(lerCriterio);
   return {
     pagina: inteiroNaoNegativo(params.page, 0),
     tamanho: Math.min(Math.max(inteiroNaoNegativo(params.size, TAMANHO_PADRAO), 1), TAMANHO_MAXIMO_PAGINA),
-    campo,
-    direcao: direcao.toLowerCase() === 'desc' ? 'DESC' : 'ASC',
+    criterios,
+    ...criterios[0],
   };
 }
 
