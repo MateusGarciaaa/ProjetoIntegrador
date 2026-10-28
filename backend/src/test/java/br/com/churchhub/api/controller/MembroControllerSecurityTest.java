@@ -10,11 +10,14 @@ import br.com.churchhub.api.service.MembroService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
@@ -22,8 +25,11 @@ import org.springframework.test.web.servlet.request.RequestPostProcessor;
 import java.util.List;
 import java.util.UUID;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
@@ -67,9 +73,51 @@ class MembroControllerSecurityTest {
     @ParameterizedTest
     @ValueSource(strings = {"ADMINISTRADOR", "PASTOR", "SECRETARIO"})
     void gestoresDoRolLeemAFichaCompleta(String perfil) throws Exception {
-        when(membroService.listar(any(), any())).thenReturn(Page.empty());
+        when(membroService.listar(any(), any(), any())).thenReturn(Page.empty());
 
         mockMvc.perform(get(LISTA).with(logadoComo(perfil))).andExpect(status().isOk());
+    }
+
+    // ---------- filtro por status na listagem completa ----------
+
+    @Test
+    void listaRepassaNomeStatusEOrdenacaoDoCliente() throws Exception {
+        when(membroService.listar(any(), any(), any())).thenReturn(Page.empty());
+
+        mockMvc.perform(get(LISTA)
+                        .param("nome", "an")
+                        .param("status", "AFASTADO")
+                        .param("page", "1")
+                        .param("size", "10")
+                        .param("sort", "email,desc")
+                        .param("sort", "id,asc")
+                        .with(logadoComo("SECRETARIO")))
+                .andExpect(status().isOk());
+
+        ArgumentCaptor<Pageable> pageable = ArgumentCaptor.forClass(Pageable.class);
+        verify(membroService).listar(eq("an"), eq(StatusMembro.AFASTADO), pageable.capture());
+        assertThat(pageable.getValue().getPageNumber()).isEqualTo(1);
+        assertThat(pageable.getValue().getPageSize()).isEqualTo(10);
+        assertThat(pageable.getValue().getSort()).isEqualTo(Sort.by(Sort.Order.desc("email"), Sort.Order.asc("id")));
+    }
+
+    @Test
+    void listaSemStatusRepassaNulo() throws Exception {
+        when(membroService.listar(isNull(), isNull(), any())).thenReturn(Page.empty());
+
+        mockMvc.perform(get(LISTA).with(logadoComo("PASTOR"))).andExpect(status().isOk());
+
+        verify(membroService).listar(isNull(), isNull(), any());
+    }
+
+    @Test
+    void listaComStatusInvalidoRecebe400() throws Exception {
+        mockMvc.perform(get(LISTA).param("status", "INATIVO").with(logadoComo("ADMINISTRADOR")))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400))
+                .andExpect(jsonPath("$.message").value("Valor inválido para o parâmetro 'status'."))
+                .andExpect(jsonPath("$.path").value(LISTA));
+        verifyNoInteractions(membroService);
     }
 
     @ParameterizedTest

@@ -73,6 +73,55 @@ class MembroServiceTest {
         assertThatThrownBy(() -> membroService.excluir(id)).isInstanceOf(ResourceNotFoundException.class);
     }
 
+    // ---------- listagem completa ----------
+
+    @Test
+    void listarFiltraPorStatusMantendoPaginacaoEOrdenacaoDoCliente() {
+        Pageable pedida = PageRequest.of(2, 10, Sort.by(Sort.Order.desc("email"), Sort.Order.asc("id")));
+        when(membroRepository.findByStatus(StatusMembro.VISITANTE, pedida)).thenReturn(Page.empty());
+
+        membroService.listar(null, StatusMembro.VISITANTE, pedida);
+
+        verify(membroRepository).findByStatus(StatusMembro.VISITANTE, pedida);
+    }
+
+    @Test
+    void listarFiltraPorNomeEStatus() {
+        Pageable pedida = PageRequest.of(0, 10, Sort.by("nome"));
+        when(membroRepository.findByNomeContainingIgnoreCaseAndStatus("an", StatusMembro.ATIVO, pedida))
+                .thenReturn(Page.empty());
+
+        membroService.listar("an", StatusMembro.ATIVO, pedida);
+
+        verify(membroRepository).findByNomeContainingIgnoreCaseAndStatus("an", StatusMembro.ATIVO, pedida);
+    }
+
+    @Test
+    void listarSoPorNomeQuandoStatusEhNulo() {
+        Pageable pedida = PageRequest.of(0, 10);
+        when(membroRepository.findByNomeContainingIgnoreCase("an", pedida)).thenReturn(Page.empty());
+
+        membroService.listar("an", null, pedida);
+
+        verify(membroRepository).findByNomeContainingIgnoreCase("an", pedida);
+    }
+
+    @Test
+    void listarSemFiltrosDevolveAFichaCompletaNaPaginaPedida() {
+        Pageable pedida = PageRequest.of(1, 500, Sort.by("cpf"));
+        Membro membro = new Membro();
+        when(membroRepository.findAll(pedida)).thenReturn(new PageImpl<>(List.of(membro), pedida, 501));
+        when(membroMapper.toResponse(membro)).thenReturn(null);
+
+        Page<?> pagina = membroService.listar("  ", null, pedida);
+
+        // Ao contrário do lookup, não limita o tamanho nem troca a ordenação.
+        verify(membroRepository).findAll(pedida);
+        verify(membroMapper).toResponse(membro);
+        verify(membroMapper, never()).toResumo(any());
+        assertThat(pagina.getTotalElements()).isEqualTo(501);
+    }
+
     // ---------- busca enxuta (lookup) ----------
 
     private Pageable paginaPedida() {
