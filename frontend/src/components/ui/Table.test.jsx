@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
-import { render, screen, within } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { fireEvent, render, screen, within } from '@testing-library/react';
+import { describe, expect, it, vi } from 'vitest';
 import '../../test-utils/componentes';
 import { Table } from './Table';
 
@@ -35,6 +35,27 @@ describe('<Table>', () => {
     expect(within(tabela).getAllByRole('columnheader')).toHaveLength(4);
     // Uma vez na tabela e outra no cartão (a alternância entre os dois é só por CSS).
     expect(screen.getAllByRole('button', { name: 'Editar Ana' })).toHaveLength(2);
+  });
+
+  it('colunas ordenáveis viram botões e informam a ordenação no aria-sort', () => {
+    const onOrdenar = vi.fn();
+    const colunas = COLUNAS.map((coluna) => ({ ...coluna, ordenavel: coluna.chave !== 'status' }));
+    render(
+      <Table legenda="Pessoas" colunas={colunas} itens={ITENS} ordenacao={{ campo: 'email', direcao: 'desc' }} onOrdenar={onOrdenar} />,
+    );
+    const [nome, email, status] = within(screen.getByRole('table', { name: 'Pessoas' })).getAllByRole('columnheader');
+    expect(nome.getAttribute('aria-sort')).toBe('none');
+    expect(email.getAttribute('aria-sort')).toBe('descending');
+    expect(status.hasAttribute('aria-sort')).toBe(false);
+    expect(within(status).queryByRole('button')).toBeNull();
+
+    fireEvent.click(within(nome).getByRole('button', { name: 'Nome' }));
+    expect(onOrdenar).toHaveBeenCalledWith('nome');
+  });
+
+  it('sem onOrdenar, nenhum cabeçalho vira botão', () => {
+    render(<Table legenda="Pessoas" colunas={COLUNAS.map((c) => ({ ...c, ordenavel: true }))} itens={ITENS} />);
+    expect(screen.queryByRole('button')).toBeNull();
   });
 
   it('também gera a lista de cartões para telas pequenas', () => {

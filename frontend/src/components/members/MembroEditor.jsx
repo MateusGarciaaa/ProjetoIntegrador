@@ -3,19 +3,18 @@ import { useMembroForm } from '../../hooks/useMembroForm';
 import { mapearErroDoServidor } from '../../schemas/membroSchema';
 import { TIPOS_ERRO } from '../../services/http/apiError';
 import { membrosService } from '../../services/members/membrosService';
-import { hojeIso } from '../../utils/datas';
 import { Button } from '../ui/Button';
-import { Modal } from '../ui/Modal';
 import { MembroForm } from './MembroForm';
+import styles from './MembroEditor.module.css';
 
 /**
- * Cadastro (membro ausente) ou edição (membro presente).
+ * Cadastro (membro ausente) ou edição (membro presente) com o mesmo MembroForm.
  * onSalvo(membroSalvo) no sucesso; onMembroRemovido() se o membro sumiu (404) durante a edição.
+ * 409 de e-mail/CPF (RN03/RN04) e 400 do @Valid voltam para o campo correspondente.
  */
-export function MembroFormModal({ membro, onFechar, onSalvo, onMembroRemovido }) {
+export function MembroEditor({ membro, onSalvo, onCancelar, onMembroRemovido }) {
   const editando = Boolean(membro);
   const idFormulario = useId();
-  const [hoje] = useState(hojeIso);
   const { valores, erros, alterar, sairDoCampo, prepararEnvio, aplicarErrosDoServidor } = useMembroForm(membro);
   const [enviando, setEnviando] = useState(false);
   const [erroGeral, setErroGeral] = useState(null);
@@ -55,33 +54,23 @@ export function MembroFormModal({ membro, onFechar, onSalvo, onMembroRemovido })
   }
 
   return (
-    <Modal
-      aberto
-      titulo={editando ? 'Editar membro' : 'Novo membro'}
-      descricao={editando ? membro.nome : 'Preencha os dados para incluir a pessoa no cadastro.'}
-      onFechar={onFechar}
-      podeFechar={!enviando}
-      rodape={
-        <>
-          <Button variante="secundario" onClick={onFechar} disabled={enviando}>
-            Cancelar
-          </Button>
-          <Button type="submit" form={idFormulario} carregando={enviando}>
-            {editando ? 'Salvar alterações' : 'Cadastrar membro'}
-          </Button>
-        </>
-      }
+    <MembroForm
+      idFormulario={idFormulario}
+      valores={valores}
+      erros={erros}
+      erroGeral={erroGeral}
+      onAlterar={alterar}
+      onSairDoCampo={sairDoCampo}
+      onEnviar={enviar}
     >
-      <MembroForm
-        idFormulario={idFormulario}
-        valores={valores}
-        erros={erros}
-        erroGeral={erroGeral}
-        hoje={hoje}
-        onAlterar={alterar}
-        onSairDoCampo={sairDoCampo}
-        onEnviar={enviar}
-      />
-    </Modal>
+      <div className={styles.acoes}>
+        <Button variante="secundario" onClick={onCancelar} disabled={enviando}>
+          Cancelar
+        </Button>
+        <Button type="submit" carregando={enviando}>
+          {editando ? 'Salvar alterações' : 'Cadastrar membro'}
+        </Button>
+      </div>
+    </MembroForm>
   );
 }

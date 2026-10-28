@@ -75,19 +75,42 @@ function comparar(a, b, campo) {
   return String(a[campo]).localeCompare(String(b[campo]), 'pt-BR');
 }
 
+/** Ordena por cada critério do sort, na ordem; o seguinte só desempata o anterior. */
+function compararPorCriterios(criterios) {
+  return (a, b) => {
+    for (const { campo, direcao } of criterios) {
+      const resultado = comparar(a, b, campo) * (direcao === 'DESC' ? -1 : 1);
+      if (resultado !== 0) return resultado;
+    }
+    return 0;
+  };
+}
+
+/** ?status= fora do enum → MethodArgumentTypeMismatchException → 400 (antes do @PreAuthorize). */
+function validarParametroStatus(params) {
+  const { status } = params;
+  if (status == null || status === '' || Object.values(STATUS_MEMBRO).includes(status)) return null;
+  return "Valor inválido para o parâmetro 'status'.";
+}
+
+/**
+ * MembroService.buscarPorNomeEStatus, usado pelo GET /members e pelo /lookup: nome (StringUtils.hasText
+ * + ContainingIgnoreCase, com o texto como veio) e status, ambos opcionais.
+ */
+function filtrarPorNomeEStatus(membros, params) {
+  const nome = typeof params.nome === 'string' && params.nome.trim() ? params.nome.toLowerCase() : null;
+  const status = params.status || null;
+  return membros.filter((m) => (!nome || m.nome.toLowerCase().includes(nome)) && (!status || m.status === status));
+}
+
+/** GET /members: filtros nome e status, com a paginação e a ordenação pedidas pelo cliente. */
 export function listar({ banco, params, caminho }) {
-  const { pagina, tamanho, campo, direcao } = lerPageable(params, 'nome');
+  const { pagina, tamanho, criterios } = lerPageable(params, 'nome');
   // Campo inexistente gera PropertyReferenceException, tratada como 400 pelo GlobalExceptionHandler.
-  if (!CAMPOS_ORDENAVEIS.includes(campo)) return erroApi(400, `Campo de ordenação inválido: '${campo}'.`, caminho);
+  const invalido = criterios.find(({ campo }) => !CAMPOS_ORDENAVEIS.includes(campo));
+  if (invalido) return erroApi(400, `Campo de ordenação inválido: '${invalido.campo}'.`, caminho);
 
-  const fator = direcao === 'DESC' ? -1 : 1;
-  const nome = typeof params.nome === 'string' ? params.nome : '';
-
-  // StringUtils.hasText + findByNomeContainingIgnoreCase
-  const filtrados = nome.trim()
-    ? banco.membros.filter((m) => m.nome.toLowerCase().includes(nome.toLowerCase()))
-    : banco.membros;
-  const ordenados = [...filtrados].sort((a, b) => comparar(a, b, campo) * fator);
+  const ordenados = filtrarPorNomeEStatus(banco.membros, params).sort(compararPorCriterios(criterios));
   return ok(200, paginaSpring(ordenados.map(copiar), { pagina, tamanho }));
 }
 
@@ -113,22 +136,20 @@ export function atualizar({ banco, id, corpo, caminho }) {
   return ok(200, copiar(banco.membros[indice]));
 }
 
+/** Mensagem exata do MembroService.excluir (RN14, versão MVP). */
+export const MENSAGEM_RN14 =
+  'Este membro possui movimentações financeiras vinculadas e não pode ser excluído. Altere o status para Afastado.';
+
 export function excluir({ banco, id, caminho }) {
   const indice = banco.membros.findIndex((m) => m.id === id);
   if (indice < 0) return erroApi(404, 'Membro não encontrado', caminho);
+  if (banco.membrosComMovimentacao.has(id)) return erroApi(409, MENSAGEM_RN14, caminho);
   banco.membros.splice(indice, 1);
   return ok(204);
 }
 
 /** MembroService.TAMANHO_MAXIMO_PAGINA_RESUMO. */
 const TAMANHO_MAXIMO_RESUMO = 20;
-
-/** ?status= fora do enum → MethodArgumentTypeMismatchException → 400 (antes do @PreAuthorize). */
-function validarParametrosResumo(params) {
-  const { status } = params;
-  if (status == null || status === '' || Object.values(STATUS_MEMBRO).includes(status)) return null;
-  return "Valor inválido para o parâmetro 'status'.";
-}
 
 /** Ordem do MembroService.ORDENACAO_RESUMO: nome, com o id desempatando. */
 function compararResumo(a, b) {
@@ -141,13 +162,8 @@ function compararResumo(a, b) {
  */
 export function buscarResumo({ banco, params }) {
   const { pagina, tamanho } = lerPageable(params, 'nome');
-  const nome = typeof params.nome === 'string' ? params.nome.trim().toLowerCase() : '';
-  const status = params.status || null;
-
-  const filtrados = banco.membros.filter(
-    (m) => (!nome || m.nome.toLowerCase().includes(nome)) && (!status || m.status === status),
-  );
-  const resumos = [...filtrados].sort(compararResumo).map(({ id, nome: nomeMembro, status: situacao }) => ({
+  const resumos = filtrarPorNomeEStatus(banco.membros, params)
+    .sort(compararResumo).map(({ id, nome: nomeMembro, status: situacao }) => ({
     id,
     nome: nomeMembro,
     status: situacao,
@@ -163,13 +179,19 @@ const CORPO_MEMBRO = Object.freeze({ ilegivel: corpoIlegivel, validar: validarMe
  * /members/lookup vem antes de /members/{id}: senão "lookup" seria lido como id (400 de UUID).
  */
 export const ROTAS_MEMBROS = Object.freeze([
-  { metodo: 'get', padrao: /^\/members$/, perfis: [ADMINISTRADOR, PASTOR, SECRETARIO], executar: listar },
+  {
+    metodo: 'get',
+    padrao: /^\/members$/,
+    perfis: [ADMINISTRADOR, PASTOR, SECRETARIO],
+    parametros: validarParametroStatus,
+    executar: listar,
+  },
   { metodo: 'post', padrao: /^\/members$/, perfis: [ADMINISTRADOR, SECRETARIO], corpo: CORPO_MEMBRO, executar: cadastrar },
   {
     metodo: 'get',
     padrao: /^\/members\/lookup$/,
     perfis: [ADMINISTRADOR, PASTOR, SECRETARIO, TESOUREIRO],
-    parametros: validarParametrosResumo,
+    parametros: validarParametroStatus,
     executar: buscarResumo,
   },
   { metodo: 'get', padrao: /^\/members\/([^/]+)$/, perfis: [ADMINISTRADOR, PASTOR, SECRETARIO], executar: buscarPorId },

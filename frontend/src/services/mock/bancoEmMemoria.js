@@ -1,11 +1,14 @@
 import { CONTAS_DEMO, SENHA_DEMO } from './contasDemo';
-import { criarMembrosIniciais } from './dadosIniciais';
+import { criarMembrosIniciais, idsComMovimentacao } from './dadosIniciais';
 
 /** Estado do backend simulado. Recarregar a página volta aos dados iniciais. */
 export function criarBanco() {
+  const membros = criarMembrosIniciais();
   return {
     usuarios: CONTAS_DEMO.map((conta) => ({ ...conta, senha: SENHA_DEMO, ativo: true })),
-    membros: criarMembrosIniciais(),
+    membros,
+    // Ids de membros com movimentação financeira (RN14). Vira consulta às movimentações quando o mock tiver o Financeiro.
+    membrosComMovimentacao: idsComMovimentacao(membros),
     tokensRedefinicao: [],
   };
 }

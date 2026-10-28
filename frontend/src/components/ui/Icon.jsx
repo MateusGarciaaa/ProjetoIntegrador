@@ -69,6 +69,10 @@ const CAMINHOS = {
   ),
   anterior: <path d="M15 5l-7 7 7 7" />,
   proxima: <path d="M9 5l7 7-7 7" />,
+  ordenar: <path d="M8 9l4-4 4 4M8 15l4 4 4-4" />,
+  crescente: <path d="M7 14l5-5 5 5" />,
+  decrescente: <path d="M7 10l5 5 5-5" />,
+  voltar: <path d="M19 12H5M11 6l-6 6 6 6" />,
   alerta: (
     <>
       <path d="M12 3.5L2.5 20h19L12 3.5z" />

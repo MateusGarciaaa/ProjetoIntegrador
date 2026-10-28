@@ -45,13 +45,13 @@ Todas com a senha **`demo123`**. Existem no modo simulado e também no backend r
 
 | Perfil | E-mail | O que vê em Membros |
 |---|---|---|
-| Administrador | `administrador@churchhub.local` | Lista, cadastra, edita e exclui |
-| Secretário | `secretario@churchhub.local` | Lista, cadastra e edita |
-| Pastor | `pastor@churchhub.local` | Só lista |
+| Administrador | `administrador@churchhub.local` | Lista, vê detalhes, cadastra, edita e exclui |
+| Secretário | `secretario@churchhub.local` | Lista, vê detalhes, cadastra e edita |
+| Pastor | `pastor@churchhub.local` | Só consulta (lista e detalhes) |
 | Tesoureiro | `tesoureiro@churchhub.local` | Sem acesso à ficha (só a busca enxuta `/members/lookup`, para o Financeiro) |
 | Membro | `membro@churchhub.local` | Página "Sem acesso" |
 
-São 25 membros de exemplo, todos com CPF de dígito verificador válido.
+São 25 membros de exemplo, todos com CPF de dígito verificador válido. Ana Beatriz Carvalho, André Luiz Fontana, João Pedro Zanella e Mateus Oliveira Cruz têm dízimo lançado (no real, pelo `DadosDemonstracaoService`; no simulado, marcados no banco em memória): excluí-los dá o 409 da RN14.
 
 ## Contrato consumido
 
@@ -67,14 +67,16 @@ Extraído de `AuthController`, `MembroController`, DTOs, `JwtService`, `Security
 
 | Método e rota | Perfis (`@PreAuthorize`) | Resposta |
 |---|---|---|
-| `GET /members?nome=&page=&size=&sort=` | ADMINISTRADOR, PASTOR, SECRETARIO | 200, `Page<MembroResponse>` |
+| `GET /members?nome=&status=&page=&size=&sort=` | ADMINISTRADOR, PASTOR, SECRETARIO | 200, `Page<MembroResponse>`; 400 se `status` for inválido |
 | `GET /members/lookup?nome=&status=&page=&size=` | ADMINISTRADOR, PASTOR, SECRETARIO, TESOUREIRO | 200, `Page<{ id, nome, status }>` (máx. 20 por página, sempre por nome) |
 | `GET /members/{id}` | ADMINISTRADOR, PASTOR, SECRETARIO | 200 ou 404 |
 | `POST /members` | ADMINISTRADOR, SECRETARIO | 201, 400 ou 409 |
 | `PUT /members/{id}` | ADMINISTRADOR, SECRETARIO | 200, 400, 404 ou 409 |
-| `DELETE /members/{id}` | ADMINISTRADOR | 204 ou 404 |
+| `DELETE /members/{id}` | ADMINISTRADOR | 204, 404 ou 409 (RN14: tem movimentação financeira) |
 
-A listagem usa `page` a partir de 0, `size=10` e `sort=nome,asc` (padrão do controller: `size=20`, `sort=nome`). A busca é **só por nome**, contendo o texto e sem diferenciar maiúsculas (`findByNomeContainingIgnoreCase`); diferencia acentos.
+A listagem usa `page` a partir de 0, `size=10` e `sort` repetido com desempate (ex.: `sort=status,desc&sort=nome,asc&sort=id,asc`; o axios envia chaves repetidas, como o Spring lê). A busca é **só por nome**, contendo o texto e sem diferenciar maiúsculas (`findByNomeContainingIgnoreCase`); diferencia acentos. O filtro por status vai para o servidor (`?status=ATIVO|AFASTADO|VISITANTE`).
+
+**Telas de membros.** `/membros` (lista: busca com espera de 400 ms, filtro por status, ordenação pelo cabeçalho — ou "Ordenar por" no celular —, paginação; tudo refletido na URL, ex.: `?busca=ana&status=ATIVO&pagina=2&ordem=email,desc`), `/membros/:id` (detalhes, via `GET /members/{id}`), `/membros/novo` e `/membros/:id/editar` (o mesmo formulário; a edição sempre relê o membro). Datas são digitadas como DD/MM/AAAA e enviadas como AAAA-MM-DD. Exclusão sempre pelo `ConfirmDialog` com o nome do membro; o 409 da RN14 vira uma explicação com o atalho "Alterar status" (a etapa de confirmação administrativa da Fase 2 entra em `hooks/useExclusaoMembro.js`).
 
 **Campos** (`MembroRequest`/`MembroResponse`, mesmos nomes em todo o frontend): `id`, `nome`, `cpf`, `email`, `telefone`, `endereco`, `dataNascimento`, `dataBatismo`, `dataConversao` (`AAAA-MM-DD`) e `status` (`ATIVO`, `AFASTADO`, `VISITANTE`; nulo vira `ATIVO`). Obrigatórios: `nome`, `cpf` (`\d{11}`) e `email`. Colunas: nome 150, cpf 11, email 150, telefone 20, endereço 255. CPF e e-mail são únicos (o e-mail é checado primeiro). O frontend envia CPF e telefone só com dígitos, e-mail em minúsculas e campos vazios como `null`.
 
@@ -118,18 +120,18 @@ src/
     mock/        backend simulado (núcleo, handlers/<módulo> com as próprias rotas, página DIRECT, dados, JWT falso)
   routes/        rotas (páginas com React.lazy) e guards (visitante, autenticado, permissão)
   layouts/       tela dividida do login e estrutura autenticada (menu por perfil, breadcrumb)
-  pages/         Login, Esqueci a senha, Redefinir senha, Membros, Em construção, Sem acesso, 404
+  pages/         Login, Esqueci a senha, Redefinir senha, Membros (lista, detalhes, formulário), Em construção, Sem acesso, 404
   components/    ui (genéricos: Button, campos, Card, Table, Modal, ConfirmDialog, Pagination, Breadcrumb...), members, auth, brand
   styles/        tokens (cores, tipos, espaçamentos) e estilos globais
   utils/         CPF, telefone, datas, moeda, JWT, strings
-  test-utils/    apoio usado só pelos testes (tokens, render com perfil, transporte HTTP falso)
+  test-utils/    apoio usado só pelos testes (tokens, render com perfil, app inteiro numa rota, transporte HTTP falso ou pelo servidor simulado)
 ```
 
 ## Testes
 
-`npm test` roda 281 testes em 22 arquivos: login (sucesso, credenciais erradas, envio duplo, logout), esqueci a senha (mensagem neutra em qualquer desfecho), redefinição (token inválido, regras da senha), validação e máscara de CPF, máscara de telefone, schema do formulário de membro, mapeamento de erros 400/409 para campos, matriz de permissões de todos os controllers, menu, breadcrumb e rota inicial por perfil, formatadores de data/hora e moeda, leitura do perfil a partir do JWT, sessão e expiração, normalização e montagem da página, conversão de erros da API, cliente HTTP (Bearer, 401, 403, 400, 409, tempo esgotado e rede), redirecionamento seguro após login e fidelidade do backend simulado ao real.
+`npm test` roda 343 testes em 28 arquivos: telas de membros (paginação, busca com espera, filtro por status, ordenação, estado na URL, vazio e carregando; formulário com validação, máscaras e 409 de e-mail/CPF no campo; detalhes; exclusão e RN14; botões por perfil), login (sucesso, credenciais erradas, envio duplo, logout), esqueci a senha (mensagem neutra em qualquer desfecho), redefinição (token inválido, regras da senha), validação e máscara de CPF, máscara de telefone, schema do formulário de membro, mapeamento de erros 400/409 para campos (uma mensagem por campo, a primeira), matriz de permissões de todos os controllers, menu, breadcrumb e rota inicial por perfil, formatadores de data/hora e moeda, leitura do perfil a partir do JWT, sessão e expiração, normalização e montagem da página, conversão de erros da API, cliente HTTP (Bearer, 401, 403, 400, 409, tempo esgotado e rede), redirecionamento seguro após login e fidelidade do backend simulado ao real.
 
-O ambiente padrão é `node` (funções puras, `*.test.js`). Testes de componente usam `*.test.jsx` com `// @vitest-environment jsdom` na primeira linha e `renderizarComPerfil` (`test-utils/componentes.jsx`), que simula o usuário logado e desmonta entre os testes. Exemplos: `PodeAcessar.test.jsx`, `Table.test.jsx` e `AppRoutes.test.jsx` (rotas por perfil). Para testar uma tela com o HTTP de verdade, `instalarTransporte` (`test-utils/transporte.js`) troca só o adaptador do axios: serviços, interceptores e `ApiError` continuam os reais (ex.: `LoginForm.test.jsx`).
+O ambiente padrão é `node` (funções puras, `*.test.js`). Testes de componente usam `*.test.jsx` com `// @vitest-environment jsdom` na primeira linha e `renderizarComPerfil` (`test-utils/componentes.jsx`), que simula o usuário logado e desmonta entre os testes. Exemplos: `PodeAcessar.test.jsx`, `Table.test.jsx` e `AppRoutes.test.jsx` (rotas por perfil). Para uma tela inteira com dados, `abrirAppComServidor(caminho, perfil)` (`test-utils/app.jsx`) abre o app logado e responde com o servidor simulado, expondo a URL atual (ex.: `MembrosPage.test.jsx`). Para testar uma tela com o HTTP de verdade, `instalarTransporte` (`test-utils/transporte.js`) troca só o adaptador do axios: serviços, interceptores e `ApiError` continuam os reais (ex.: `LoginForm.test.jsx`).
 
 ## Como crescer (TCC)
 

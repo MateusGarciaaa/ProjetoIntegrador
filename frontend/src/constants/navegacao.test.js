@@ -57,6 +57,19 @@ describe('trilhaDoCaminho', () => {
     ]);
   });
 
+  it('subpáginas ganham um terceiro nível, sem repetir o início do perfil', () => {
+    expect(trilhaDoCaminho('/membros/novo', PERFIS.ADMINISTRADOR)).toEqual([
+      { rotulo: 'Início', caminho: '/dashboard' },
+      { rotulo: 'Membros', caminho: '/membros' },
+      { rotulo: 'Novo' },
+    ]);
+    expect(trilhaDoCaminho('/membros/abc/editar', PERFIS.SECRETARIO)).toEqual([
+      { rotulo: 'Membros', caminho: '/membros' },
+      { rotulo: 'Editar' },
+    ]);
+    expect(trilhaDoCaminho('/membros/abc', PERFIS.PASTOR).at(-1)).toEqual({ rotulo: 'Detalhes' });
+  });
+
   it('sem trilha na rota inicial do perfil e fora do menu', () => {
     expect(trilhaDoCaminho('/membros', PERFIS.SECRETARIO)).toEqual([]);
     expect(trilhaDoCaminho('/nao-existe', PERFIS.ADMINISTRADOR)).toEqual([]);

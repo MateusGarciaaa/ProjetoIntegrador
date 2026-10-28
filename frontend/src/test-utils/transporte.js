@@ -36,3 +36,20 @@ export function instalarTransporte(responder) {
     },
   };
 }
+
+/**
+ * Transporte que responde com o servidor simulado (services/mock), sem a latência do modo
+ * demonstração: os testes de tela exercitam o mesmo contrato do backend real.
+ */
+export function transporteDoServidor(atender) {
+  return (config) => {
+    const { status, data } = atender({
+      metodo: (config.method ?? 'get').toLowerCase(),
+      url: config.url ?? '',
+      params: config.params ?? {},
+      corpo: config.data ? JSON.parse(config.data) : null,
+      authorization: config.headers?.get?.('Authorization') ?? config.headers?.Authorization ?? null,
+    });
+    return resposta(status, data)(config);
+  };
+}

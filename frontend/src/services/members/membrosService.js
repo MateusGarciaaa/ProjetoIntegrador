@@ -11,10 +11,16 @@ function caminhoDoMembro(id) {
 
 /** Recebe e devolve objetos com os nomes de campo do MembroRequest/MembroResponse. */
 export const membrosService = {
-  async listar({ nome, pagina, tamanho, ordenacao }, { signal } = {}) {
-    const params = montarParametrosPagina({ pagina, tamanho, ordenacao, filtros: { nome } });
+  /** Filtros opcionais nome e status; ordenacao: "campo,dir" ou lista com os critérios de desempate. */
+  async listar({ nome, status, pagina, tamanho, ordenacao }, { signal } = {}) {
+    const params = montarParametrosPagina({ pagina, tamanho, ordenacao, filtros: { nome, status } });
     const { data } = await httpClient.get(RECURSO, { params, signal });
     return normalizarPagina(data);
+  },
+
+  async buscarPorId(id, { signal } = {}) {
+    const { data } = await httpClient.get(caminhoDoMembro(id), { signal });
+    return data;
   },
 
   /**

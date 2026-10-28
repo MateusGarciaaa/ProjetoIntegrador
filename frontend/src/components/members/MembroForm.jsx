@@ -1,5 +1,6 @@
 import { LIMITES_MEMBRO } from '../../constants/membros';
 import { OPCOES_STATUS } from '../../constants/statusMembro';
+import { TAMANHO_DATA_MASCARADA } from '../../schemas/membroSchema';
 import { Alert } from '../ui/Alert';
 import { SelectField, TextField } from '../ui/FormField';
 import styles from './MembroForm.module.css';
@@ -10,9 +11,9 @@ const MAXIMO_TELEFONE_MASCARADO = 15;
 
 /**
  * Formulário "burro": recebe valores e erros e avisa mudanças.
- * O estado vive em useMembroForm; o envio, em MembroFormModal.
+ * O estado vive em useMembroForm; o envio, em MembroEditor.
  */
-export function MembroForm({ idFormulario, valores, erros, erroGeral, hoje, onAlterar, onSairDoCampo, onEnviar }) {
+export function MembroForm({ idFormulario, valores, erros, erroGeral, onAlterar, onSairDoCampo, onEnviar, children }) {
   function campo(nome) {
     return {
       id: `${idFormulario}-${nome}`,
@@ -21,6 +22,18 @@ export function MembroForm({ idFormulario, valores, erros, erroGeral, hoje, onAl
       erro: erros[nome],
       onChange: (evento) => onAlterar(nome, evento.target.value),
       onBlur: () => onSairDoCampo(nome),
+    };
+  }
+
+  /** Datas digitadas como DD/MM/AAAA (a máscara insere as barras). */
+  function campoData(nome) {
+    return {
+      ...campo(nome),
+      className: styles.terco,
+      inputMode: 'numeric',
+      autoComplete: 'off',
+      placeholder: 'DD/MM/AAAA',
+      maxLength: TAMANHO_DATA_MASCARADA,
     };
   }
 
@@ -88,24 +101,12 @@ export function MembroForm({ idFormulario, valores, erros, erroGeral, hoje, onAl
 
       <fieldset className={styles.secao}>
         <legend className={styles.legenda}>Datas</legend>
-        <TextField {...campo('dataNascimento')} className={styles.terco} rotulo="Nascimento" type="date" max={hoje} />
-        <TextField
-          {...campo('dataConversao')}
-          className={styles.terco}
-          rotulo="Conversão"
-          type="date"
-          min={valores.dataNascimento || undefined}
-          max={hoje}
-        />
-        <TextField
-          {...campo('dataBatismo')}
-          className={styles.terco}
-          rotulo="Batismo"
-          type="date"
-          min={valores.dataNascimento || undefined}
-          max={hoje}
-        />
+        <TextField {...campoData('dataNascimento')} rotulo="Nascimento" autoComplete="bday" />
+        <TextField {...campoData('dataConversao')} rotulo="Conversão" />
+        <TextField {...campoData('dataBatismo')} rotulo="Batismo" />
       </fieldset>
+
+      {children}
     </form>
   );
 }

@@ -72,6 +72,13 @@ describe('httpClient', () => {
     expect(adapter.mock.calls[0][0].headers.Authorization).toBe(`Bearer ${token}`);
   });
 
+  it('repete a chave para parâmetros em lista (sort=a&sort=b), como o Spring espera', async () => {
+    iniciarSessao();
+    const adapter = vi.fn(responder(200, { content: [] }));
+    await httpClient.get('/members', { adapter, params: { sort: ['status,asc', 'nome,asc'], page: 0 } });
+    expect(httpClient.getUri(adapter.mock.calls[0][0])).toContain('?sort=status,asc&sort=nome,asc&page=0');
+  });
+
   it('não envia token para /auth/**', async () => {
     iniciarSessao();
     const adapter = vi.fn(responder(200, { token: 'x', expiresIn: 60 }));

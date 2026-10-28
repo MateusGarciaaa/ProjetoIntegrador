@@ -1,0 +1,6 @@
+/* Mesmo ponto de corte da Table: abaixo de 720px a lista vira cartões, sem cabeçalho. */
+@media (min-width: 720px) {
+  .seletor {
+    display: none;
+  }
+}

@@ -42,6 +42,12 @@ export function dataBrParaIso(texto) {
   return isDataIsoValida(iso) ? iso : null;
 }
 
+/** Máscara progressiva para digitação: "05032026" → "05/03/2026" (só dígitos, até 8). */
+export function formatarDataDigitada(valor) {
+  const digitos = String(valor ?? '').replace(/\D/g, '').slice(0, 8);
+  return [digitos.slice(0, 2), digitos.slice(2, 4), digitos.slice(4)].filter(Boolean).join('/');
+}
+
 /** LocalTime "19:00:00" (ou "19:00") → "19:00". Valor inválido → "". */
 export function formatarHorario(horario) {
   const partes = PADRAO_HORARIO.exec(String(horario ?? ''));

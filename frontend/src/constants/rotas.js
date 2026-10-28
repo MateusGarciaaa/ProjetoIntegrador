@@ -8,9 +8,20 @@ export const ROTAS = Object.freeze({
   REDEFINIR_SENHA: '/reset-password',
   DASHBOARD: '/dashboard',
   MEMBROS: '/membros',
+  MEMBRO_NOVO: '/membros/novo',
+  MEMBRO_DETALHES: '/membros/:id',
+  MEMBRO_EDICAO: '/membros/:id/editar',
   EVENTOS: '/eventos',
   FINANCEIRO: '/financeiro',
 });
+
+export function caminhoDoMembro(id) {
+  return `${ROTAS.MEMBROS}/${encodeURIComponent(id)}`;
+}
+
+export function caminhoEdicaoMembro(id) {
+  return `${caminhoDoMembro(id)}/editar`;
+}
 
 /**
  * Primeira tela de cada perfil: a área mais usada entre as que o backend libera para ele

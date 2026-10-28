@@ -1,5 +1,7 @@
-import { Table } from '../ui/Table';
+import { Link, useLocation } from 'react-router-dom';
+import { caminhoDoMembro, ROTAS } from '../../constants/rotas';
 import { exibirTelefone } from '../../utils/telefone';
+import { Table } from '../ui/Table';
 import { MembroAcoes } from './MembroAcoes';
 import { MembroStatusBadge } from './MembroStatusBadge';
 import styles from './MembrosLista.module.css';
@@ -16,19 +18,51 @@ function Telefone({ valor }) {
   );
 }
 
-const COLUNAS = Object.freeze([
-  { chave: 'nome', rotulo: 'Nome', principal: true, renderizar: (membro) => membro.nome },
-  { chave: 'email', rotulo: 'E-mail', className: styles.secundario, renderizar: (membro) => membro.email },
-  { chave: 'telefone', rotulo: 'Telefone', renderizar: (membro) => <Telefone valor={membro.telefone} /> },
-  { chave: 'status', rotulo: 'Status', destaque: true, renderizar: (membro) => <MembroStatusBadge status={membro.status} /> },
-]);
+function colunas(estado) {
+  return [
+    {
+      chave: 'nome',
+      rotulo: 'Nome',
+      principal: true,
+      ordenavel: true,
+      renderizar: (membro) => (
+        <Link to={caminhoDoMembro(membro.id)} state={estado} className={styles.nome}>
+          {membro.nome}
+        </Link>
+      ),
+    },
+    { chave: 'email', rotulo: 'E-mail', ordenavel: true, className: styles.secundario, renderizar: (membro) => membro.email },
+    { chave: 'telefone', rotulo: 'Telefone', ordenavel: true, renderizar: (membro) => <Telefone valor={membro.telefone} /> },
+    {
+      chave: 'status',
+      rotulo: 'Status',
+      destaque: true,
+      ordenavel: true,
+      renderizar: (membro) => <MembroStatusBadge status={membro.status} />,
+    },
+  ];
+}
 
-/** Lista de membros. A coluna de ações só existe para perfis que podem editar ou excluir. */
-export function MembrosLista({ membros, podeEditar, podeExcluir, onEditar, onExcluir }) {
+/**
+ * Lista de membros. O nome leva aos detalhes; a coluna de ações só existe para perfis que
+ * podem editar ou excluir. Os links levam a URL atual da lista para o "Voltar" dos detalhes.
+ */
+export function MembrosLista({ membros, ordenacao, onOrdenar, podeEditar, podeExcluir, onExcluir }) {
+  const { search } = useLocation();
+  const estado = { voltarPara: `${ROTAS.MEMBROS}${search}` };
   const temAcoes = podeEditar || podeExcluir;
   const acoes = (membro) => (
-    <MembroAcoes membro={membro} podeEditar={podeEditar} podeExcluir={podeExcluir} onEditar={onEditar} onExcluir={onExcluir} />
+    <MembroAcoes membro={membro} podeEditar={podeEditar} podeExcluir={podeExcluir} onExcluir={onExcluir} estado={estado} />
   );
 
-  return <Table legenda="Membros cadastrados" colunas={COLUNAS} itens={membros} acoes={temAcoes ? acoes : undefined} />;
+  return (
+    <Table
+      legenda="Membros cadastrados"
+      colunas={colunas(estado)}
+      itens={membros}
+      ordenacao={ordenacao}
+      onOrdenar={onOrdenar}
+      acoes={temAcoes ? acoes : undefined}
+    />
+  );
 }

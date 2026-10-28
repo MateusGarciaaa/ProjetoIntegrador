@@ -54,6 +54,7 @@ describe('valoresIniciaisMembro', () => {
       cpf: '529.982.247-25',
       telefone: '(45) 99912-0341',
       endereco: '',
+      dataNascimento: '14/03/1988',
       dataBatismo: '',
       status: 'AFASTADO',
     });
@@ -101,18 +102,21 @@ describe('validarMembro', () => {
     expect(validar(valores({ status: 'INATIVO' })).status).toBeDefined();
   });
 
-  it('datas não podem estar no futuro nem ser inválidas', () => {
-    const erros = validar(valores({ dataNascimento: '2026-10-01', dataBatismo: '2024-02-30' }));
+  it('datas não podem estar no futuro nem ser inválidas ou incompletas', () => {
+    const erros = validar(valores({ dataNascimento: '01/10/2026', dataBatismo: '30/02/2024', dataConversao: '12/05/19' }));
     expect(erros.dataNascimento).toMatch(/futuro/);
-    expect(erros.dataBatismo).toMatch(/válida/);
-    expect(validar(valores({ dataNascimento: HOJE })).dataNascimento).toBeUndefined();
+    expect(erros.dataBatismo).toMatch('DD/MM/AAAA');
+    expect(erros.dataConversao).toMatch(/válida/);
+    expect(validar(valores({ dataNascimento: '30/09/2026' })).dataNascimento).toBeUndefined();
   });
 
   it('conversão e batismo não podem ser antes do nascimento', () => {
-    const erros = validar(valores({ dataNascimento: '1990-05-10', dataConversao: '1990-05-09', dataBatismo: '1989-01-01' }));
+    const erros = validar(valores({ dataNascimento: '10/05/1990', dataConversao: '09/05/1990', dataBatismo: '01/01/1989' }));
     expect(erros.dataConversao).toMatch(/conversão/);
     expect(erros.dataBatismo).toMatch(/batismo/);
-    expect(validar(valores({ dataNascimento: '1990-05-10', dataBatismo: '1990-05-10' }))).toEqual({});
+    expect(validar(valores({ dataNascimento: '10/05/1990', dataBatismo: '10/05/1990' }))).toEqual({});
+    // Compara como data, não como texto: 01/12/1990 é depois de 10/05/1990.
+    expect(validar(valores({ dataNascimento: '10/05/1990', dataConversao: '01/12/1990' }))).toEqual({});
   });
 });
 
@@ -124,7 +128,7 @@ describe('montarPayloadMembro', () => {
         email: ' Ana.Carvalho@Igreja.ORG ',
         telefone: '(45) 99912-0341',
         endereco: '  Rua Paraná,  1200 ',
-        dataNascimento: '1988-03-14',
+        dataNascimento: '14/03/1988',
         status: 'VISITANTE',
       }),
     );
@@ -149,9 +153,10 @@ describe('montarPayloadMembro', () => {
 });
 
 describe('formatarCampoMembro', () => {
-  it('aplica máscara só em CPF e telefone', () => {
+  it('aplica máscara em CPF, telefone e datas', () => {
     expect(formatarCampoMembro('cpf', '52998224725')).toBe('529.982.247-25');
     expect(formatarCampoMembro('telefone', '4532241876')).toBe('(45) 3224-1876');
+    expect(formatarCampoMembro('dataBatismo', '05032026')).toBe('05/03/2026');
     expect(formatarCampoMembro('nome', '529')).toBe('529');
   });
 });

@@ -9,8 +9,19 @@ export const LIMITES_MEMBRO = Object.freeze({
 
 export const TAMANHO_PAGINA_MEMBROS = 10;
 
-/** Precisa ser um campo real da entidade Membro; um campo inexistente gera 400. */
-export const ORDENACAO_MEMBROS = 'nome,asc';
+/**
+ * Colunas que a lista deixa ordenar. Precisam ser campos reais da entidade Membro
+ * (um campo inexistente gera 400); a URL só aceita estes, o resto volta ao padrão.
+ */
+export const CAMPOS_ORDENAVEIS_MEMBROS = Object.freeze(['nome', 'email', 'telefone', 'status']);
+
+export const ORDENACAO_PADRAO_MEMBROS = Object.freeze({ campo: 'nome', direcao: 'asc' });
+
+/**
+ * Desempate da ordenação: com muitos valores iguais (ex.: status), o Postgres não garante
+ * a ordem entre eles e a paginação poderia repetir ou pular membros.
+ */
+export const DESEMPATE_MEMBROS = Object.freeze(['nome,asc', 'id,asc']);
 
 export const ATRASO_BUSCA_MS = 400;
 

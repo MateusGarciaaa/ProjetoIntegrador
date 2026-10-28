@@ -19,6 +19,8 @@ const LoginPage = carregarPagina(() => import('../pages/LoginPage'), 'LoginPage'
 const EsqueciSenhaPage = carregarPagina(() => import('../pages/EsqueciSenhaPage'), 'EsqueciSenhaPage');
 const RedefinirSenhaPage = carregarPagina(() => import('../pages/RedefinirSenhaPage'), 'RedefinirSenhaPage');
 const MembrosPage = carregarPagina(() => import('../pages/MembrosPage'), 'MembrosPage');
+const MembroDetalhesPage = carregarPagina(() => import('../pages/MembroDetalhesPage'), 'MembroDetalhesPage');
+const MembroFormPage = carregarPagina(() => import('../pages/MembroFormPage'), 'MembroFormPage');
 const EmConstrucaoPage = carregarPagina(() => import('../pages/EmConstrucaoPage'), 'EmConstrucaoPage');
 const NotFoundPage = carregarPagina(() => import('../pages/NotFoundPage'), 'NotFoundPage');
 
@@ -63,6 +65,10 @@ export function AppRoutes() {
         >
           {rotaProtegida(ROTAS.DASHBOARD, PERMISSOES.DASHBOARD_VISUALIZAR, 'Painel', <EmConstrucaoPage titulo="Painel" />)}
           {rotaProtegida(ROTAS.MEMBROS, PERMISSOES.MEMBROS_VISUALIZAR, 'Membros', <MembrosPage />)}
+          {/* /membros/novo tem prioridade sobre /membros/:id (o React Router prefere o segmento fixo). */}
+          {rotaProtegida(ROTAS.MEMBRO_NOVO, PERMISSOES.MEMBROS_CRIAR, 'Membros', <MembroFormPage />)}
+          {rotaProtegida(ROTAS.MEMBRO_DETALHES, PERMISSOES.MEMBROS_VISUALIZAR, 'Membros', <MembroDetalhesPage />)}
+          {rotaProtegida(ROTAS.MEMBRO_EDICAO, PERMISSOES.MEMBROS_EDITAR, 'Membros', <MembroFormPage />)}
           {rotaProtegida(ROTAS.EVENTOS, PERMISSOES.EVENTOS_VISUALIZAR, 'Eventos', <EmConstrucaoPage titulo="Eventos" />)}
           {rotaProtegida(ROTAS.FINANCEIRO, PERMISSOES.FINANCEIRO_VISUALIZAR, 'Financeiro', <EmConstrucaoPage titulo="Financeiro" />)}
           <Route path="*" element={<NotFoundPage />} />

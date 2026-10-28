@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { screen } from '@testing-library/react';
+import { cleanup, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, it } from 'vitest';
 import { PERFIS } from '../constants/perfis';
@@ -33,6 +33,31 @@ describe('rotas por perfil', () => {
     abrir('/membros', PERFIS.TESOUREIRO);
     expect(await screen.findByRole('heading', { name: 'Sem acesso à área Membros' })).toBeTruthy();
     expect(menu().textContent).toBe('Financeiro');
+  });
+
+  it('MEMBRO não acessa a gestão de membros (lista nem detalhes)', async () => {
+    abrir('/membros', PERFIS.MEMBRO);
+    expect(await screen.findByRole('heading', { name: 'Sem acesso à área Membros' })).toBeTruthy();
+  });
+
+  it('subpáginas de membros seguem as permissões do backend', async () => {
+    const ID = '7c0e6a1e-5b2f-4d6a-9f3e-000000000001';
+    const semAcesso = { name: 'Sem acesso à área Membros' };
+
+    // PASTOR só consulta: não abre cadastro nem edição pela URL.
+    abrir('/membros/novo', PERFIS.PASTOR);
+    expect(await screen.findByRole('heading', semAcesso)).toBeTruthy();
+    cleanup();
+    abrir(`/membros/${ID}/editar`, PERFIS.PASTOR);
+    expect(await screen.findByRole('heading', semAcesso)).toBeTruthy();
+    cleanup();
+    abrir(`/membros/${ID}`, PERFIS.TESOUREIRO);
+    expect(await screen.findByRole('heading', semAcesso)).toBeTruthy();
+    cleanup();
+
+    // SECRETARIO cadastra (o formulário abre sem chamar o backend).
+    abrir('/membros/novo', PERFIS.SECRETARIO);
+    expect(await screen.findByRole('heading', { name: 'Novo membro' })).toBeTruthy();
   });
 
   it('URL de área não permitida mostra "Sem acesso", sem deslogar', async () => {

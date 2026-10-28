@@ -45,6 +45,8 @@ export const httpClient = axios.create({
   baseURL: appConfig.apiBaseUrl,
   timeout: appConfig.requestTimeoutMs,
   headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+  // Arrays viram chaves repetidas (sort=a&sort=b), como o Spring lê; o padrão do axios seria sort[]=a.
+  paramsSerializer: { indexes: null },
 });
 
 if (appConfig.useMockApi) {

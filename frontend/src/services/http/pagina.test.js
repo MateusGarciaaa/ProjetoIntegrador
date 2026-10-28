@@ -69,6 +69,12 @@ describe('montarParametrosPagina', () => {
     expect(montarParametrosPagina({ pagina: -3, tamanho: 5000 })).toEqual({ page: 0, size: TAMANHO_MAXIMO_PAGINA });
     expect(montarParametrosPagina({ tamanho: 0 }).size).toBe(1);
   });
+
+  it('aceita vários critérios de ordenação (desempate)', () => {
+    expect(montarParametrosPagina({ ordenacao: ['status,desc', 'nome,asc', null] }).sort).toEqual(['status,desc', 'nome,asc']);
+    expect(montarParametrosPagina({ ordenacao: ['nome,asc'] }).sort).toBe('nome,asc');
+    expect(montarParametrosPagina({ ordenacao: [] }).sort).toBeUndefined();
+  });
 });
 
 describe('faixaDaPagina', () => {

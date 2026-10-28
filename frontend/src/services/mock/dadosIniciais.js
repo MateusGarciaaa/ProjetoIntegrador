@@ -51,3 +51,13 @@ export function criarMembrosIniciais() {
     status,
   }));
 }
+
+/**
+ * Membros com dízimo lançado no DadosDemonstracaoService (LANCAMENTOS com indiceMembro 0, 1, 13
+ * e 17). Enquanto o mock não tem movimentações financeiras, é por eles que a RN14 é simulada.
+ */
+const EMAILS_COM_MOVIMENTACAO = ['ana.carvalho@email.com', 'andre.fontana@email.com', 'joao.zanella@email.com', 'mateus.cruz@email.com'];
+
+export function idsComMovimentacao(membros) {
+  return new Set(membros.filter((m) => EMAILS_COM_MOVIMENTACAO.includes(m.email)).map((m) => m.id));
+}
