@@ -44,6 +44,10 @@ management:
         enabled: true
 
 app:
+  time:
+    # Fuso da igreja: "hoje" e "agora" das regras de negócio (ex.: evento encerrado, RN09)
+    # vêm do Clock da aplicação neste fuso, não do fuso da máquina (veja ClockConfig).
+    zone: ${APP_TIMEZONE:America/Sao_Paulo}
   jwt:
     # Sem valor padrão de propósito: um segredo publicado no GitHub permitiria forjar tokens.
     # A aplicação não sobe sem JWT_SECRET (mínimo 32 caracteres).
