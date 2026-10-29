@@ -33,3 +33,9 @@
   color: var(--color-primary);
   text-decoration: underline;
 }
+
+@media print {
+  .trilha {
+    display: none;
+  }
+}

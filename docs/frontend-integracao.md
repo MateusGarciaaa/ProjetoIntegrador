@@ -1,6 +1,6 @@
 # Integração frontend × backend — diagnóstico
 
-> Fotografia de 2026-10-26 (commit 2087a3c), atualizada ao fim da Fundação e da Autenticação no mesmo dia ao fim de Membros e ao fim de Eventos em 2026-10-27. Ler no início de cada sessão. Atualizar a tabela e o checklist ao concluir cada módulo.
+> Fotografia de 2026-10-26 (commit 2087a3c), atualizada ao fim da Fundação e da Autenticação no mesmo dia ao fim de Membros e ao fim de Eventos em 2026-10-27, e ao fim do Financeiro em 2026-10-28. Ler no início de cada sessão. Atualizar a tabela e o checklist ao concluir cada módulo.
 > Fontes: `backend/src/main/java/br/com/churchhub/api/{controller,dto,service,security,exception}` e `frontend/src/{services,constants,routes,schemas,hooks}`.
 
 ## 1. Convenções do backend (valem para todos os módulos)
@@ -34,7 +34,7 @@ Perfis: A = ADMINISTRADOR, P = PASTOR, S = SECRETARIO, T = TESOUREIRO, M = MEMBR
 | 3 | `POST /auth/reset-password` | — | `{ token @NotBlank, newPassword @NotBlank @Size(6..72) @CabeNoBcrypt (≤ 72 bytes) }` | 204; 400 `"Token de redefinição inválido ou expirado"` (inexistente, já usado, substituído por um pedido mais novo, > 30 min ou usuário inativo) | público | **INTEGRADO** (`/reset-password?token=<UUID>`, caminho do link do `LoggingMailSender`) |
 | — | `POST /auth/refresh` | — | — | **não existe** (conferido no `AuthController` em 2026-10-26) | — | — |
 | 4 | `GET /members` | `nome` (contém, ignora maiúsc., diferencia acento), `status` opcional (inválido → 400 `"Valor inválido para o parâmetro 'status'."`; mesmo `buscarPorNomeEStatus` do lookup), `page`, `size`=20, `sort`=`nome` (ordenação do cliente respeitada) | — | 200 `Page<MembroResponse>` | A P S | **INTEGRADO** (`/membros`: `size=10`, `status` quando escolhido, `sort` repetido com desempate — ex. `sort=email,desc&sort=nome,asc&sort=id,asc`; colunas ordenáveis: nome, e-mail, telefone, status) |
-| 4b | `GET /members/lookup` | `nome` (contém), `status` (inválido → 400 `"Valor inválido para o parâmetro 'status'."`), `page`, `size` (máx. **20**, acima disso reduz); `sort` do cliente é ignorado (sempre `nome`, `id`) | — | 200 `Page<MembroResumoResponse { id, nome, status }>` | A P S T | **NÃO USADO** (`membrosService.buscarResumo` e mock prontos; seletor de membro do Financeiro) |
+| 4b | `GET /members/lookup` | `nome` (contém), `status` (inválido → 400 `"Valor inválido para o parâmetro 'status'."`), `page`, `size` (máx. **20**, acima disso reduz); `sort` do cliente é ignorado (sempre `nome`, `id`) | — | 200 `Page<MembroResumoResponse { id, nome, status }>` | A P S T | **INTEGRADO** (seletor de membro do formulário financeiro, busca com 2+ letras e espera de 300 ms) |
 | 5 | `GET /members/{id}` | `id` UUID | — | 200 `MembroResponse`; 404 | A P S | **INTEGRADO** (`/membros/:id` detalhes e `/membros/:id/editar`, sempre relido do servidor; id não-UUID → 400 tratado como "não encontrado") |
 | 6 | `POST /members` | — | `MembroRequest { nome @NotBlank @Size150, cpf @NotBlank @Pattern \d{11}, email @NotBlank @Email @Size150, telefone @Size20, endereco @Size255, dataNascimento, dataBatismo, dataConversao (LocalDate), status (nulo→ATIVO) }` | 201 `MembroResponse`; 409 e-mail/CPF | A S | **INTEGRADO** |
 | 7 | `PUT /members/{id}` | `id` | `MembroRequest` | 200; 404; 409 | A S | **INTEGRADO** |
@@ -44,14 +44,14 @@ Perfis: A = ADMINISTRADOR, P = PASTOR, S = SECRETARIO, T = TESOUREIRO, M = MEMBR
 | 11 | `POST /events` | — | `EventoRequest { titulo @NotBlank @Size150, descricao @Size1000, data @NotNull, horario @NotNull (LocalTime), local @Size255 }` (data no passado é aceita) | 201 | A S | **INTEGRADO** (`/eventos/novo`; `?data=AAAA-MM-DD` pré-preenche a data; o front envia `horario` como `"HH:mm"`) |
 | 12 | `PUT /events/{id}` | `id` | `EventoRequest` | 200; 400 de validação; **409** `"Este evento já foi encerrado e só pode ser editado por um administrador"` se o evento **gravado** já começou e o usuário não é A (RN09); 404 | A S | **INTEGRADO** (RN09 na interface: seção 4, item 4) |
 | 13 | `DELETE /events/{id}` | `id` | — | 204; 404 | A | **INTEGRADO** (lista e detalhes, sempre com `ConfirmDialog`) |
-| 14 | `GET /financial` | `dataInicio`, `dataFim` (só filtra se os dois vierem), `page`, `size`=20, `sort`=`data` | — | 200 `Page<MovimentacaoFinanceiraResponse { id, descricao, valor, data, tipo, categoria{id,nome,tipo}, membroId, membroNome }>` | A T P | **NÃO USADO** |
-| 15 | `GET /financial/{id}` | `id` | — | 200; 404 | A T P | **NÃO USADO** |
-| 16 | `GET /financial/summary` | `dataInicio`, `dataFim` **obrigatórios** (ausente → 400) | — | 200 `ResumoFinanceiroResponse { dataInicio, dataFim, totalReceitas, totalDespesas, saldo }` | A T P | **NÃO USADO** |
-| 17 | `POST /financial` | — | `MovimentacaoFinanceiraRequest { descricao @NotBlank @Size255, valor @NotNull @DecimalMin0.01 @Digits(10,2), data @NotNull, tipo @NotNull, categoriaId @NotNull UUID, membroId UUID? }` | 201; 400 tipo ≠ tipo da categoria; 404 categoria/membro | A T | **NÃO USADO** |
-| 18 | `PUT /financial/{id}` | `id` | idem | 200; 400; 404 | A T | **NÃO USADO** |
-| 19 | `DELETE /financial/{id}` | `id` | — | 204; 404 | A | **NÃO USADO** |
-| 20 | `GET /financial-categories` | `tipo` opcional (`RECEITA`/`DESPESA`) | — | 200 `List<CategoriaFinanceiraResponse { id, nome, tipo }>` (**não paginado**) | A T P | **NÃO USADO** |
-| 21 | `POST /financial-categories` | — | `{ nome @NotBlank @Size100, tipo @NotNull }` | 201; 409 nome+tipo duplicado | A T | **NÃO USADO** |
+| 14 | `GET /financial` | `dataInicio`, `dataFim` (só filtra se os dois vierem), `tipo` (inválido → 400 `"Valor inválido para o parâmetro 'tipo'."`), `categoriaId` (não-UUID → 400; inexistente → página vazia), todos opcionais e combinados (JPA Specification, uma consulta com categoria e membro); `page`, `size`=20, `sort`=`data` | — | 200 `Page<MovimentacaoFinanceiraResponse { id, descricao, valor, data, tipo, categoria{id,nome,tipo}, membroId, membroNome }>` | A T P | **INTEGRADO** (`/financeiro`: filtros e paginação no servidor, `size=10`, `sort=data,desc&sort=id,desc`; fluxo e relatório: período inteiro em `size=2000`) |
+| 15 | `GET /financial/{id}` | `id` | — | 200; 404 | A T P | **INTEGRADO** (`/financeiro/:id/editar`, sempre relido do servidor) |
+| 16 | `GET /financial/summary` | `dataInicio`, `dataFim` **obrigatórios** (ausente → 400) | — | 200 `ResumoFinanceiroResponse { dataInicio, dataFim, totalReceitas, totalDespesas, saldo }` | A T P | **INTEGRADO** (totais do fluxo de caixa e do relatório) |
+| 17 | `POST /financial` | — | `MovimentacaoFinanceiraRequest { descricao @NotBlank @Size255, valor @NotNull @DecimalMin0.01 @Digits(10,2), data @NotNull, tipo @NotNull, categoriaId @NotNull UUID, membroId UUID? }` | 201; 400 tipo ≠ tipo da categoria; 404 categoria/membro | A T | **INTEGRADO** (`/financeiro/novo`; `valor` número com 2 casas, vindo de centavos) |
+| 18 | `PUT /financial/{id}` | `id` | idem | 200; 400; 404 | A T | **INTEGRADO** |
+| 19 | `DELETE /financial/{id}` | `id` | — | 204; 404 | A | **INTEGRADO** (lista, com `ConfirmDialog`, só A) |
+| 20 | `GET /financial-categories` | `tipo` opcional (`RECEITA`/`DESPESA`) | — | 200 `List<CategoriaFinanceiraResponse { id, nome, tipo }>` (**não paginado**) | A T P | **INTEGRADO** (formulário e filtro; o front ordena por nome) |
+| 21 | `POST /financial-categories` | — | `{ nome @NotBlank @Size100, tipo @NotNull }` | 201; 409 nome+tipo duplicado | A T | **INTEGRADO** (modal "Nova categoria" no formulário, A T) |
 | 22 | `GET /dashboard` | — | — | 200 `DashboardResponse { totalMembros, membrosAtivos, proximosEventos[≤5]{id,titulo,data,horario}, aniversariantesDoMes[{id,nome,dataNascimento}], resumoFinanceiroMesAtual (null se não for A) }` | A P | **NÃO USADO** |
 | — | `GET /actuator/health` | — | — | 200 | público | NÃO USADO (útil para "acordar" o servidor) |
 
@@ -74,21 +74,21 @@ Perfis: A = ADMINISTRADOR, P = PASTOR, S = SECRETARIO, T = TESOUREIRO, M = MEMBR
 
 ## 3. Divergências mock × backend real
 
-O mock (`services/mock/`) implementa as 3 rotas de `/auth` (login, forgot-password, reset-password), as rotas de `/members` (inclusive RN14 e `sort` repetido) e as de `/events` (inclusive RN09, com o relógio do servidor simulado lido em `America/Sao_Paulo`). Rotas públicas passam pelo mesmo `@Valid` simulado das protegidas (`corpo.validar`). O `MailSender` simulado é a "caixa de e-mail" (`mock/caixaDeSaida.js`), exibida só no modo simulado na tela "Esqueci minha senha" (bloco "E-mails simulados", com o link `/reset-password?token=…`). Qualquer outra rota no mock: em `/auth/**` → 404 sem token (como o `permitAll`); nas demais, sem token → 401, com token → 404. Cada módulo exporta suas rotas em `handlers/<modulo>.js` (`ROTAS_AUTH`, `ROTAS_MEMBROS`, `ROTAS_EVENTOS`), reunidas em `ROTAS` de `servidorSimulado.js`; paginação simulada em `mock/paginacao.js` (`lerPageable`, `paginaSpring`).
+O mock (`services/mock/`) implementa as 3 rotas de `/auth` (login, forgot-password, reset-password), as rotas de `/members` (inclusive RN14 e `sort` repetido), as de `/events` (inclusive RN09, com o relógio do servidor simulado lido em `America/Sao_Paulo`) e as de `/financial` e `/financial-categories` (inclusive filtros `tipo`/`categoriaId` da lista, `@DecimalMin`/`@Digits`, tipo × categoria e 409 de categoria). Rotas públicas passam pelo mesmo `@Valid` simulado das protegidas (`corpo.validar`). O `MailSender` simulado é a "caixa de e-mail" (`mock/caixaDeSaida.js`), exibida só no modo simulado na tela "Esqueci minha senha" (bloco "E-mails simulados", com o link `/reset-password?token=…`). Qualquer outra rota no mock: em `/auth/**` → 404 sem token (como o `permitAll`); nas demais, sem token → 401, com token → 404. Cada módulo exporta suas rotas em `handlers/<modulo>.js` (`ROTAS_AUTH`, `ROTAS_MEMBROS`, `ROTAS_EVENTOS`, `ROTAS_FINANCEIRO`), reunidas em `ROTAS` de `servidorSimulado.js`; paginação simulada em `mock/paginacao.js` (`lerPageable`, `paginaSpring`).
 
 | # | Assunto | Mock | Backend real | Impacto |
 |---|---|---|---|---|
-| 1 | Rotas cobertas | auth (3) + members + events | 22 endpoints | Financeiro, categorias e dashboard **só funcionam com backend real** até ganharem handler |
+| 1 | Rotas cobertas | auth (3) + members + events + financial + financial-categories | 22 endpoints | Só o dashboard **funciona apenas com backend real** até ganhar handler |
 | 2 | Rotas públicas | ~~401~~ → **corrigido na Fundação** (`/auth/**` inexistente → 404 sem token); ~~forgot/reset sem handler~~ → **corrigido na Autenticação** | 200 / 204 | Nenhum |
 | 3 | E-mail no login e no forgot-password | ~~comparação exata~~ → **corrigido na Autenticação**: normaliza nos dois, como o real; forgot-password também ignora usuário inativo e invalida links pendentes | idem (`NormalizadorEmail`) | Nenhum |
 | 4 | Mensagens de validação de auth | ~~padrões do Hibernate~~ → **corrigido na Autenticação**: mensagens do `LoginRequest`, `ForgotPasswordRequest` e `ResetPasswordRequest` | do DTO | Ordem das mensagens unidas: o Spring não garante a ordem dos `FieldError`; o mock usa a ordem dos campos no record |
 | 4b | Envio do link de redefinição | caixa de e-mail simulada na tela | `LoggingMailSender` só registra no log | Ver pendência 3 da seção 5 |
-| 5 | RN14 (excluir membro com movimentação) | ~~sempre 204~~ → **corrigido em Membros**: 409 com a mensagem exata para os 4 membros com dízimo no `DadosDemonstracaoService` (`banco.membrosComMovimentacao`; derivar das movimentações quando o mock tiver o Financeiro) | 409 com mensagem | Nenhum |
+| 5 | RN14 (excluir membro com movimentação) | ~~sempre 204~~ → **corrigido em Membros**: 409 com a mensagem exata para os 4 membros com dízimo no `DadosDemonstracaoService` (desde o Financeiro, derivado de `banco.movimentacoes`, como o `existsByMembroId`) | 409 com mensagem | Nenhum |
 | 6 | Formato da página | ~~VIA_DTO~~ → **corrigido na Fundação**: DIRECT idêntico ao real (mesmas chaves e valores; `size` > 2000 reduzido para 2000) | DIRECT (conferido em 2026-10-26 com `GET /members?page=2&size=10&sort=nome,asc`) | Nenhum |
 | 7 | Ordenação | `localeCompare('pt-BR')`; ~~só o 1º `sort`~~ → **múltiplos `sort` desde Membros** (cada um desempata o anterior; campo inválido em qualquer um → 400) | collation do Postgres; múltiplos `sort` | Ordem com acentos/maiúsculas pode diferir |
 | 8 | `timestamp` do erro | ISO UTC com ms (23 chars) | `LocalDateTime` do servidor, até micros | Front não usa |
 | 9 | Unicidade de e-mail do membro | exata | exata (índice sem `lower`) | Iguais; ambos aceitam `Ana@x` e `ana@x` (front grava minúsculo) |
-| 10 | Dados de demo | 25 membros, 5 contas, os 7 eventos do `DadosDemonstracaoService.criarEventos` (mesmas datas relativas a hoje, inclusive o encerrado de 7 dias atrás) | idem com `DEMO_DATA_ENABLED=true` + categorias, movimentações | Mock não tem finanças |
+| 10 | Dados de demo | 25 membros, 5 contas, os 7 eventos do `DadosDemonstracaoService.criarEventos` (mesmas datas relativas a hoje, inclusive o encerrado de 7 dias atrás) + as 6 categorias e os 11 lançamentos × 2 meses do `criarMovimentacoes` | idem com `DEMO_DATA_ENABLED=true` | Nenhum (totais do mês iguais aos do real) |
 | 11 | Desempate de eventos com mesma data e horário | `id` de `crypto.randomUUID` | UUID do Postgres | Ordem entre eventos simultâneos pode diferir (as duas são estáveis) |
 
 Sem divergência: ordem auth → `{id}` → `@Valid` → `@PreAuthorize`; 400 para `{id}` não-UUID, corpo malformado, `sort` inválido; 405/404 de rota; mensagens 401/403/404/409 de membros; `size` máx. 2000; claims do JWT; `expiresIn` em segundos.
@@ -104,7 +104,7 @@ Sem divergência: ordem auth → `{id}` → `@Valid` → `@PreAuthorize`; 400 pa
 | eventos.visualizar | **todos os perfis** (`isAuthenticated()` em `GET /events` e `/events/{id}`; desde o `fix(eventos)`, antes A P S M) |
 | eventos.criar / eventos.editar | A S |
 | eventos.excluir | A |
-| financeiro.visualizar (lista, detalhe, summary) | A T P |
+| financeiro.visualizar (lista, detalhe, summary) | A T P — o PASTOR também lista movimentações (o pedido do módulo falava só em "consultar relatórios"; vale o backend, só leitura) |
 | financeiro.criar / financeiro.editar | A T |
 | financeiro.excluir | A |
 | categorias.visualizar | A T P |
@@ -239,19 +239,27 @@ Por prioridade para o frontend (cada item que mude schema exige migration nova; 
 - [ ] **Janela de correção para o Secretário**: hoje um evento cadastrado com início no passado (decisão da seção 5, item 11.5) nasce encerrado, e só o Administrador corrige. Proposta: a RN09 libera o Secretário durante um prazo após o **cadastro** (ex.: 24 h), o que exige migration com `criado_em` em `eventos`, o prazo configurável e a mesma regra em `EventoService.jaEncerrado` e em `situacaoEdicaoEvento` (front). Definir o prazo com a igreja.
 - [ ] **Busca por título** (e talvez local) no `GET /events` (`?titulo=`, contendo e sem diferenciar maiúsculas, como o `nome` de membros); no front, campo de busca na lista com a espera de 400 ms e o termo na URL.
 
-### Financeiro
-- [ ] Permissões (financeiro + categorias) + teste + mock.
-- [ ] `services/financial/` (movimentações, summary, categorias).
-- [ ] Schema de movimentação: valor > 0, 2 casas, ≤ 10 dígitos inteiros; tipo; categoria filtrada pelo tipo (`GET /financial-categories?tipo=`); membro opcional (seletor com `membrosService.buscarResumo` → `GET /members/lookup`, permissão `membros.buscar`; T **não** usa `/members`).
-- [ ] Telas: receitas, despesas (filtragem no cliente por `tipo` enquanto o backend não filtra — atenção: paginação mistura os dois tipos), fluxo de caixa (summary por mês), relatórios (o que der com summary).
-- [ ] Cadastro de categoria (A T); tratar 409.
-- [ ] Tratar 400 "tipo incompatível com categoria" e 404 de categoria/membro.
-- [ ] Mock: handlers + dados (espelhar categorias e lançamentos do `DadosDemonstracaoService`).
+### Financeiro (concluído em 2026-10-28)
+- [x] Contrato conferido no código e na API real (container, `DEMO_DATA_ENABLED=true`): `GET /financial` sem 500; `valor` volta como número JSON (`720.00`); `summary` ok; 400 para valor negativo/zero/3 casas/11 dígitos e categoria nula; 400 tipo ≠ categoria; 404 categoria/membro; 409 categoria duplicada; T não exclui (403).
+- [x] RN06/RN07 (`@DecimalMin 0.01` + `CHECK valor > 0`) e RN10 (`@NotNull categoriaId` + `categoria_id NOT NULL`) **já validadas no backend**; faltava teste → commit `test(financeiro)` só com `MovimentacaoFinanceiraRequestTest` (valor nulo, zero, negativo, 3 casas, 11 dígitos e categoria ausente).
+- [x] Permissões: `permissoes.js` já espelhava (A tudo; T cria/edita, sem excluir; P consulta; S/M sem acesso). Divergência do pedido: o backend dá ao **PASTOR** também a lista de movimentações (não só relatórios) → segue o backend, só leitura.
+- [x] `services/financial/` (`financeiroService`, `categoriasService`).
+- [x] Dinheiro em centavos inteiros (`utils/moeda.js`: `paraCentavos`, `centavosParaValor`, `valorParaCampo`, `lerCentavosBr`, `mascararValorDigitado`); envio como número com 2 casas, nunca negativo.
+- [x] `schemas/movimentacaoSchema.js`, `categoriaSchema.js`, `consultaFinanceiro.js` (período padrão = mês atual em São Paulo, estado na URL); `utils/fluxoDeCaixa.js` (filtros, totais, série dia/mês, por categoria, escala).
+- [x] Backend (`feat(api)`): `GET /financial` com `tipo` e `categoriaId` opcionais (JPA Specification, uma consulta só, sem N+1). Categoria inexistente → **página vazia, não 404**: é filtro, não recurso do caminho (como `nome`/`status` em `/members`), e evita uma consulta só para conferir. `MovimentacaoFinanceiraControllerSecurityTest` (A/T/P consultam, A/T lançam, só A exclui, S/M 403, anônimo 401, repasse dos filtros, 400 de tipo/categoriaId) + integração (filtro numa consulta, categoria inexistente).
+- [x] Telas: `/financeiro` (lista com tipo/categoria e paginação **no servidor**; quantidade do `totalElements` e totais do `summary` do período — só o do tipo filtrado, nenhum com categoria), `/financeiro/fluxo-de-caixa` (totais do summary + gráfico SVG com tabela), `/financeiro/relatorio` (RF15, impressão; sem exportação no backend), `/financeiro/novo` e `/:id/editar` (seletor de membro via `/members/lookup`, nova categoria em modal para A/T).
+- [x] **Proteção do limite de 2000** (`components/financial/AvisoPeriodoGrande.jsx`): fluxo de caixa e relatório trazem o período numa página só (`size=2000`, o máximo do Spring). Se `totalElements` > itens recebidos, **não somam o que chegou**: o fluxo mantém os cartões do `summary` (somados no banco, certos) e troca o gráfico pelo aviso "O período tem mais lançamentos do que o gráfico consegue somar; reduza o período."; o relatório mostra só o aviso e desabilita "Imprimir". Paliativo: **a solução definitiva são endpoints de agregação no backend** (série por dia/mês e totais por categoria do período, somados no banco), a fazer no módulo **Dashboard** (ver lá).
+- [x] 400 tipo incompatível e 404 categoria/membro no campo; 409 de categoria no nome (o front também recusa nome repetido sem diferenciar maiúsculas).
+- [x] Mock: `handlers/financeiro.js` + 6 categorias e 11 lançamentos × 2 meses do `DadosDemonstracaoService`; RN14 do mock agora consulta as movimentações.
+- [ ] Rodar o roteiro manual com o backend real (`DEMO_DATA_ENABLED=true`).
+
+Pendências novas do backend (Financeiro): filtro `membroId` em `GET /financial` (`tipo`/`categoriaId` feitos); `summary` com os mesmos filtros (hoje a lista filtrada por categoria não mostra totais); série por mês/dia e totais por categoria; exportação (PDF/CSV); desempate no `@PageableDefault(sort = "data")` (`data`, `id`); validar `dataInicio <= dataFim` também no `summary`; `GET /financial-categories` sem ordem (front ordena) e unicidade sensível a maiúsculas/espaços; editar/excluir categoria; RN05 Fase 2 (conciliação: bloquear exclusão) não implementada.
 
 ### Dashboard
 - [ ] Permissões `dashboard.visualizar` (A P) e bloco financeiro (só A, ou via summary para P — decidir).
 - [ ] Cards: total de membros, ativos, próximos eventos (≤5), aniversariantes do mês, receitas/despesas/saldo do mês.
 - [ ] Gráficos: só com dados disponíveis (N × `/financial/summary`) ou após pendência 5/6.
+- [ ] **Endpoints de agregação financeira no backend** (ex.: `GET /financial/series?dataInicio&dataFim&agrupamento=DIA|MES` e `GET /financial/summary/categorias`, somados no banco com `GROUP BY`), usados pelo Dashboard e também pelo fluxo de caixa e pelo relatório do Financeiro. Substituem a soma no cliente sobre a página de 2000 e o `AvisoPeriodoGrande`, que hoje bloqueia períodos maiores.
 - [ ] "Novos membros": fora até existir `data_cadastro`.
 - [ ] Mock: handler `GET /dashboard` derivado do banco simulado (respeitando `null` para não-A).
 

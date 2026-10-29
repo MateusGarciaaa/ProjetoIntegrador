@@ -91,6 +91,22 @@ const CAMINHOS = {
       <path d="M8 12.5l2.7 2.7L16 9.8" />
     </>
   ),
+  entrada: <path d="M12 19V5M6 11l6-6 6 6" />,
+  saida: <path d="M12 5v14M6 13l6 6 6-6" />,
+  imprimir: (
+    <>
+      <path d="M7 9V3.5h10V9" />
+      <rect x="3.5" y="9" width="17" height="8" rx="1.5" />
+      <path d="M7 14.5h10V21H7z" />
+    </>
+  ),
+  grafico: <path d="M4 20h16M7 16v-5M12 16V7M17 16v-8" />,
+  relatorio: (
+    <>
+      <path d="M6 3.5h8l4 4V20.5H6z" />
+      <path d="M14 3.5v4h4M9 12h6M9 16h6" />
+    </>
+  ),
   cadeado: (
     <>
       <rect x="4.5" y="10.5" width="15" height="10" rx="2" />

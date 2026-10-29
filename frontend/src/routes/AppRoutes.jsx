@@ -24,6 +24,10 @@ const MembroFormPage = carregarPagina(() => import('../pages/MembroFormPage'), '
 const EventosPage = carregarPagina(() => import('../pages/EventosPage'), 'EventosPage');
 const EventoDetalhesPage = carregarPagina(() => import('../pages/EventoDetalhesPage'), 'EventoDetalhesPage');
 const EventoFormPage = carregarPagina(() => import('../pages/EventoFormPage'), 'EventoFormPage');
+const FinanceiroPage = carregarPagina(() => import('../pages/FinanceiroPage'), 'FinanceiroPage');
+const FluxoCaixaPage = carregarPagina(() => import('../pages/FluxoCaixaPage'), 'FluxoCaixaPage');
+const RelatorioFinanceiroPage = carregarPagina(() => import('../pages/RelatorioFinanceiroPage'), 'RelatorioFinanceiroPage');
+const MovimentacaoFormPage = carregarPagina(() => import('../pages/MovimentacaoFormPage'), 'MovimentacaoFormPage');
 const EmConstrucaoPage = carregarPagina(() => import('../pages/EmConstrucaoPage'), 'EmConstrucaoPage');
 const NotFoundPage = carregarPagina(() => import('../pages/NotFoundPage'), 'NotFoundPage');
 
@@ -77,7 +81,11 @@ export function AppRoutes() {
           {rotaProtegida(ROTAS.EVENTO_NOVO, PERMISSOES.EVENTOS_CRIAR, 'Eventos', <EventoFormPage />)}
           {rotaProtegida(ROTAS.EVENTO_DETALHES, PERMISSOES.EVENTOS_VISUALIZAR, 'Eventos', <EventoDetalhesPage />)}
           {rotaProtegida(ROTAS.EVENTO_EDICAO, PERMISSOES.EVENTOS_EDITAR, 'Eventos', <EventoFormPage />)}
-          {rotaProtegida(ROTAS.FINANCEIRO, PERMISSOES.FINANCEIRO_VISUALIZAR, 'Financeiro', <EmConstrucaoPage titulo="Financeiro" />)}
+          {rotaProtegida(ROTAS.FINANCEIRO, PERMISSOES.FINANCEIRO_VISUALIZAR, 'Financeiro', <FinanceiroPage />)}
+          {rotaProtegida(ROTAS.FLUXO_DE_CAIXA, PERMISSOES.FINANCEIRO_VISUALIZAR, 'Financeiro', <FluxoCaixaPage />)}
+          {rotaProtegida(ROTAS.RELATORIO_FINANCEIRO, PERMISSOES.FINANCEIRO_VISUALIZAR, 'Financeiro', <RelatorioFinanceiroPage />)}
+          {rotaProtegida(ROTAS.FINANCEIRO_NOVO, PERMISSOES.FINANCEIRO_CRIAR, 'Financeiro', <MovimentacaoFormPage />)}
+          {rotaProtegida(ROTAS.FINANCEIRO_EDICAO, PERMISSOES.FINANCEIRO_EDITAR, 'Financeiro', <MovimentacaoFormPage />)}
           <Route path="*" element={<NotFoundPage />} />
         </Route>
       </Routes>

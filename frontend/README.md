@@ -112,7 +112,7 @@ A agenda é de todos os perfis (o TESOUREIRO também consulta); só ADMINISTRADO
 
 **Erro ao lado do campo, por enquanto pelo texto.** O backend não diz a que campo pertence cada erro. `schemas/errosServidor.js` (`criarMapeadorDeErros`) deduz o campo pela mensagem exata do DTO (400) ou por palavra-chave (409: e-mail, CPF). É provisório: se o backend mudar o texto, o erro só passa para o topo do formulário. O formato estruturado proposto está em `docs/frontend-integracao.md`.
 
-**Permissões só escondem, não autorizam.** `constants/permissoes.js` espelha os `@PreAuthorize` de todos os controllers linha a linha, e um teste transcreve a mesma tabela: se o backend mudar, o teste obriga a revisar. `usePermissao().pode(...)` e `<PodeAcessar permissao senao>` escondem botões e blocos; `RequirePermission` protege rotas (mostra "Sem acesso", sem deslogar); o menu (`itensMenuDoPerfil`) só lista áreas permitidas; e cada perfil começa na sua área (`rotaInicialDoPerfil`: A/P → Painel, S → Membros, T → Financeiro, M → Eventos). Painel e Financeiro ainda são páginas "Em construção".
+**Permissões só escondem, não autorizam.** `constants/permissoes.js` espelha os `@PreAuthorize` de todos os controllers linha a linha, e um teste transcreve a mesma tabela: se o backend mudar, o teste obriga a revisar. `usePermissao().pode(...)` e `<PodeAcessar permissao senao>` escondem botões e blocos; `RequirePermission` protege rotas (mostra "Sem acesso", sem deslogar); o menu (`itensMenuDoPerfil`) só lista áreas permitidas; e cada perfil começa na sua área (`rotaInicialDoPerfil`: A/P → Painel, S → Membros, T → Financeiro, M → Eventos). O Painel ainda é uma página "Em construção".
 
 **Datas como texto.** `LocalDate`, `LocalTime` e `LocalDateTime` chegam sem fuso. `utils/datas.js` os formata fatiando a string, nunca com `new Date("AAAA-MM-DD")` (que no Brasil mostraria o dia anterior). Moeda: `utils/moeda.js` (`Intl.NumberFormat` BRL, arredondamento para 2 casas antes de enviar).
 
@@ -134,7 +134,7 @@ src/
     mock/        backend simulado (núcleo, handlers/<módulo> com as próprias rotas, página DIRECT, dados, JWT falso)
   routes/        rotas (páginas com React.lazy) e guards (visitante, autenticado, permissão)
   layouts/       tela dividida do login e estrutura autenticada (menu por perfil, breadcrumb)
-  pages/         Login, Esqueci a senha, Redefinir senha, Membros e Eventos (lista/calendário, detalhes, formulário), Em construção, Sem acesso, 404
+  pages/         Login, Esqueci a senha, Redefinir senha, Membros e Eventos (lista/calendário, detalhes, formulário), Financeiro (movimentações, fluxo de caixa, relatório, formulário), Em construção, Sem acesso, 404
   components/    ui (genéricos: Button, campos, Card, Table, Modal, ConfirmDialog, Pagination, Breadcrumb...), members, events, auth, brand
   styles/        tokens (cores, tipos, espaçamentos) e estilos globais
   utils/         CPF, telefone, datas (e agora no fuso do servidor), calendário, moeda, JWT, strings

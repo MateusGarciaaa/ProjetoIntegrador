@@ -3,6 +3,7 @@ package br.com.churchhub.api.controller;
 import br.com.churchhub.api.dto.MovimentacaoFinanceiraRequest;
 import br.com.churchhub.api.dto.MovimentacaoFinanceiraResponse;
 import br.com.churchhub.api.dto.ResumoFinanceiroResponse;
+import br.com.churchhub.api.entity.TipoMovimentacao;
 import br.com.churchhub.api.service.MovimentacaoFinanceiraService;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -31,8 +32,10 @@ public class MovimentacaoFinanceiraController {
     public ResponseEntity<Page<MovimentacaoFinanceiraResponse>> listar(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dataInicio,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dataFim,
+            @RequestParam(required = false) TipoMovimentacao tipo,
+            @RequestParam(required = false) UUID categoriaId,
             @PageableDefault(size = 20, sort = "data") Pageable pageable) {
-        return ResponseEntity.ok(movimentacaoService.listar(dataInicio, dataFim, pageable));
+        return ResponseEntity.ok(movimentacaoService.listar(dataInicio, dataFim, tipo, categoriaId, pageable));
     }
 
     @GetMapping("/{id}")

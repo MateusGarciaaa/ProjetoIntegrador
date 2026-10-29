@@ -131,3 +131,22 @@
     padding: var(--space-5) var(--space-4) var(--space-6);
   }
 }
+
+/* Impressão (relatório financeiro): só o conteúdo da página, sem menu, topo e trilha. */
+@media print {
+  .menu,
+  .veu,
+  .pularLink {
+    display: none;
+  }
+
+  .coluna {
+    margin-left: 0;
+    min-height: 0;
+  }
+
+  .conteudo {
+    max-width: none;
+    padding: 0;
+  }
+}

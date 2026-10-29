@@ -107,6 +107,43 @@ class MovimentacaoFinanceiraIntegrationTest {
     }
 
     @Test
+    void filtraPorTipoECategoriaNaMesmaConsulta() throws Exception {
+        Statistics estatisticas = estatisticas();
+        estatisticas.clear();
+
+        mockMvc.perform(get(RECURSO)
+                        .param("dataInicio", INICIO.toString())
+                        .param("dataFim", FIM.toString())
+                        .param("tipo", "RECEITA")
+                        .param("categoriaId", categoria.getId().toString())
+                        .with(user("tesoureiro@churchhub.local").roles("TESOUREIRO")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalElements").value(QUANTIDADE))
+                .andExpect(jsonPath("$.content[0].categoria.nome").value(categoria.getNome()))
+                .andExpect(jsonPath("$.content[0].membroNome").value("Membro integração 0"));
+        assertThat(estatisticas.getPrepareStatementCount()).isEqualTo(CONSULTAS_ESPERADAS);
+
+        mockMvc.perform(get(RECURSO)
+                        .param("dataInicio", INICIO.toString())
+                        .param("dataFim", FIM.toString())
+                        .param("tipo", "DESPESA")
+                        .with(user("tesoureiro@churchhub.local").roles("TESOUREIRO")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalElements").value(0));
+    }
+
+    /** Categoria inexistente é só um filtro sem resultado (200 com página vazia), não 404. */
+    @Test
+    void categoriaInexistenteDevolvePaginaVazia() throws Exception {
+        mockMvc.perform(get(RECURSO)
+                        .param("categoriaId", UUID.randomUUID().toString())
+                        .with(user("tesoureiro@churchhub.local").roles("TESOUREIRO")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalElements").value(0))
+                .andExpect(jsonPath("$.content").isEmpty());
+    }
+
+    @Test
     void listaSemFiltroDeDataTambemCarregaOsRelacionamentos() throws Exception {
         mockMvc.perform(get(RECURSO)
                         .param("size", "2000")

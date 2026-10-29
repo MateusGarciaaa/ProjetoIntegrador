@@ -1,0 +1,17 @@
+.secundario {
+  color: var(--color-ink-muted);
+  overflow-wrap: anywhere;
+}
+
+.numero {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.valor {
+  text-align: right;
+}
+
+.semValor {
+  color: var(--color-ink-subtle);
+}

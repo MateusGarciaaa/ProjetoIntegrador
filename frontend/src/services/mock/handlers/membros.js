@@ -143,7 +143,7 @@ export const MENSAGEM_RN14 =
 export function excluir({ banco, id, caminho }) {
   const indice = banco.membros.findIndex((m) => m.id === id);
   if (indice < 0) return erroApi(404, 'Membro não encontrado', caminho);
-  if (banco.membrosComMovimentacao.has(id)) return erroApi(409, MENSAGEM_RN14, caminho);
+  if (banco.movimentacoes.some((m) => m.membroId === id)) return erroApi(409, MENSAGEM_RN14, caminho);
   banco.membros.splice(indice, 1);
   return ok(204);
 }

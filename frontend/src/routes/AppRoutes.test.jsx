@@ -88,6 +88,35 @@ describe('rotas por perfil', () => {
     expect(screen.getByRole('button', { name: /sair/i })).toBeTruthy();
   });
 
+  it('Financeiro: S e M sem acesso a nenhuma tela; P só consulta (sem cadastro nem edição pela URL)', async () => {
+    const ID = '9b4c7d2e-1f3a-4e6b-8d5c-000000000001';
+    const semAcesso = { name: 'Sem acesso à área Financeiro' };
+    for (const caminho of ['/financeiro', '/financeiro/fluxo-de-caixa', '/financeiro/relatorio', '/financeiro/novo']) {
+      for (const perfil of [PERFIS.SECRETARIO, PERFIS.MEMBRO]) {
+        abrir(caminho, perfil);
+        expect(await screen.findByRole('heading', semAcesso)).toBeTruthy();
+        cleanup();
+      }
+    }
+    abrir('/financeiro/novo', PERFIS.PASTOR);
+    expect(await screen.findByRole('heading', semAcesso)).toBeTruthy();
+    cleanup();
+    abrir(`/financeiro/${ID}/editar`, PERFIS.PASTOR);
+    expect(await screen.findByRole('heading', semAcesso)).toBeTruthy();
+    cleanup();
+    abrir('/financeiro/relatorio', PERFIS.PASTOR);
+    expect(await screen.findByRole('link', { name: 'Relatório' })).toBeTruthy();
+    expect(menu().textContent).toBe('PainelMembrosEventosFinanceiro');
+    cleanup();
+
+    // TESOUREIRO cadastra e edita; o menu dele não tem Membros.
+    abrir('/financeiro/novo', PERFIS.TESOUREIRO);
+    expect(await screen.findByRole('heading', { name: 'Nova movimentação' })).toBeTruthy();
+    cleanup();
+    abrir(`/financeiro/${ID}/editar`, PERFIS.TESOUREIRO);
+    expect(await screen.findByRole('heading', { name: 'Editar movimentação' })).toBeTruthy();
+  });
+
   it('breadcrumb leva ao início do perfil', async () => {
     abrir('/eventos', PERFIS.ADMINISTRADOR);
     await screen.findByRole('heading', { name: 'Eventos' });

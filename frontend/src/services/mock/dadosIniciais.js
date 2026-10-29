@@ -1,5 +1,5 @@
 import { STATUS_MEMBRO } from '../../constants/statusMembro';
-import { somarDias } from '../../utils/calendario';
+import { limitesDoMes, mesDaData, somarDias, somarMeses } from '../../utils/calendario';
 import { calcularDigitosVerificadoresCpf } from '../../utils/cpf';
 import { diaDaSemana } from '../../utils/datas';
 
@@ -54,16 +54,6 @@ export function criarMembrosIniciais() {
   }));
 }
 
-/**
- * Membros com dízimo lançado no DadosDemonstracaoService (LANCAMENTOS com indiceMembro 0, 1, 13
- * e 17). Enquanto o mock não tem movimentações financeiras, é por eles que a RN14 é simulada.
- */
-const EMAILS_COM_MOVIMENTACAO = ['ana.carvalho@email.com', 'andre.fontana@email.com', 'joao.zanella@email.com', 'mateus.cruz@email.com'];
-
-export function idsComMovimentacao(membros) {
-  return new Set(membros.filter((m) => EMAILS_COM_MOVIMENTACAO.includes(m.email)).map((m) => m.id));
-}
-
 const DOMINGO = 0;
 const QUARTA = 3;
 const SABADO = 6;
@@ -99,4 +89,69 @@ export function criarEventosIniciais(hoje) {
     horario: `${String(hora).padStart(2, '0')}:${String(minuto).padStart(2, '0')}:00`,
     local,
   }));
+}
+
+/** [nome, tipo] — DadosDemonstracaoService.CATEGORIAS. */
+const CATEGORIAS = [
+  ['Dízimos', 'RECEITA'],
+  ['Ofertas', 'RECEITA'],
+  ['Eventos', 'RECEITA'],
+  ['Água e energia', 'DESPESA'],
+  ['Manutenção', 'DESPESA'],
+  ['Ação social', 'DESPESA'],
+];
+
+function idDaCategoria(indice) {
+  return `3a9d2b1c-6e4f-4a8b-9c2d-${String(indice + 1).padStart(12, '0')}`;
+}
+
+export function criarCategoriasIniciais() {
+  return CATEGORIAS.map(([nome, tipo], indice) => ({ id: idDaCategoria(indice), nome, tipo }));
+}
+
+/**
+ * [descrição, valor, dia, categoria, índice do membro em REGISTROS ou null] — DadosDemonstracaoService.LANCAMENTOS_DO_MES.
+ * Os dízimos são dos membros 0, 1, 13 e 17 (Ana, André, João Pedro e Mateus): é por eles que a RN14 aparece.
+ */
+const LANCAMENTOS_DO_MES = [
+  ['Dízimo', 450, 2, 'Dízimos', 0],
+  ['Dízimo', 320, 3, 'Dízimos', 1],
+  ['Dízimo', 600, 5, 'Dízimos', 13],
+  ['Dízimo', 275.5, 6, 'Dízimos', 17],
+  ['Oferta do culto de domingo', 812.4, 7, 'Ofertas', null],
+  ['Oferta missionária', 390, 14, 'Ofertas', null],
+  ['Jantar beneficente', 1250, 10, 'Eventos', null],
+  ['Conta de energia elétrica', 486.32, 8, 'Água e energia', null],
+  ['Conta de água', 142.18, 8, 'Água e energia', null],
+  ['Reparo no telhado do salão', 980, 12, 'Manutenção', null],
+  ['Cestas básicas', 720, 15, 'Ação social', null],
+];
+
+function idDaMovimentacao(indice) {
+  return `9b4c7d2e-1f3a-4e6b-8d5c-${String(indice + 1).padStart(12, '0')}`;
+}
+
+/**
+ * Mesmo conjunto do DadosDemonstracaoService.criarMovimentacoes: o mês passado inteiro (fechado) e o
+ * mês atual só até hoje — no dia 3, por exemplo, os lançamentos de dia maior caem no próprio dia 3.
+ * Guarda os ids de categoria e de membro, como as colunas categoria_id e membro_id.
+ */
+export function criarMovimentacoesIniciais(hoje, categorias, membros) {
+  const referencias = [limitesDoMes(somarMeses(mesDaData(hoje), -1)).fim, hoje];
+  const porNome = Object.fromEntries(categorias.map((c) => [c.nome, c]));
+  return referencias.flatMap((limite, mes) =>
+    LANCAMENTOS_DO_MES.map(([descricao, valor, dia, nomeCategoria, indiceMembro], indice) => {
+      const diaNoMes = Math.min(dia, Number(limite.slice(8)));
+      const categoria = porNome[nomeCategoria];
+      return {
+        id: idDaMovimentacao(mes * LANCAMENTOS_DO_MES.length + indice),
+        descricao,
+        valor,
+        data: `${limite.slice(0, 8)}${String(diaNoMes).padStart(2, '0')}`,
+        tipo: categoria.tipo,
+        categoriaId: categoria.id,
+        membroId: indiceMembro === null ? null : membros[indiceMembro].id,
+      };
+    }),
+  );
 }

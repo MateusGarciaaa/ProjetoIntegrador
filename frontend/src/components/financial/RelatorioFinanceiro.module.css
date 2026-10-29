@@ -1,0 +1,105 @@
+.relatorio {
+  display: grid;
+  gap: var(--space-4);
+  padding: var(--space-5);
+  background: var(--color-surface);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-md);
+}
+
+.cabecalho {
+  display: grid;
+  gap: var(--space-1);
+  padding-bottom: var(--space-3);
+  border-bottom: 2px solid var(--color-primary);
+}
+
+.titulo {
+  font-size: var(--text-xl);
+}
+
+.meta {
+  font-size: var(--text-sm);
+  color: var(--color-ink-muted);
+}
+
+.colunas {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
+  gap: var(--space-4);
+}
+
+.secao {
+  display: grid;
+  gap: var(--space-2);
+  min-width: 0;
+  overflow-x: auto;
+}
+
+.subtitulo {
+  font-size: var(--text-md);
+  color: var(--color-primary);
+}
+
+.tabela {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+}
+
+.tabela th,
+.tabela td {
+  padding: var(--space-1) var(--space-2);
+  border-bottom: 1px solid var(--color-line);
+  text-align: left;
+  font-weight: var(--weight-regular);
+}
+
+.tabela thead th {
+  font-weight: var(--weight-semibold);
+  color: var(--color-ink-muted);
+  border-bottom-color: var(--color-line-strong);
+}
+
+.tabela tfoot th,
+.tabela tfoot td {
+  font-weight: var(--weight-semibold);
+  border-top: 1px solid var(--color-line-strong);
+  border-bottom: 0;
+}
+
+/* Colunas de número à direita (as duas últimas nas tabelas por categoria e a última na de lançamentos). */
+.tabela td:last-child,
+.tabela th:last-child {
+  text-align: right;
+}
+
+.vazio {
+  color: var(--color-ink-muted);
+  font-size: var(--text-sm);
+}
+
+@media print {
+  .relatorio {
+    padding: 0;
+    border: 0;
+    gap: var(--space-3);
+  }
+
+  .colunas {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .secao {
+    overflow: visible;
+  }
+
+  .tabela tr {
+    break-inside: avoid;
+  }
+
+  .tabela thead {
+    display: table-header-group;
+  }
+}
