@@ -18,9 +18,16 @@ export function itemMenuDoCaminho(caminho) {
   return ITENS_MENU.find((item) => caminho === item.caminho || caminho.startsWith(`${item.caminho}/`)) ?? null;
 }
 
-/** Rótulo do último nível da trilha em subpáginas: /area/novo, /area/:id e /area/:id/editar. */
+/** Subpáginas com nome próprio (abas do Financeiro). */
+const ROTULOS_DE_SUBPAGINA = Object.freeze({
+  [ROTAS.FLUXO_DE_CAIXA]: 'Fluxo de caixa',
+  [ROTAS.RELATORIO_FINANCEIRO]: 'Relatório',
+});
+
+/** Rótulo do último nível da trilha em subpáginas: /area/novo, /area/:id, /area/:id/editar e as de nome próprio. */
 function rotuloDaSubpagina(caminho, item) {
   if (caminho === item.caminho) return null;
+  if (ROTULOS_DE_SUBPAGINA[caminho]) return ROTULOS_DE_SUBPAGINA[caminho];
   if (caminho.endsWith('/novo')) return 'Novo';
   if (caminho.endsWith('/editar')) return 'Editar';
   return 'Detalhes';

@@ -53,6 +53,13 @@
   --color-info: #2b5878;
   --color-info-soft: #e3edf5;
 
+  /*
+   * Séries do gráfico do fluxo de caixa (receitas × despesas). Par validado para daltonismo
+   * (ΔE 8,4 em protanopia, contraste ≥ 3:1 sobre a superfície) — verde e vermelho de status, não.
+   */
+  --color-serie-receita: #118a68;
+  --color-serie-despesa: #cf5f24;
+
   /* Espaçamento (base 4px) */
   --space-1: 0.25rem;
   --space-2: 0.5rem;

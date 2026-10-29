@@ -1,0 +1,98 @@
+.grupo {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+
+.rotulo {
+  padding: 0;
+  margin-bottom: var(--space-1);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+}
+
+.obrigatorio {
+  margin-left: 0.125rem;
+  color: var(--color-danger);
+}
+
+.opcoes {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+
+.opcao {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: 1px solid var(--color-line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  cursor: pointer;
+}
+
+.opcao:hover {
+  border-color: var(--color-ink-subtle);
+}
+
+.opcao:focus-within {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 1px;
+}
+
+.opcao input {
+  margin: 0;
+  accent-color: var(--color-primary);
+}
+
+.nome {
+  display: block;
+  font-weight: var(--weight-semibold);
+}
+
+.explicacao {
+  display: block;
+  font-size: var(--text-xs);
+  color: var(--color-ink-muted);
+}
+
+.receita svg {
+  color: var(--color-success);
+}
+
+.despesa svg {
+  color: var(--color-danger);
+}
+
+.marcada.receita {
+  border-color: var(--color-success);
+  background: var(--color-success-soft);
+}
+
+.marcada.despesa {
+  border-color: var(--color-danger);
+  background: var(--color-danger-soft);
+}
+
+.grupo[aria-invalid='true'] .opcao {
+  border-color: var(--color-danger);
+}
+
+.erro {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: var(--text-sm);
+  color: var(--color-danger);
+}
+
+@media (max-width: 479px) {
+  .opcoes {
+    grid-template-columns: 1fr;
+  }
+}

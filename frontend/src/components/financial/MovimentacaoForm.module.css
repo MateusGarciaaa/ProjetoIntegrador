@@ -1,0 +1,66 @@
+.formulario {
+  display: grid;
+  gap: var(--space-5);
+}
+
+.secao {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: var(--space-4);
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+
+/* float tira a legenda de cima da borda do fieldset e a devolve ao fluxo do grid. */
+.legenda {
+  float: left;
+  width: 100%;
+  grid-column: 1 / -1;
+  padding: 0;
+  margin-bottom: var(--space-1);
+  font-family: var(--font-display);
+  font-size: var(--text-md);
+  font-weight: var(--weight-bold);
+  color: var(--color-primary);
+}
+
+.inteiro {
+  grid-column: 1 / -1;
+}
+
+.metade {
+  grid-column: span 3;
+}
+
+.categoria {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: var(--space-3);
+}
+
+.seletorCategoria {
+  flex: 1 1 16rem;
+}
+
+/* Alinha o botão com o campo (o rótulo ocupa a primeira linha). */
+.novaCategoria {
+  margin-top: 1.625rem;
+}
+
+.nota {
+  font-size: var(--text-sm);
+  color: var(--color-ink-muted);
+}
+
+@media (max-width: 599px) {
+  .metade {
+    grid-column: 1 / -1;
+  }
+
+  .novaCategoria {
+    margin-top: 0;
+  }
+}

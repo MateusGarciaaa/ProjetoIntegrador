@@ -8,6 +8,7 @@ import { MENSAGEM_RN09 } from './handlers/eventos';
 import { MENSAGEM_RN14 } from './handlers/membros';
 import { criarMembrosIniciais } from './dadosIniciais';
 import { criarServidorSimulado } from './servidorSimulado';
+import { MENSAGENS_BACKEND } from './respostas';
 
 const AGORA = Date.UTC(2026, 8, 30, 12);
 
@@ -431,9 +432,10 @@ describe('membros simulados: contrato do módulo Membros', () => {
     expect(atender({ metodo: 'delete', url: `/members/${bruna.id}`, authorization }).status).toBe(204);
   });
 
-  it('RN14 usa os mesmos 4 membros com dízimo do DadosDemonstracaoService', () => {
-    const { membros, membrosComMovimentacao } = criarBanco();
-    expect(membros.filter((m) => membrosComMovimentacao.has(m.id)).map((m) => m.nome)).toEqual([
+  it('RN14 consulta as movimentações: os 4 membros com dízimo do DadosDemonstracaoService', () => {
+    const { membros, movimentacoes } = criarBanco({ hoje: '2026-09-30' });
+    const comMovimentacao = new Set(movimentacoes.map((m) => m.membroId));
+    expect(membros.filter((m) => comMovimentacao.has(m.id)).map((m) => m.nome)).toEqual([
       'Ana Beatriz Carvalho',
       'André Luiz Fontana',
       'João Pedro Zanella',
@@ -595,5 +597,198 @@ describe('eventos simulados (EventoController)', () => {
     expect(editar().status).toBe(200);
     agora = noInicio;
     expect(editar()).toMatchObject({ status: 409, data: { message: MENSAGEM_RN09 } });
+  });
+});
+
+describe('financeiro simulado (MovimentacaoFinanceiraController e CategoriaFinanceiraController)', () => {
+  // AGORA = 30/09/2026 em São Paulo: agosto inteiro e setembro até hoje, como o DadosDemonstracaoService.
+  const DIZIMOS = '3a9d2b1c-6e4f-4a8b-9c2d-000000000001';
+  const MANUTENCAO = '3a9d2b1c-6e4f-4a8b-9c2d-000000000005';
+  const PRIMEIRA = '9b4c7d2e-1f3a-4e6b-8d5c-000000000001'; // Dízimo de 450,00 em 02/08, da Ana
+  const ANA = criarMembrosIniciais()[0];
+  const SETEMBRO = { dataInicio: '2026-09-01', dataFim: '2026-09-30' };
+  const novaMovimentacao = {
+    descricao: 'Dízimo',
+    valor: 150.5,
+    data: '2026-09-29',
+    tipo: 'RECEITA',
+    categoriaId: DIZIMOS,
+    membroId: ANA.id,
+  };
+
+  function listar(atender, authorization, params = {}) {
+    return atender({ metodo: 'get', url: '/financial', authorization, params });
+  }
+
+  function postar(atender, authorization, corpo) {
+    return atender({ metodo: 'post', url: '/financial', authorization, corpo });
+  }
+
+  it('dados de demonstração: 6 categorias e 11 lançamentos por mês, com os totais do backend real', () => {
+    const atender = novoServidor();
+    const authorization = entrar(atender, 'TESOUREIRO');
+    expect(atender({ metodo: 'get', url: '/financial-categories', authorization }).data.map((c) => c.nome)).toEqual([
+      'Dízimos',
+      'Ofertas',
+      'Eventos',
+      'Água e energia',
+      'Manutenção',
+      'Ação social',
+    ]);
+    expect(listar(atender, authorization).data.totalElements).toBe(22);
+    expect(listar(atender, authorization, SETEMBRO).data.totalElements).toBe(11);
+    expect(atender({ metodo: 'get', url: '/financial/summary', authorization, params: SETEMBRO }).data).toEqual({
+      ...SETEMBRO,
+      totalReceitas: 4097.9,
+      totalDespesas: 2328.5,
+      saldo: 1769.4,
+    });
+    expect(atender({ metodo: 'get', url: `/financial/${PRIMEIRA}`, authorization }).data).toEqual({
+      id: PRIMEIRA,
+      descricao: 'Dízimo',
+      valor: 450,
+      data: '2026-08-02',
+      tipo: 'RECEITA',
+      categoria: { id: DIZIMOS, nome: 'Dízimos', tipo: 'RECEITA' },
+      membroId: ANA.id,
+      membroNome: 'Ana Beatriz Carvalho',
+    });
+  });
+
+  it('perfis do @PreAuthorize: A, T e P consultam; A e T lançam; só A exclui; S e M não acessam', () => {
+    const atender = novoServidor();
+    const como = (perfil) => entrar(atender, perfil);
+    const categoria = { nome: 'Missões', tipo: 'RECEITA' };
+    ['ADMINISTRADOR', 'TESOUREIRO', 'PASTOR'].forEach((perfil) => {
+      expect(listar(atender, como(perfil)).status).toBe(200);
+      expect(atender({ metodo: 'get', url: '/financial-categories', authorization: como(perfil) }).status).toBe(200);
+    });
+    ['SECRETARIO', 'MEMBRO'].forEach((perfil) => {
+      expect(listar(atender, como(perfil)).status).toBe(403);
+      expect(atender({ metodo: 'get', url: '/financial/summary', authorization: como(perfil), params: SETEMBRO }).status).toBe(403);
+      expect(atender({ metodo: 'get', url: '/financial-categories', authorization: como(perfil) }).status).toBe(403);
+    });
+    expect(postar(atender, como('PASTOR'), novaMovimentacao).status).toBe(403);
+    expect(postar(atender, como('TESOUREIRO'), novaMovimentacao).status).toBe(201);
+    expect(atender({ metodo: 'post', url: '/financial-categories', authorization: como('PASTOR'), corpo: categoria }).status).toBe(403);
+    expect(atender({ metodo: 'delete', url: `/financial/${PRIMEIRA}`, authorization: como('TESOUREIRO') }).status).toBe(403);
+    expect(atender({ metodo: 'delete', url: `/financial/${PRIMEIRA}`, authorization: como('ADMINISTRADOR') }).status).toBe(204);
+    expect(atender({ metodo: 'get', url: `/financial/${PRIMEIRA}`, authorization: como('PASTOR') })).toMatchObject({
+      status: 404,
+      data: { message: 'Movimentação financeira não encontrada' },
+    });
+  });
+
+  it('@Valid com as mensagens do MovimentacaoFinanceiraRequest (RN06/RN07 valor positivo, RN10 categoria)', () => {
+    const atender = novoServidor();
+    const authorization = entrar(atender, 'TESOUREIRO');
+    const mensagem = (corpo) => postar(atender, authorization, corpo).data.message;
+    expect(mensagem({ ...novaMovimentacao, valor: -5 })).toBe('O valor deve ser positivo');
+    expect(mensagem({ ...novaMovimentacao, valor: 0, categoriaId: null })).toBe('O valor deve ser positivo, A categoria é obrigatória');
+    expect(mensagem({ ...novaMovimentacao, valor: 1.005 })).toBe('O valor deve ter até 10 dígitos inteiros e 2 casas decimais');
+    expect(mensagem({ ...novaMovimentacao, valor: 12345678901 })).toBe('O valor deve ter até 10 dígitos inteiros e 2 casas decimais');
+    expect(mensagem({})).toBe(
+      'A descrição é obrigatória, O valor é obrigatório, A data é obrigatória, O tipo é obrigatório, A categoria é obrigatória',
+    );
+    expect(mensagem({ ...novaMovimentacao, valor: 'abc' })).toBe(MENSAGENS_BACKEND.CORPO_INVALIDO);
+    expect(mensagem({ ...novaMovimentacao, tipo: 'ENTRADA' })).toBe(MENSAGENS_BACKEND.CORPO_INVALIDO);
+    // O Jackson aceita o BigDecimal como texto numérico.
+    expect(postar(atender, authorization, { ...novaMovimentacao, valor: '10.50' })).toMatchObject({ status: 201, data: { valor: 10.5 } });
+  });
+
+  it('regras do serviço: categoria inexistente (404), tipo ≠ categoria (400) e membro inexistente (404)', () => {
+    const atender = novoServidor();
+    const authorization = entrar(atender, 'ADMINISTRADOR');
+    const outroUuid = '00000000-0000-4000-8000-000000000000';
+    expect(postar(atender, authorization, { ...novaMovimentacao, categoriaId: outroUuid })).toMatchObject({
+      status: 404,
+      data: { message: 'Categoria financeira não encontrada' },
+    });
+    expect(postar(atender, authorization, { ...novaMovimentacao, categoriaId: MANUTENCAO })).toMatchObject({
+      status: 400,
+      data: { message: 'O tipo da movimentação (RECEITA) não é compatível com o tipo da categoria (DESPESA)' },
+    });
+    expect(postar(atender, authorization, { ...novaMovimentacao, membroId: outroUuid })).toMatchObject({
+      status: 404,
+      data: { message: 'Membro não encontrado' },
+    });
+    const corpo = { ...novaMovimentacao, membroId: null };
+    expect(atender({ metodo: 'put', url: `/financial/${PRIMEIRA}`, authorization, corpo })).toMatchObject({
+      status: 200,
+      data: { id: PRIMEIRA, valor: 150.5, membroId: null, membroNome: null },
+    });
+  });
+
+  it('filtra pelo período só com os dois limites; summary exige os dois', () => {
+    const atender = novoServidor();
+    const authorization = entrar(atender, 'PASTOR');
+    const resumo = (params) => atender({ metodo: 'get', url: '/financial/summary', authorization, params });
+    expect(listar(atender, authorization, { dataInicio: '2026-09-01' }).data.totalElements).toBe(22);
+    expect(listar(atender, authorization, { dataInicio: '01/09/2026', dataFim: '2026-09-30' }).data.message).toBe(
+      "Valor inválido para o parâmetro 'dataInicio'.",
+    );
+    expect(resumo({ dataInicio: '2026-09-01' }).data.message).toBe("Parâmetro obrigatório ausente: 'dataFim'.");
+    const ordenada = listar(atender, authorization, { ...SETEMBRO, sort: ['valor,desc', 'id,asc'] }).data.content;
+    expect(ordenada[0]).toMatchObject({ descricao: 'Jantar beneficente', valor: 1250 });
+    expect(listar(atender, authorization, { sort: 'categoria.nome,asc' }).status).toBe(400);
+  });
+
+  it('filtros tipo e categoriaId: opcionais, combinados com o período, 400 para valor inválido', () => {
+    const atender = novoServidor();
+    const authorization = entrar(atender, 'TESOUREIRO');
+    const AGUA_E_ENERGIA = '3a9d2b1c-6e4f-4a8b-9c2d-000000000004';
+    const total = (params) => listar(atender, authorization, params).data.totalElements;
+    expect(total({ ...SETEMBRO, tipo: 'DESPESA' })).toBe(4);
+    expect(total({ tipo: 'DESPESA' })).toBe(8);
+    expect(total({ ...SETEMBRO, categoriaId: AGUA_E_ENERGIA })).toBe(2);
+    expect(total({ ...SETEMBRO, tipo: 'DESPESA', categoriaId: AGUA_E_ENERGIA })).toBe(2);
+    expect(total({ ...SETEMBRO, tipo: 'RECEITA', categoriaId: AGUA_E_ENERGIA })).toBe(0);
+    // Categoria inexistente é filtro sem resultado (200), não 404.
+    expect(listar(atender, authorization, { categoriaId: '00000000-0000-4000-8000-000000000000' })).toMatchObject({
+      status: 200,
+      data: { totalElements: 0, content: [] },
+    });
+    // Paginação no servidor sobre o resultado filtrado.
+    expect(listar(atender, authorization, { ...SETEMBRO, tipo: 'DESPESA', page: 1, size: 3 }).data).toMatchObject({
+      totalElements: 4,
+      totalPages: 2,
+      number: 1,
+    });
+    expect(listar(atender, authorization, { tipo: 'receita' })).toMatchObject({
+      status: 400,
+      data: { message: "Valor inválido para o parâmetro 'tipo'." },
+    });
+    expect(listar(atender, authorization, { categoriaId: 'dizimos' }).data.message).toBe(
+      "Valor inválido para o parâmetro 'categoriaId'.",
+    );
+    // Como no Spring: o 400 de parâmetro vem antes do @PreAuthorize.
+    expect(listar(atender, entrar(atender, 'MEMBRO'), { tipo: 'X' }).status).toBe(400);
+  });
+
+  it('categorias: filtro por tipo, @Valid e 409 de nome repetido (comparação exata)', () => {
+    const atender = novoServidor();
+    const authorization = entrar(atender, 'TESOUREIRO');
+    const criar = (corpo) => atender({ metodo: 'post', url: '/financial-categories', authorization, corpo });
+    const listarDoTipo = (tipo) => atender({ metodo: 'get', url: '/financial-categories', authorization, params: { tipo } });
+    expect(listarDoTipo('DESPESA').data.map((c) => c.nome)).toEqual(['Água e energia', 'Manutenção', 'Ação social']);
+    expect(listarDoTipo('X').data.message).toBe("Valor inválido para o parâmetro 'tipo'.");
+    expect(criar({ nome: '', tipo: null }).data.message).toBe('O nome da categoria é obrigatório, O tipo da categoria é obrigatório');
+    expect(criar({ nome: 'Dízimos', tipo: 'RECEITA' })).toMatchObject({
+      status: 409,
+      data: { message: 'Já existe uma categoria com este nome para este tipo' },
+    });
+    expect(criar({ nome: 'Dízimos', tipo: 'DESPESA' }).status).toBe(201);
+    expect(criar({ nome: 'Missões', tipo: 'RECEITA' })).toMatchObject({ status: 201, data: { nome: 'Missões', tipo: 'RECEITA' } });
+  });
+
+  it('RN14 acompanha as movimentações: sem lançamentos, o membro pode ser excluído', () => {
+    const atender = novoServidor();
+    const authorization = entrar(atender, 'ADMINISTRADOR');
+    const { data } = listar(atender, authorization, { size: 2000 });
+    expect(atender({ metodo: 'delete', url: `/members/${ANA.id}`, authorization }).status).toBe(409);
+    data.content
+      .filter((m) => m.membroId === ANA.id)
+      .forEach((m) => expect(atender({ metodo: 'delete', url: `/financial/${m.id}`, authorization }).status).toBe(204));
+    expect(atender({ metodo: 'delete', url: `/members/${ANA.id}`, authorization }).status).toBe(204);
   });
 });

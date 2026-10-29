@@ -96,3 +96,9 @@
     white-space: nowrap;
   }
 }
+
+@media print {
+  .cabecalho {
+    display: none;
+  }
+}

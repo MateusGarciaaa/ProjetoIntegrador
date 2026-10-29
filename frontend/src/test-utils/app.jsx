@@ -58,11 +58,13 @@ export function abrirApp(caminho, perfil, { token } = {}) {
 /**
  * abrirApp com o servidor simulado respondendo (dados de demonstração, mesmas regras do backend).
  * Devolve também o transporte (chamadas feitas, restaurar()) e o atender (para preparar dados).
+ * preparar(atender, authorization): roda antes de abrir a tela (ex.: cadastrar lançamentos em massa).
  */
-export function abrirAppComServidor(caminho, perfil) {
+export function abrirAppComServidor(caminho, perfil, { preparar } = {}) {
   const atender = criarServidorSimulado({ validadeTokenSegundos: 3600 });
   const conta = CONTAS_DEMO.find((c) => c.perfil === perfil);
   const { data } = atender({ metodo: 'post', url: '/auth/login', corpo: { email: conta.email, password: SENHA_DEMO } });
+  preparar?.(atender, `Bearer ${data.token}`);
   const transporte = instalarTransporte(transporteDoServidor(atender));
   return { ...abrirApp(caminho, perfil, { token: data.token }), transporte, atender };
 }

@@ -1,0 +1,13 @@
+.valor {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--weight-semibold);
+}
+
+.receita {
+  color: var(--color-success);
+}
+
+.despesa {
+  color: var(--color-danger);
+}

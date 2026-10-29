@@ -1,0 +1,49 @@
+.filtro {
+  display: grid;
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
+}
+
+.atual {
+  color: var(--color-ink-muted);
+}
+
+.atual strong {
+  color: var(--color-ink);
+}
+
+.campos {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: var(--space-3);
+}
+
+.data {
+  flex: 0 1 10rem;
+}
+
+/* Alinha os botões com os campos (o rótulo ocupa a primeira linha). */
+.botoes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  padding-top: 1.625rem;
+}
+
+@media (max-width: 599px) {
+  .data {
+    flex: 1 1 8rem;
+  }
+
+  .botoes {
+    padding-top: 0;
+    width: 100%;
+  }
+}
+
+@media print {
+  .campos {
+    display: none;
+  }
+}

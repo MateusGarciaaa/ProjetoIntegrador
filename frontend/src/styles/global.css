@@ -77,3 +77,14 @@ textarea {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Marca o que não vai para o papel (botões, filtros). */
+@media print {
+  [data-sem-impressao] {
+    display: none !important;
+  }
+
+  body {
+    background: #fff;
+  }
+}

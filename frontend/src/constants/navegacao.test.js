@@ -70,6 +70,16 @@ describe('trilhaDoCaminho', () => {
     expect(trilhaDoCaminho('/membros/abc', PERFIS.PASTOR).at(-1)).toEqual({ rotulo: 'Detalhes' });
   });
 
+  it('abas do Financeiro têm rótulo próprio', () => {
+    expect(trilhaDoCaminho('/financeiro/fluxo-de-caixa', PERFIS.TESOUREIRO)).toEqual([
+      { rotulo: 'Financeiro', caminho: '/financeiro' },
+      { rotulo: 'Fluxo de caixa' },
+    ]);
+    expect(trilhaDoCaminho('/financeiro/relatorio', PERFIS.PASTOR).at(-1)).toEqual({ rotulo: 'Relatório' });
+    expect(trilhaDoCaminho('/financeiro/novo', PERFIS.TESOUREIRO).at(-1)).toEqual({ rotulo: 'Novo' });
+    expect(trilhaDoCaminho('/financeiro/abc/editar', PERFIS.ADMINISTRADOR).at(-1)).toEqual({ rotulo: 'Editar' });
+  });
+
   it('sem trilha na rota inicial do perfil e fora do menu', () => {
     expect(trilhaDoCaminho('/membros', PERFIS.SECRETARIO)).toEqual([]);
     expect(trilhaDoCaminho('/nao-existe', PERFIS.ADMINISTRADOR)).toEqual([]);

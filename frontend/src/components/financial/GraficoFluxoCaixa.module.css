@@ -1,0 +1,150 @@
+.figura {
+  margin: 0;
+  padding: var(--space-4);
+  background: var(--color-surface);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-md);
+}
+
+.cabecalho {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+}
+
+.titulo {
+  font-family: var(--font-display);
+  font-size: var(--text-md);
+  font-weight: var(--weight-bold);
+}
+
+.legenda {
+  display: inline-flex;
+  gap: var(--space-4);
+  font-size: var(--text-sm);
+  color: var(--color-ink-muted);
+}
+
+.legenda > span {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.marcaReceita,
+.marcaDespesa {
+  display: inline-block;
+  width: 0.75rem;
+  height: 0.75rem;
+  border-radius: 3px;
+  vertical-align: middle;
+}
+
+.marcaReceita {
+  background: var(--color-serie-receita);
+}
+
+.marcaDespesa {
+  background: var(--color-serie-despesa);
+}
+
+.area {
+  position: relative;
+}
+
+.svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.grade {
+  stroke: var(--color-line);
+  stroke-width: 1;
+}
+
+.eixo {
+  stroke: var(--color-line-strong);
+  stroke-width: 1;
+}
+
+.rotuloEixo {
+  font-size: 11px;
+  fill: var(--color-ink-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.barraReceita {
+  fill: var(--color-serie-receita);
+}
+
+.barraDespesa {
+  fill: var(--color-serie-despesa);
+}
+
+.alvo {
+  fill: transparent;
+}
+
+.grupoAtivo .alvo {
+  fill: var(--color-ink);
+  fill-opacity: 0.05;
+}
+
+.tooltip {
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+  min-width: 11rem;
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-surface);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-float);
+  font-size: var(--text-sm);
+  color: var(--color-ink);
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+.tooltipTitulo {
+  font-weight: var(--weight-semibold);
+  margin-bottom: var(--space-1);
+}
+
+.dados {
+  margin-top: var(--space-3);
+  font-size: var(--text-sm);
+}
+
+.dados summary {
+  cursor: pointer;
+  color: var(--color-primary);
+  font-weight: var(--weight-semibold);
+}
+
+.tabela {
+  width: 100%;
+  margin-top: var(--space-2);
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+
+.tabela th,
+.tabela td {
+  padding: var(--space-1) var(--space-2);
+  border-bottom: 1px solid var(--color-line);
+  text-align: right;
+}
+
+.tabela th:first-child {
+  text-align: left;
+}
+
+.vazio {
+  margin-top: var(--space-2);
+  color: var(--color-ink-muted);
+}
