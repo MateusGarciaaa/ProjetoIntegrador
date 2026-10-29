@@ -37,8 +37,8 @@ export const LIMITE_NOME_CATEGORIA = 100;
 export const TAMANHO_PAGINA_MOVIMENTACOES = 10;
 
 /**
- * Fluxo de caixa e relatório trazem o período inteiro numa só página (o máximo do Spring, como o
- * calendário de Eventos): o backend não tem série por dia/mês nem totais por categoria.
+ * Lista de lançamentos do relatório: páginas do máximo do Spring, até a última. (Totais, série e
+ * somas por categoria não dependem disso: vêm agregados do backend.)
  */
 export const TAMANHO_PAGINA_PERIODO = 2000;
 

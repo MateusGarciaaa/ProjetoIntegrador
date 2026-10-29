@@ -2,7 +2,10 @@ package br.com.churchhub.api.controller;
 
 import br.com.churchhub.api.dto.MovimentacaoFinanceiraRequest;
 import br.com.churchhub.api.dto.MovimentacaoFinanceiraResponse;
+import br.com.churchhub.api.dto.PontoSerieFinanceiraResponse;
 import br.com.churchhub.api.dto.ResumoFinanceiroResponse;
+import br.com.churchhub.api.dto.TotalPorCategoriaResponse;
+import br.com.churchhub.api.entity.AgrupamentoSerie;
 import br.com.churchhub.api.entity.TipoMovimentacao;
 import br.com.churchhub.api.service.MovimentacaoFinanceiraService;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -17,6 +20,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
+import java.util.List;
 import java.util.UUID;
 
 @Tag(name = "Financeiro")
@@ -44,12 +48,38 @@ public class MovimentacaoFinanceiraController {
         return ResponseEntity.ok(movimentacaoService.buscarPorId(id));
     }
 
+    /** Totais do período, somados no banco; tipo e categoriaId filtram como na listagem. */
     @GetMapping("/summary")
     @PreAuthorize("hasAnyRole('ADMINISTRADOR','TESOUREIRO','PASTOR')")
     public ResponseEntity<ResumoFinanceiroResponse> resumo(
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dataInicio,
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dataFim) {
-        return ResponseEntity.ok(movimentacaoService.resumo(dataInicio, dataFim));
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dataFim,
+            @RequestParam(required = false) TipoMovimentacao tipo,
+            @RequestParam(required = false) UUID categoriaId) {
+        return ResponseEntity.ok(movimentacaoService.resumo(dataInicio, dataFim, tipo, categoriaId));
+    }
+
+    /** Receitas e despesas por dia ou por mês (só os que tiveram lançamento), para gráficos. */
+    @GetMapping("/summary/series")
+    @PreAuthorize("hasAnyRole('ADMINISTRADOR','TESOUREIRO','PASTOR')")
+    public ResponseEntity<List<PontoSerieFinanceiraResponse>> serie(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dataInicio,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dataFim,
+            @RequestParam AgrupamentoSerie agrupamento,
+            @RequestParam(required = false) TipoMovimentacao tipo,
+            @RequestParam(required = false) UUID categoriaId) {
+        return ResponseEntity.ok(movimentacaoService.serie(dataInicio, dataFim, agrupamento, tipo, categoriaId));
+    }
+
+    /** Total e quantidade de lançamentos por categoria no período, do maior total para o menor. */
+    @GetMapping("/summary/categories")
+    @PreAuthorize("hasAnyRole('ADMINISTRADOR','TESOUREIRO','PASTOR')")
+    public ResponseEntity<List<TotalPorCategoriaResponse>> totaisPorCategoria(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dataInicio,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dataFim,
+            @RequestParam(required = false) TipoMovimentacao tipo,
+            @RequestParam(required = false) UUID categoriaId) {
+        return ResponseEntity.ok(movimentacaoService.totaisPorCategoria(dataInicio, dataFim, tipo, categoriaId));
     }
 
     @PostMapping

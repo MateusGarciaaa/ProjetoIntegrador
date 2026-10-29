@@ -2,8 +2,12 @@ package br.com.churchhub.api.controller;
 
 import br.com.churchhub.api.dto.CategoriaFinanceiraResponse;
 import br.com.churchhub.api.dto.MovimentacaoFinanceiraResponse;
+import br.com.churchhub.api.dto.PontoSerieFinanceiraResponse;
 import br.com.churchhub.api.dto.ResumoFinanceiroResponse;
+import br.com.churchhub.api.dto.TotalPorCategoriaResponse;
+import br.com.churchhub.api.entity.AgrupamentoSerie;
 import br.com.churchhub.api.entity.TipoMovimentacao;
+import br.com.churchhub.api.exception.BusinessException;
 import br.com.churchhub.api.security.JwtService;
 import br.com.churchhub.api.security.SecurityConfig;
 import br.com.churchhub.api.security.SecurityErrorHandler;
@@ -26,6 +30,7 @@ import org.springframework.test.web.servlet.request.RequestPostProcessor;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -44,7 +49,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
- * Financeiro: A, T e P consultam (lista, detalhe e resumo); A e T cadastram e editam;
+ * Financeiro: A, T e P consultam (lista, detalhe, resumo, série e totais por categoria); A e T cadastram e editam;
  * só A exclui; S e M não entram. A lista repassa período, tipo e categoria ao serviço.
  */
 @WebMvcTest(MovimentacaoFinanceiraController.class)
@@ -56,6 +61,8 @@ class MovimentacaoFinanceiraControllerSecurityTest {
     private static final UUID CATEGORIA = UUID.randomUUID();
     private static final String MOVIMENTACAO = LISTA + "/" + ID;
     private static final String RESUMO = LISTA + "/summary";
+    private static final String SERIE = RESUMO + "/series";
+    private static final String POR_CATEGORIA = RESUMO + "/categories";
     private static final String CORPO = """
             {"descricao":"Dízimo","valor":450.00,"data":"2026-10-05","tipo":"RECEITA",
              "categoriaId":"%s","membroId":null}""".formatted(CATEGORIA);
@@ -87,14 +94,28 @@ class MovimentacaoFinanceiraControllerSecurityTest {
     void administradorTesoureiroEPastorConsultam(String perfil) throws Exception {
         when(movimentacaoService.listar(any(), any(), any(), any(), any())).thenReturn(Page.empty());
         when(movimentacaoService.buscarPorId(ID)).thenReturn(dizimo());
-        when(movimentacaoService.resumo(any(), any())).thenReturn(new ResumoFinanceiroResponse(
+        when(movimentacaoService.resumo(any(), any(), any(), any())).thenReturn(new ResumoFinanceiroResponse(
                 LocalDate.of(2026, 10, 1), LocalDate.of(2026, 10, 31), BigDecimal.TEN, BigDecimal.ONE, BigDecimal.valueOf(9)));
+        when(movimentacaoService.serie(any(), any(), any(), any(), any())).thenReturn(List.of(new PontoSerieFinanceiraResponse(
+                LocalDate.of(2026, 10, 1), BigDecimal.TEN, BigDecimal.ONE, BigDecimal.valueOf(9))));
+        when(movimentacaoService.totaisPorCategoria(any(), any(), any(), any())).thenReturn(List.of(new TotalPorCategoriaResponse(
+                new CategoriaFinanceiraResponse(CATEGORIA, "Dízimos", TipoMovimentacao.RECEITA), BigDecimal.TEN, 2)));
 
         mockMvc.perform(get(LISTA).with(logadoComo(perfil))).andExpect(status().isOk());
         mockMvc.perform(get(MOVIMENTACAO).with(logadoComo(perfil))).andExpect(status().isOk());
         mockMvc.perform(get(RESUMO).param("dataInicio", "2026-10-01").param("dataFim", "2026-10-31")
                         .with(logadoComo(perfil)))
                 .andExpect(status().isOk());
+        mockMvc.perform(get(SERIE).param("dataInicio", "2026-10-01").param("dataFim", "2026-10-31")
+                        .param("agrupamento", "MES").with(logadoComo(perfil)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].periodo").value("2026-10-01"))
+                .andExpect(jsonPath("$[0].saldo").value(9));
+        mockMvc.perform(get(POR_CATEGORIA).param("dataInicio", "2026-10-01").param("dataFim", "2026-10-31")
+                        .with(logadoComo(perfil)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].categoria.nome").value("Dízimos"))
+                .andExpect(jsonPath("$[0].quantidade").value(2));
     }
 
     @ParameterizedTest
@@ -103,6 +124,12 @@ class MovimentacaoFinanceiraControllerSecurityTest {
         mockMvc.perform(get(LISTA).with(logadoComo(perfil))).andExpect(status().isForbidden());
         mockMvc.perform(get(MOVIMENTACAO).with(logadoComo(perfil))).andExpect(status().isForbidden());
         mockMvc.perform(get(RESUMO).param("dataInicio", "2026-10-01").param("dataFim", "2026-10-31")
+                        .with(logadoComo(perfil)))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(get(SERIE).param("dataInicio", "2026-10-01").param("dataFim", "2026-10-31")
+                        .param("agrupamento", "DIA").with(logadoComo(perfil)))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(get(POR_CATEGORIA).param("dataInicio", "2026-10-01").param("dataFim", "2026-10-31")
                         .with(logadoComo(perfil)))
                 .andExpect(status().isForbidden());
         mockMvc.perform(post(LISTA).with(logadoComo(perfil)).contentType(MediaType.APPLICATION_JSON).content(CORPO))
@@ -117,6 +144,13 @@ class MovimentacaoFinanceiraControllerSecurityTest {
     void semLoginRecebe401() throws Exception {
         mockMvc.perform(get(LISTA)).andExpect(status().isUnauthorized());
         mockMvc.perform(get(MOVIMENTACAO)).andExpect(status().isUnauthorized());
+        mockMvc.perform(get(RESUMO).param("dataInicio", "2026-10-01").param("dataFim", "2026-10-31"))
+                .andExpect(status().isUnauthorized());
+        mockMvc.perform(get(SERIE).param("dataInicio", "2026-10-01").param("dataFim", "2026-10-31")
+                        .param("agrupamento", "MES"))
+                .andExpect(status().isUnauthorized());
+        mockMvc.perform(get(POR_CATEGORIA).param("dataInicio", "2026-10-01").param("dataFim", "2026-10-31"))
+                .andExpect(status().isUnauthorized());
         mockMvc.perform(post(LISTA).contentType(MediaType.APPLICATION_JSON).content(CORPO))
                 .andExpect(status().isUnauthorized());
         mockMvc.perform(delete(MOVIMENTACAO)).andExpect(status().isUnauthorized());
@@ -212,5 +246,98 @@ class MovimentacaoFinanceiraControllerSecurityTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message").value("Valor inválido para o parâmetro 'categoriaId'."));
         verifyNoInteractions(movimentacaoService);
+    }
+
+    // ---------- agregações (summary, série, por categoria) ----------
+
+    @Test
+    void agregacoesRepassamPeriodoTipoECategoria() throws Exception {
+        when(movimentacaoService.resumo(any(), any(), any(), any())).thenReturn(new ResumoFinanceiroResponse(
+                LocalDate.of(2026, 10, 1), LocalDate.of(2026, 10, 31), BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO));
+        LocalDate inicio = LocalDate.of(2026, 10, 1);
+        LocalDate fim = LocalDate.of(2026, 10, 31);
+
+        mockMvc.perform(get(RESUMO).param("dataInicio", "2026-10-01").param("dataFim", "2026-10-31")
+                        .param("tipo", "DESPESA").param("categoriaId", CATEGORIA.toString())
+                        .with(logadoComo("TESOUREIRO")))
+                .andExpect(status().isOk());
+        mockMvc.perform(get(SERIE).param("dataInicio", "2026-10-01").param("dataFim", "2026-10-31")
+                        .param("agrupamento", "DIA").param("tipo", "RECEITA").param("categoriaId", CATEGORIA.toString())
+                        .with(logadoComo("TESOUREIRO")))
+                .andExpect(status().isOk());
+        mockMvc.perform(get(POR_CATEGORIA).param("dataInicio", "2026-10-01").param("dataFim", "2026-10-31")
+                        .param("tipo", "DESPESA")
+                        .with(logadoComo("TESOUREIRO")))
+                .andExpect(status().isOk());
+
+        verify(movimentacaoService).resumo(inicio, fim, TipoMovimentacao.DESPESA, CATEGORIA);
+        verify(movimentacaoService).serie(inicio, fim, AgrupamentoSerie.DIA, TipoMovimentacao.RECEITA, CATEGORIA);
+        verify(movimentacaoService).totaisPorCategoria(eq(inicio), eq(fim), eq(TipoMovimentacao.DESPESA), isNull());
+    }
+
+    @Test
+    void summarySemFiltrosRepassaNulos() throws Exception {
+        when(movimentacaoService.resumo(any(), any(), any(), any())).thenReturn(new ResumoFinanceiroResponse(
+                LocalDate.of(2026, 10, 1), LocalDate.of(2026, 10, 31), BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO));
+
+        mockMvc.perform(get(RESUMO).param("dataInicio", "2026-10-01").param("dataFim", "2026-10-31")
+                        .with(logadoComo("PASTOR")))
+                .andExpect(status().isOk());
+
+        verify(movimentacaoService).resumo(eq(LocalDate.of(2026, 10, 1)), eq(LocalDate.of(2026, 10, 31)), isNull(), isNull());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {RESUMO, SERIE, POR_CATEGORIA})
+    void agregacoesExigemAsDuasDatas(String rota) throws Exception {
+        mockMvc.perform(get(rota).param("dataFim", "2026-10-31").param("agrupamento", "MES")
+                        .with(logadoComo("ADMINISTRADOR")))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Parâmetro obrigatório ausente: 'dataInicio'."));
+        mockMvc.perform(get(rota).param("dataInicio", "2026-10-01").param("agrupamento", "MES")
+                        .with(logadoComo("ADMINISTRADOR")))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Parâmetro obrigatório ausente: 'dataFim'."));
+        verifyNoInteractions(movimentacaoService);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {RESUMO, SERIE, POR_CATEGORIA})
+    void agregacoesRecusamTipoECategoriaInvalidos(String rota) throws Exception {
+        mockMvc.perform(get(rota).param("dataInicio", "2026-10-01").param("dataFim", "2026-10-31")
+                        .param("agrupamento", "MES").param("tipo", "receita")
+                        .with(logadoComo("ADMINISTRADOR")))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Valor inválido para o parâmetro 'tipo'."));
+        mockMvc.perform(get(rota).param("dataInicio", "2026-10-01").param("dataFim", "2026-10-31")
+                        .param("agrupamento", "MES").param("categoriaId", "dizimos")
+                        .with(logadoComo("ADMINISTRADOR")))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Valor inválido para o parâmetro 'categoriaId'."));
+        verifyNoInteractions(movimentacaoService);
+    }
+
+    @Test
+    void serieExigeAgrupamentoValido() throws Exception {
+        mockMvc.perform(get(SERIE).param("dataInicio", "2026-10-01").param("dataFim", "2026-10-31")
+                        .with(logadoComo("ADMINISTRADOR")))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Parâmetro obrigatório ausente: 'agrupamento'."));
+        mockMvc.perform(get(SERIE).param("dataInicio", "2026-10-01").param("dataFim", "2026-10-31")
+                        .param("agrupamento", "SEMANA").with(logadoComo("ADMINISTRADOR")))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Valor inválido para o parâmetro 'agrupamento'."));
+        verifyNoInteractions(movimentacaoService);
+    }
+
+    @Test
+    void periodoInvertidoRecebe400() throws Exception {
+        when(movimentacaoService.resumo(any(), any(), any(), any()))
+                .thenThrow(new BusinessException("A data inicial não pode ser posterior à data final"));
+
+        mockMvc.perform(get(RESUMO).param("dataInicio", "2026-10-31").param("dataFim", "2026-10-01")
+                        .with(logadoComo("ADMINISTRADOR")))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("A data inicial não pode ser posterior à data final"));
     }
 }

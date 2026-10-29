@@ -1,7 +1,7 @@
 import { infoTipoMovimentacao, TIPOS_MOVIMENTACAO } from '../../constants/financeiro';
 import { descreverPeriodo } from '../../schemas/consultaFinanceiro';
 import { formatarData } from '../../utils/datas';
-import { formatarPercentual, totaisPorCategoria } from '../../utils/fluxoDeCaixa';
+import { formatarPercentual, linhasPorCategoria } from '../../utils/fluxoDeCaixa';
 import { centavosParaValor, formatarMoeda } from '../../utils/moeda';
 import { ResumoFinanceiroCards } from './ResumoFinanceiroCards';
 import { TipoMovimentacaoBadge } from './TipoMovimentacaoBadge';
@@ -16,9 +16,9 @@ function porData(a, b) {
   return a.data.localeCompare(b.data) || a.id.localeCompare(b.id);
 }
 
-function TabelaPorCategoria({ tipo, movimentacoes, total }) {
+function TabelaPorCategoria({ tipo, totaisPorCategoria, total }) {
   const { rotulo, plural } = infoTipoMovimentacao(tipo);
-  const linhas = totaisPorCategoria(movimentacoes, tipo);
+  const linhas = linhasPorCategoria(totaisPorCategoria, tipo, total);
   return (
     <section className={styles.secao} aria-labelledby={`relatorio-${tipo}`}>
       <h3 id={`relatorio-${tipo}`} className={styles.subtitulo}>
@@ -62,11 +62,11 @@ function TabelaPorCategoria({ tipo, movimentacoes, total }) {
 
 /**
  * Relatório financeiro do período (RF15), pensado para a tela e para o papel: resumo (do /summary),
- * totais por categoria e a lista dos lançamentos por data (calculados da lista, em centavos).
+ * totais por categoria (do /summary/categories, somados no banco) e a lista dos lançamentos por data.
  * O backend não exporta arquivo: a "exportação" é a impressão do navegador (inclusive em PDF).
- *   totais / totaisDaLista: { receitas, despesas, saldo } em centavos.
+ *   totais: { receitas, despesas, saldo } em centavos; totaisPorCategoria: TotalPorCategoriaResponse[].
  */
-export function RelatorioFinanceiro({ periodo, emitidoEm, totais, totaisDaLista, movimentacoes }) {
+export function RelatorioFinanceiro({ periodo, emitidoEm, totais, totaisPorCategoria, movimentacoes }) {
   const lancamentos = [...movimentacoes].sort(porData);
   return (
     <article className={styles.relatorio}>
@@ -80,8 +80,8 @@ export function RelatorioFinanceiro({ periodo, emitidoEm, totais, totaisDaLista,
       <ResumoFinanceiroCards totais={totais} titulo="Resumo do período" />
 
       <div className={styles.colunas}>
-        <TabelaPorCategoria tipo={TIPOS_MOVIMENTACAO.RECEITA} movimentacoes={movimentacoes} total={totaisDaLista.receitas} />
-        <TabelaPorCategoria tipo={TIPOS_MOVIMENTACAO.DESPESA} movimentacoes={movimentacoes} total={totaisDaLista.despesas} />
+        <TabelaPorCategoria tipo={TIPOS_MOVIMENTACAO.RECEITA} totaisPorCategoria={totaisPorCategoria} total={totais.receitas} />
+        <TabelaPorCategoria tipo={TIPOS_MOVIMENTACAO.DESPESA} totaisPorCategoria={totaisPorCategoria} total={totais.despesas} />
       </div>
 
       <section className={styles.secao} aria-labelledby="relatorio-lancamentos">

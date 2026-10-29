@@ -7,6 +7,7 @@ import {
   parametrosDaConsultaFinanceiro,
   parametrosDoPeriodo,
   periodoDoMesVizinho,
+  periodoDosUltimosMeses,
   periodoPadrao,
 } from './consultaFinanceiro';
 
@@ -56,6 +57,12 @@ describe('parametrosDaConsultaFinanceiro', () => {
 });
 
 describe('períodos', () => {
+  it('últimos meses inteiros, contando o atual (atravessa o ano)', () => {
+    expect(periodoDosUltimosMeses('2026-10-15', 6)).toEqual({ de: '2026-05-01', ate: '2026-10-31' });
+    expect(periodoDosUltimosMeses('2026-02-10', 6)).toEqual({ de: '2025-09-01', ate: '2026-02-28' });
+    expect(periodoDosUltimosMeses('2026-10-15', 1)).toEqual({ de: '2026-10-01', ate: '2026-10-31' });
+  });
+
   it('mês atual calculado no fuso de São Paulo, não no do navegador', () => {
     // 01/11/2026 01:30 UTC ainda é 31/10 às 22:30 em São Paulo.
     const hoje = agoraDoServidor(new Date(Date.UTC(2026, 10, 1, 1, 30))).data;

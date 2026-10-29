@@ -28,7 +28,7 @@ const FinanceiroPage = carregarPagina(() => import('../pages/FinanceiroPage'), '
 const FluxoCaixaPage = carregarPagina(() => import('../pages/FluxoCaixaPage'), 'FluxoCaixaPage');
 const RelatorioFinanceiroPage = carregarPagina(() => import('../pages/RelatorioFinanceiroPage'), 'RelatorioFinanceiroPage');
 const MovimentacaoFormPage = carregarPagina(() => import('../pages/MovimentacaoFormPage'), 'MovimentacaoFormPage');
-const EmConstrucaoPage = carregarPagina(() => import('../pages/EmConstrucaoPage'), 'EmConstrucaoPage');
+const DashboardPage = carregarPagina(() => import('../pages/DashboardPage'), 'DashboardPage');
 const NotFoundPage = carregarPagina(() => import('../pages/NotFoundPage'), 'NotFoundPage');
 
 function RedirecionamentoInicial() {
@@ -70,7 +70,7 @@ export function AppRoutes() {
             </ProtectedRoute>
           }
         >
-          {rotaProtegida(ROTAS.DASHBOARD, PERMISSOES.DASHBOARD_VISUALIZAR, 'Painel', <EmConstrucaoPage titulo="Painel" />)}
+          {rotaProtegida(ROTAS.DASHBOARD, PERMISSOES.DASHBOARD_VISUALIZAR, 'Painel', <DashboardPage />)}
           {rotaProtegida(ROTAS.MEMBROS, PERMISSOES.MEMBROS_VISUALIZAR, 'Membros', <MembrosPage />)}
           {/* /membros/novo tem prioridade sobre /membros/:id (o React Router prefere o segmento fixo). */}
           {rotaProtegida(ROTAS.MEMBRO_NOVO, PERMISSOES.MEMBROS_CRIAR, 'Membros', <MembroFormPage />)}

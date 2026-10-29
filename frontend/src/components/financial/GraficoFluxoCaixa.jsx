@@ -5,10 +5,9 @@ import { formatarData, formatarMesAno } from '../../utils/datas';
 import { centavosParaValor, formatarMoeda } from '../../utils/moeda';
 import styles from './GraficoFluxoCaixa.module.css';
 
-const LARGURA = 720;
+const LARGURA_PADRAO = 720;
 const ALTURA = 260;
 const MARGEM = { topo: 12, direita: 8, base: 28, esquerda: 84 };
-const AREA_X = LARGURA - MARGEM.esquerda - MARGEM.direita;
 const AREA_Y = ALTURA - MARGEM.topo - MARGEM.base;
 const BASE = MARGEM.topo + AREA_Y;
 const LARGURA_MAXIMA_BARRA = 18;
@@ -60,13 +59,15 @@ function Tooltip({ ponto, agrupamento, esquerdaPct }) {
  * sobre um dia mostra os valores; a mesma série está na tabela logo abaixo, para leitor de tela,
  * teclado e impressão. Identidade das séries por legenda + cor validada para daltonismo.
  *   serie: [{ chave, receitas, despesas, saldo }] em centavos (utils/fluxoDeCaixa.serieDoFluxoDeCaixa).
+ *   largura: do viewBox; menor (ex.: 400) em cartões estreitos, para os rótulos não encolherem demais no celular.
  */
-export function GraficoFluxoCaixa({ serie, agrupamento }) {
+export function GraficoFluxoCaixa({ serie, agrupamento, titulo, largura = LARGURA_PADRAO }) {
+  const areaX = largura - MARGEM.esquerda - MARGEM.direita;
   const idTabela = useId();
   const [ativo, setAtivo] = useState(null);
   const maior = serie.reduce((max, p) => Math.max(max, p.receitas, p.despesas), 0);
   const { maximo, marcas } = escalaDoGrafico(maior);
-  const larguraGrupo = AREA_X / Math.max(serie.length, 1);
+  const larguraGrupo = areaX / Math.max(serie.length, 1);
   const larguraBarra = Math.max(2, Math.min(LARGURA_MAXIMA_BARRA, (larguraGrupo * 0.8 - ESPACO_ENTRE_BARRAS) / 2));
   const passoRotulo = Math.ceil(serie.length / MAXIMO_ROTULOS_X);
   const altura = (centavos) => (centavos / maximo) * AREA_Y;
@@ -76,7 +77,7 @@ export function GraficoFluxoCaixa({ serie, agrupamento }) {
   return (
     <figure className={styles.figura}>
       <figcaption className={styles.cabecalho}>
-        <span className={styles.titulo}>Receitas e despesas por {unidade}</span>
+        <span className={styles.titulo}>{titulo ?? `Receitas e despesas por ${unidade}`}</span>
         <span className={styles.legenda} aria-hidden="true">
           <span>
             <span className={styles.marcaReceita} /> Receitas
@@ -90,7 +91,7 @@ export function GraficoFluxoCaixa({ serie, agrupamento }) {
       <div className={styles.area} onMouseLeave={() => setAtivo(null)}>
         <svg
           className={styles.svg}
-          viewBox={`0 0 ${LARGURA} ${ALTURA}`}
+          viewBox={`0 0 ${largura} ${ALTURA}`}
           role="img"
           aria-label={`Gráfico de barras com receitas e despesas por ${unidade}. Os valores estão na tabela a seguir.`}
           aria-describedby={idTabela}
@@ -99,7 +100,7 @@ export function GraficoFluxoCaixa({ serie, agrupamento }) {
             const y = BASE - altura(marca);
             return (
               <g key={marca}>
-                <line className={marca === 0 ? styles.eixo : styles.grade} x1={MARGEM.esquerda} x2={LARGURA - MARGEM.direita} y1={y} y2={y} />
+                <line className={marca === 0 ? styles.eixo : styles.grade} x1={MARGEM.esquerda} x2={largura - MARGEM.direita} y1={y} y2={y} />
                 <text className={styles.rotuloEixo} x={MARGEM.esquerda - 8} y={y} dy="0.32em" textAnchor="end">
                   {reais(marca)}
                 </text>
@@ -137,7 +138,7 @@ export function GraficoFluxoCaixa({ serie, agrupamento }) {
           <Tooltip
             ponto={serie[ativo]}
             agrupamento={agrupamento}
-            esquerdaPct={((MARGEM.esquerda + (ativo + 0.5) * larguraGrupo) / LARGURA) * 100}
+            esquerdaPct={((MARGEM.esquerda + (ativo + 0.5) * larguraGrupo) / largura) * 100}
           />
         )}
       </div>

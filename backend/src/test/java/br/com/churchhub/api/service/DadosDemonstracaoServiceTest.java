@@ -19,6 +19,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.Month;
 import java.time.ZoneId;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -86,6 +87,19 @@ class DadosDemonstracaoServiceTest {
         assertThat(dataPorTitulo.get("Culto de celebração")).isEqualTo(LocalDate.of(2026, 11, 1));
         assertThat(dataPorTitulo.get("Culto de ação de graças")).isEqualTo(LocalDate.of(2026, 10, 24));
         assertThat(dataPorTitulo.get("Conferência de famílias")).isEqualTo(LocalDate.of(2026, 11, 30));
+    }
+
+    /** Só os 3 últimos membros fictícios contam como "novos"; os demais ficam sem data de cadastro (NULL). */
+    @Test
+    @SuppressWarnings("unchecked")
+    void soOsUltimosMembrosFicamComDataDeCadastro() {
+        servico.carregar("demo123");
+
+        ArgumentCaptor<MembroRequest> cadastrados = ArgumentCaptor.forClass(MembroRequest.class);
+        verify(membroService, atLeastOnce()).cadastrar(cadastrados.capture());
+        ArgumentCaptor<Collection<UUID>> semData = ArgumentCaptor.forClass(Collection.class);
+        verify(membroRepository).apagarDataDeCadastro(semData.capture());
+        assertThat(semData.getValue()).hasSize(cadastrados.getAllValues().size() - 3).doesNotHaveDuplicates();
     }
 
     @Test

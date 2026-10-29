@@ -30,7 +30,7 @@ function reais(centavos) {
 
 /**
  * "12 movimentações · Receitas R$ … · Despesas R$ …": a quantidade é o totalElements do filtro; os
- * totais vêm do /summary do período (só o do tipo filtrado, e nenhum com filtro de categoria).
+ * totais vêm do /summary com os mesmos filtros (só o tipo filtrado, ou o da categoria escolhida).
  */
 function ResumoDaLista({ quantidade, totais }) {
   return (
@@ -151,7 +151,10 @@ export function FinanceiroPage() {
       />
 
       {pagina && pagina.totalElements > 0 && (
-        <ResumoDaLista quantidade={pagina.totalElements} totais={totaisDaLista(resumo, consulta)} />
+        <ResumoDaLista
+          quantidade={pagina.totalElements}
+          totais={totaisDaLista(resumo, { tipo: consulta.tipo, tipoDaCategoria: categorias?.find((c) => c.id === consulta.categoria)?.tipo })}
+        />
       )}
 
       <section className={styles.painel} aria-label="Lista de movimentações">

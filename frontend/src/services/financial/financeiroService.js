@@ -7,6 +7,11 @@ function caminhoDaMovimentacao(id) {
   return `${RECURSO}/${encodeURIComponent(id)}`;
 }
 
+/** Agregações: período obrigatório; tipo e categoriaId só vão quando escolhidos. */
+function paramsDaAgregacao({ dataInicio, dataFim, tipo, categoriaId }) {
+  return { dataInicio, dataFim, ...(tipo && { tipo }), ...(categoriaId && { categoriaId }) };
+}
+
 /** Recebe e devolve objetos com os nomes de campo do MovimentacaoFinanceiraRequest/Response. */
 export const financeiroService = {
   /**
@@ -30,9 +35,28 @@ export const financeiroService = {
     return data;
   },
 
-  /** GET /financial/summary: os dois limites são obrigatórios. { dataInicio, dataFim, totalReceitas, totalDespesas, saldo } */
-  async resumo({ dataInicio, dataFim }, { signal } = {}) {
-    const { data } = await httpClient.get(`${RECURSO}/summary`, { params: { dataInicio, dataFim }, signal });
+  /**
+   * GET /financial/summary: os dois limites são obrigatórios; tipo e categoriaId filtram como na lista.
+   * { dataInicio, dataFim, totalReceitas, totalDespesas, saldo }, somados no banco.
+   */
+  async resumo({ dataInicio, dataFim, tipo, categoriaId }, { signal } = {}) {
+    const { data } = await httpClient.get(`${RECURSO}/summary`, { params: paramsDaAgregacao({ dataInicio, dataFim, tipo, categoriaId }), signal });
+    return data;
+  },
+
+  /**
+   * GET /financial/summary/series: agrupamento 'DIA' | 'MES'. Só os dias/meses com lançamento, em ordem:
+   * [{ periodo ("AAAA-MM-DD"; no MES, o dia 1), totalReceitas, totalDespesas, saldo }].
+   */
+  async serie({ dataInicio, dataFim, agrupamento, tipo, categoriaId }, { signal } = {}) {
+    const params = { ...paramsDaAgregacao({ dataInicio, dataFim, tipo, categoriaId }), agrupamento };
+    const { data } = await httpClient.get(`${RECURSO}/summary/series`, { params, signal });
+    return data;
+  },
+
+  /** GET /financial/summary/categories: [{ categoria {id,nome,tipo}, total, quantidade }], do maior total para o menor. */
+  async totaisPorCategoria({ dataInicio, dataFim, tipo, categoriaId }, { signal } = {}) {
+    const { data } = await httpClient.get(`${RECURSO}/summary/categories`, { params: paramsDaAgregacao({ dataInicio, dataFim, tipo, categoriaId }), signal });
     return data;
   },
 

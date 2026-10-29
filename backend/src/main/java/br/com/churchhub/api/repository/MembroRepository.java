@@ -5,9 +5,12 @@ import br.com.churchhub.api.entity.StatusMembro;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -27,6 +30,19 @@ public interface MembroRepository extends JpaRepository<Membro, UUID> {
     Page<Membro> findByNomeContainingIgnoreCaseAndStatus(String nome, StatusMembro status, Pageable pageable);
 
     long countByStatus(StatusMembro status);
+
+    /** Novos membros: os cadastrados a partir de `desde` (criado_em NULL nunca entra), mais recentes primeiro. */
+    List<Membro> findTop10ByCriadoEmGreaterThanEqualOrderByCriadoEmDescNomeAsc(LocalDateTime desde);
+
+    long countByCriadoEmGreaterThanEqual(LocalDateTime desde);
+
+    /**
+     * Só para a carga de demonstração: a auditoria preenche criado_em em todo cadastro, e o UPDATE
+     * em massa é o único jeito de tratar membros fictícios como anteriores ao sistema (NULL).
+     */
+    @Modifying
+    @Query("UPDATE Membro m SET m.criadoEm = NULL WHERE m.id IN :ids")
+    int apagarDataDeCadastro(@Param("ids") Collection<UUID> ids);
 
     @Query("""
             SELECT m FROM Membro m

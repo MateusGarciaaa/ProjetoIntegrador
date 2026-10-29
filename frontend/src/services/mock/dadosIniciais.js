@@ -38,7 +38,13 @@ function gerarId(indice) {
   return `7c0e6a1e-5b2f-4d6a-9f3e-${String(indice + 1).padStart(12, '0')}`;
 }
 
-/** Membros de exemplo, todos com CPF de dígito verificador válido. */
+/**
+ * Na carga, só os últimos membros ficam com data de cadastro (aparecem em "Novos membros"), como o
+ * QUANTIDADE_NOVOS_MEMBROS do DadosDemonstracaoService; os demais, cadastrados "antes da V7", ficam null.
+ */
+export const QUANTIDADE_NOVOS_MEMBROS_DEMO = 3;
+
+/** Membros de exemplo, com CPF de dígito verificador válido, no formato do MembroResponse (o banco acrescenta criadoEm). */
 export function criarMembrosIniciais() {
   return REGISTROS.map(([nome, email, telefone, endereco, dataNascimento, dataConversao, dataBatismo, status, baseCpf], indice) => ({
     id: gerarId(indice),

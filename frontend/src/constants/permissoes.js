@@ -17,6 +17,7 @@ export const PERMISSOES = Object.freeze({
   CATEGORIAS_VISUALIZAR: 'categorias.visualizar',
   CATEGORIAS_CRIAR: 'categorias.criar',
   DASHBOARD_VISUALIZAR: 'dashboard.visualizar',
+  DASHBOARD_MEMBROS: 'dashboard.membros',
   DASHBOARD_FINANCEIRO: 'dashboard.financeiro',
 });
 
@@ -43,7 +44,7 @@ const MATRIZ = Object.freeze({
   [PERMISSOES.EVENTOS_EXCLUIR]: [ADMINISTRADOR], // DELETE /events/{id}
 
   // MovimentacaoFinanceiraController
-  [PERMISSOES.FINANCEIRO_VISUALIZAR]: [ADMINISTRADOR, TESOUREIRO, PASTOR], // GET /financial, /{id}, /summary
+  [PERMISSOES.FINANCEIRO_VISUALIZAR]: [ADMINISTRADOR, TESOUREIRO, PASTOR], // GET /financial, /{id}, /summary, /summary/series, /summary/categories
   [PERMISSOES.FINANCEIRO_CRIAR]: [ADMINISTRADOR, TESOUREIRO], // POST /financial
   [PERMISSOES.FINANCEIRO_EDITAR]: [ADMINISTRADOR, TESOUREIRO], // PUT /financial/{id}
   [PERMISSOES.FINANCEIRO_EXCLUIR]: [ADMINISTRADOR], // DELETE /financial/{id}
@@ -52,10 +53,13 @@ const MATRIZ = Object.freeze({
   [PERMISSOES.CATEGORIAS_VISUALIZAR]: [ADMINISTRADOR, TESOUREIRO, PASTOR], // GET /financial-categories
   [PERMISSOES.CATEGORIAS_CRIAR]: [ADMINISTRADOR, TESOUREIRO], // POST /financial-categories
 
-  // DashboardController
-  [PERMISSOES.DASHBOARD_VISUALIZAR]: [ADMINISTRADOR, PASTOR], // GET /dashboard
-  // Não é @PreAuthorize: o controller só preenche resumoFinanceiroMesAtual para ROLE_ADMINISTRADOR.
-  [PERMISSOES.DASHBOARD_FINANCEIRO]: [ADMINISTRADOR],
+  // DashboardController: GET /dashboard é isAuthenticated(); cada bloco vem só para quem o vê no
+  // módulo de origem (RN12, VisibilidadeDashboard no backend) e chega null para os demais.
+  [PERMISSOES.DASHBOARD_VISUALIZAR]: [ADMINISTRADOR, PASTOR, SECRETARIO, TESOUREIRO, MEMBRO],
+  // totalMembros, membrosAtivos e aniversariantesDoMes: quem consulta GET /members.
+  [PERMISSOES.DASHBOARD_MEMBROS]: [ADMINISTRADOR, PASTOR, SECRETARIO],
+  // resumoFinanceiroMesAtual e os gráficos (GET /financial/summary/**): quem consulta GET /financial.
+  [PERMISSOES.DASHBOARD_FINANCEIRO]: [ADMINISTRADOR, PASTOR, TESOUREIRO],
 });
 
 export function temPermissao(perfil, permissao) {

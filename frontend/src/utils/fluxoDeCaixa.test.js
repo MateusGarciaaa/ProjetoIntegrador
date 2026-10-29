@@ -1,50 +1,26 @@
 import { describe, expect, it } from 'vitest';
 import {
+  agrupamentoDaApi,
   agrupamentoDoPeriodo,
   escalaDoGrafico,
   diasNoPeriodo,
   formatarPercentual,
+  linhasPorCategoria,
   serieDoFluxoDeCaixa,
-  totaisConferem,
   totaisDaLista,
-  totaisDasMovimentacoes,
   totaisDoResumo,
-  totaisPorCategoria,
 } from './fluxoDeCaixa';
 
 const DIZIMOS = { id: 'c1', nome: 'Dízimos', tipo: 'RECEITA' };
 const OFERTAS = { id: 'c2', nome: 'Ofertas', tipo: 'RECEITA' };
 const ENERGIA = { id: 'c3', nome: 'Água e energia', tipo: 'DESPESA' };
 
-function mov(id, tipo, valor, data, categoria) {
-  return { id, tipo, valor, data, categoria, descricao: id, membroId: null, membroNome: null };
-}
-
-const MOVIMENTACOES = [
-  mov('a', 'RECEITA', 0.1, '2026-10-02', DIZIMOS),
-  mov('b', 'RECEITA', 0.2, '2026-10-02', OFERTAS),
-  mov('c', 'RECEITA', 812.4, '2026-10-07', OFERTAS),
-  mov('d', 'DESPESA', 486.32, '2026-10-08', ENERGIA),
-  mov('e', 'DESPESA', '142.18', '2026-10-08', ENERGIA), // BigDecimal como texto também vale
-  mov('f', 'RECEITA', 450, '2026-11-02', DIZIMOS),
+/** Pontos como o GET /financial/summary/series devolve: só os dias com lançamento. */
+const PONTOS_POR_DIA = [
+  { periodo: '2026-10-02', totalReceitas: 0.3, totalDespesas: 0, saldo: 0.3 },
+  { periodo: '2026-10-07', totalReceitas: 812.4, totalDespesas: 0, saldo: 812.4 },
+  { periodo: '2026-10-08', totalReceitas: 0, totalDespesas: '628.50', saldo: -628.5 }, // BigDecimal como texto também vale
 ];
-
-describe('totaisDasMovimentacoes', () => {
-  it('soma em centavos, sem erro de float, e calcula o saldo', () => {
-    // Em float: 0.1 + 0.2 + 812.4 = 812.6999999999999.
-    const outubro = MOVIMENTACOES.filter((m) => m.data < '2026-11-01');
-    expect(totaisDasMovimentacoes(outubro)).toEqual({ receitas: 81270, despesas: 62850, saldo: 18420 });
-  });
-
-  it('saldo negativo quando as despesas passam as receitas', () => {
-    const despesas = MOVIMENTACOES.filter((m) => m.tipo === 'DESPESA');
-    expect(totaisDasMovimentacoes(despesas)).toEqual({ receitas: 0, despesas: 62850, saldo: -62850 });
-  });
-
-  it('lista vazia → tudo zero', () => {
-    expect(totaisDasMovimentacoes([])).toEqual({ receitas: 0, despesas: 0, saldo: 0 });
-  });
-});
 
 describe('totaisDoResumo', () => {
   it('converte o ResumoFinanceiroResponse para centavos', () => {
@@ -54,12 +30,6 @@ describe('totaisDoResumo', () => {
       saldo: 176940,
     });
     expect(totaisDoResumo(null)).toBeNull();
-  });
-
-  it('confere com os totais calculados da lista', () => {
-    const oficiais = { receitas: 81270, despesas: 62850, saldo: 18420 };
-    expect(totaisConferem(totaisDasMovimentacoes(MOVIMENTACOES.slice(0, 5)), oficiais)).toBe(true);
-    expect(totaisConferem(totaisDasMovimentacoes(MOVIMENTACOES.slice(0, 4)), oficiais)).toBe(false);
   });
 });
 
@@ -73,10 +43,10 @@ describe('totaisDaLista', () => {
     ]);
   });
 
-  it('com tipo, só o daquele tipo; com categoria, nenhum (o summary não separa por categoria)', () => {
+  it('com tipo ou com categoria, só o tipo filtrado (o summary já vem filtrado)', () => {
     expect(totaisDaLista(resumo, { tipo: 'DESPESA' })).toEqual([{ tipo: 'DESPESA', centavos: 232850 }]);
     expect(totaisDaLista(resumo, { tipo: 'RECEITA' })).toEqual([{ tipo: 'RECEITA', centavos: 409790 }]);
-    expect(totaisDaLista(resumo, { categoria: 'c1' })).toEqual([]);
+    expect(totaisDaLista(resumo, { tipoDaCategoria: 'RECEITA' })).toEqual([{ tipo: 'RECEITA', centavos: 409790 }]);
     expect(totaisDaLista(null)).toEqual([]);
   });
 });
@@ -94,11 +64,16 @@ describe('agrupamento do período', () => {
     expect(agrupamentoDoPeriodo('2026-10-01', '2026-12-01')).toBe('dia'); // 62 dias
     expect(agrupamentoDoPeriodo('2026-10-01', '2026-12-02')).toBe('mes');
   });
+
+  it('traduz para o enum AgrupamentoSerie', () => {
+    expect(agrupamentoDaApi('dia')).toBe('DIA');
+    expect(agrupamentoDaApi('mes')).toBe('MES');
+  });
 });
 
 describe('serieDoFluxoDeCaixa', () => {
-  it('por dia: um ponto por dia do período, inclusive os vazios', () => {
-    const serie = serieDoFluxoDeCaixa(MOVIMENTACOES, { de: '2026-10-01', ate: '2026-10-08' });
+  it('por dia: completa os dias sem lançamento com zero', () => {
+    const serie = serieDoFluxoDeCaixa(PONTOS_POR_DIA, { de: '2026-10-01', ate: '2026-10-08' });
     expect(serie.map((p) => p.chave)).toEqual([
       '2026-10-01',
       '2026-10-02',
@@ -114,43 +89,42 @@ describe('serieDoFluxoDeCaixa', () => {
     expect(serie[7]).toEqual({ chave: '2026-10-08', receitas: 0, despesas: 62850, saldo: -62850 });
   });
 
-  it('por mês: soma cada mês e ignora o que está fora do período', () => {
-    const serie = serieDoFluxoDeCaixa(MOVIMENTACOES, { de: '2026-09-15', ate: '2026-11-01', agrupamento: 'mes' });
-    expect(serie).toEqual([
+  it('por mês: o ponto do backend vem no dia 1 e vira a chave "AAAA-MM"', () => {
+    const pontos = [{ periodo: '2026-10-01', totalReceitas: 812.7, totalDespesas: 628.5, saldo: 184.2 }];
+    expect(serieDoFluxoDeCaixa(pontos, { de: '2026-09-15', ate: '2026-11-01', agrupamento: 'mes' })).toEqual([
       { chave: '2026-09', receitas: 0, despesas: 0, saldo: 0 },
       { chave: '2026-10', receitas: 81270, despesas: 62850, saldo: 18420 },
-      // 02/11 fica fora (o período acaba em 01/11).
       { chave: '2026-11', receitas: 0, despesas: 0, saldo: 0 },
     ]);
   });
 
-  it('a soma da série é o total do período', () => {
-    const periodo = { de: '2026-10-01', ate: '2026-11-30' };
-    const serie = serieDoFluxoDeCaixa(MOVIMENTACOES, periodo);
-    const somaReceitas = serie.reduce((soma, p) => soma + p.receitas, 0);
-    expect(somaReceitas).toBe(totaisDasMovimentacoes(MOVIMENTACOES).receitas);
-  });
-
-  it('período inválido → série vazia', () => {
-    expect(serieDoFluxoDeCaixa(MOVIMENTACOES, { de: '2026-10-08', ate: '2026-10-01' })).toEqual([]);
+  it('ignora pontos fora do período; período inválido → série vazia', () => {
+    const serie = serieDoFluxoDeCaixa(PONTOS_POR_DIA, { de: '2026-10-05', ate: '2026-10-07' });
+    expect(serie.map((p) => p.receitas)).toEqual([0, 0, 81240]);
+    expect(serieDoFluxoDeCaixa(PONTOS_POR_DIA, { de: '2026-10-08', ate: '2026-10-01' })).toEqual([]);
   });
 });
 
-describe('totaisPorCategoria', () => {
-  it('soma por categoria do tipo, da maior para a menor, com a fração', () => {
-    const receitas = totaisPorCategoria(MOVIMENTACOES, 'RECEITA');
+describe('linhasPorCategoria', () => {
+  const TOTAIS = [
+    { categoria: OFERTAS, total: 812.6, quantidade: 2 },
+    { categoria: ENERGIA, total: '628.50', quantidade: 2 },
+    { categoria: DIZIMOS, total: 450.1, quantidade: 2 },
+  ];
+
+  it('filtra o tipo, mantém a ordem do backend e calcula a fração do total oficial', () => {
+    const receitas = linhasPorCategoria(TOTAIS, 'RECEITA', 126270);
     expect(receitas.map(({ categoria, total, quantidade }) => [categoria.nome, total, quantidade])).toEqual([
       ['Ofertas', 81260, 2],
       ['Dízimos', 45010, 2],
     ]);
     expect(receitas[0].fracao + receitas[1].fracao).toBeCloseTo(1);
-    expect(totaisPorCategoria(MOVIMENTACOES, 'DESPESA')).toEqual([
-      { categoria: { id: 'c3', nome: 'Água e energia' }, total: 62850, quantidade: 2, fracao: 1 },
-    ]);
+    expect(linhasPorCategoria(TOTAIS, 'DESPESA', 62850)).toEqual([{ categoria: ENERGIA, total: 62850, quantidade: 2, fracao: 1 }]);
   });
 
-  it('sem movimentações do tipo → lista vazia', () => {
-    expect(totaisPorCategoria([], 'RECEITA')).toEqual([]);
+  it('sem total do tipo, fração zero; sem linhas, lista vazia', () => {
+    expect(linhasPorCategoria(TOTAIS, 'DESPESA', 0)[0].fracao).toBe(0);
+    expect(linhasPorCategoria([], 'RECEITA', 0)).toEqual([]);
   });
 });
 

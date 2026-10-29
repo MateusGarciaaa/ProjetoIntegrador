@@ -8,13 +8,13 @@ describe('destinoAposLogin', () => {
   });
 
   it('sem origem válida, vai para a rota inicial do perfil', () => {
-    expect(destinoAposLogin(undefined, PERFIS.MEMBRO)).toBe('/eventos');
-    expect(destinoAposLogin(undefined, PERFIS.TESOUREIRO)).toBe('/financeiro');
+    expect(destinoAposLogin(undefined, PERFIS.MEMBRO)).toBe('/dashboard');
+    expect(destinoAposLogin(undefined, PERFIS.TESOUREIRO)).toBe('/dashboard');
   });
 
   it('ignora destinos externos, o próprio login e valores inválidos', () => {
     ['//evil.com', 'https://evil.com', '/login', undefined, 42].forEach((origem) =>
-      expect(destinoAposLogin(origem, PERFIS.SECRETARIO)).toBe('/membros'),
+      expect(destinoAposLogin(origem, PERFIS.SECRETARIO)).toBe('/dashboard'),
     );
   });
 });

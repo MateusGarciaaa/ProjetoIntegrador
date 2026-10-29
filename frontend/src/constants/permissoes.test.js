@@ -28,9 +28,10 @@ const ESPERADO = {
   // CategoriaFinanceiraController
   [PERMISSOES.CATEGORIAS_VISUALIZAR]: [ADMINISTRADOR, PASTOR, TESOUREIRO],
   [PERMISSOES.CATEGORIAS_CRIAR]: [ADMINISTRADOR, TESOUREIRO],
-  // DashboardController (o bloco financeiro é regra do método, não do @PreAuthorize)
-  [PERMISSOES.DASHBOARD_VISUALIZAR]: [ADMINISTRADOR, PASTOR],
-  [PERMISSOES.DASHBOARD_FINANCEIRO]: [ADMINISTRADOR],
+  // DashboardController: isAuthenticated(); os blocos seguem VisibilidadeDashboard (regra do método)
+  [PERMISSOES.DASHBOARD_VISUALIZAR]: [ADMINISTRADOR, PASTOR, SECRETARIO, TESOUREIRO, MEMBRO],
+  [PERMISSOES.DASHBOARD_MEMBROS]: [ADMINISTRADOR, PASTOR, SECRETARIO],
+  [PERMISSOES.DASHBOARD_FINANCEIRO]: [ADMINISTRADOR, PASTOR, TESOUREIRO],
 };
 
 describe('matriz de permissões', () => {
@@ -52,9 +53,11 @@ describe('matriz de permissões', () => {
     expect(temPermissao(TESOUREIRO, PERMISSOES.MEMBROS_VISUALIZAR)).toBe(false);
   });
 
-  it('PASTOR vê o financeiro, mas não o bloco financeiro do dashboard', () => {
-    expect(temPermissao(PASTOR, PERMISSOES.FINANCEIRO_VISUALIZAR)).toBe(true);
-    expect(temPermissao(PASTOR, PERMISSOES.DASHBOARD_FINANCEIRO)).toBe(false);
+  it('RN12: os blocos do dashboard seguem as permissões dos módulos de origem', () => {
+    Object.values(PERFIS).forEach((perfil) => {
+      expect(temPermissao(perfil, PERMISSOES.DASHBOARD_FINANCEIRO)).toBe(temPermissao(perfil, PERMISSOES.FINANCEIRO_VISUALIZAR));
+      expect(temPermissao(perfil, PERMISSOES.DASHBOARD_MEMBROS)).toBe(temPermissao(perfil, PERMISSOES.MEMBROS_VISUALIZAR));
+    });
   });
 
   it('perfil ausente, desconhecido ou permissão inexistente nunca liberam', () => {

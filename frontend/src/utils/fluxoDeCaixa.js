@@ -4,51 +4,42 @@ import { isDataIsoValida } from './datas';
 import { paraCentavos } from './moeda';
 
 /*
- * Cálculos do Financeiro sobre a lista de movimentações (MovimentacaoFinanceiraResponse),
- * sempre em centavos inteiros (utils/moeda.js), nunca somando floats. O backend filtra e pagina a
- * lista, mas não tem série por dia/mês nem totais por categoria: isso sai daqui.
+ * Apresentação das agregações do Financeiro, que o backend soma no banco (GET /financial/summary,
+ * /summary/series e /summary/categories): aqui só se converte para centavos inteiros
+ * (utils/moeda.js), se completa o eixo do gráfico e se calcula a fração de cada categoria.
+ * Nenhum total é somado no navegador a partir da lista de lançamentos.
  */
 
 const MS_POR_DIA = 86_400_000;
 
 const FORMATO_PERCENTUAL = new Intl.NumberFormat('pt-BR', { style: 'percent', maximumFractionDigits: 1 });
 
-function centavosDe(movimentacao) {
-  return paraCentavos(movimentacao.valor) ?? 0;
-}
-
-/** { receitas, despesas, saldo } em centavos. Saldo = receitas − despesas (o valor é sempre positivo; o tipo dá o sentido). */
-export function totaisDasMovimentacoes(movimentacoes) {
-  let receitas = 0;
-  let despesas = 0;
-  movimentacoes.forEach((m) => {
-    if (m.tipo === TIPOS_MOVIMENTACAO.RECEITA) receitas += centavosDe(m);
-    else if (m.tipo === TIPOS_MOVIMENTACAO.DESPESA) despesas += centavosDe(m);
-  });
-  return { receitas, despesas, saldo: receitas - despesas };
+function centavos(valor) {
+  return paraCentavos(valor) ?? 0;
 }
 
 /** ResumoFinanceiroResponse (/financial/summary) → { receitas, despesas, saldo } em centavos. */
 export function totaisDoResumo(resumo) {
   if (!resumo) return null;
   return {
-    receitas: paraCentavos(resumo.totalReceitas) ?? 0,
-    despesas: paraCentavos(resumo.totalDespesas) ?? 0,
-    saldo: paraCentavos(resumo.saldo) ?? 0,
+    receitas: centavos(resumo.totalReceitas),
+    despesas: centavos(resumo.totalDespesas),
+    saldo: centavos(resumo.saldo),
   };
 }
 
 /**
- * Totais que a lista filtrada pode mostrar, vindos do /summary do período: com filtro de tipo, só o
- * daquele tipo; com filtro de categoria, nenhum (o summary não separa por categoria).
+ * Totais que a lista filtrada mostra, vindos do /summary com os mesmos filtros: os dois tipos sem
+ * filtro; só o do tipo escolhido (ou o da categoria escolhida, que tem um tipo só).
  * → [{ tipo, centavos }]
  */
-export function totaisDaLista(resumo, { tipo = '', categoria = '' } = {}) {
+export function totaisDaLista(resumo, { tipo = '', tipoDaCategoria = '' } = {}) {
   const totais = totaisDoResumo(resumo);
-  if (!totais || categoria) return [];
+  if (!totais) return [];
+  const tipoUnico = tipo || tipoDaCategoria;
   const linhas = [];
-  if (tipo !== TIPOS_MOVIMENTACAO.DESPESA) linhas.push({ tipo: TIPOS_MOVIMENTACAO.RECEITA, centavos: totais.receitas });
-  if (tipo !== TIPOS_MOVIMENTACAO.RECEITA) linhas.push({ tipo: TIPOS_MOVIMENTACAO.DESPESA, centavos: totais.despesas });
+  if (tipoUnico !== TIPOS_MOVIMENTACAO.DESPESA) linhas.push({ tipo: TIPOS_MOVIMENTACAO.RECEITA, centavos: totais.receitas });
+  if (tipoUnico !== TIPOS_MOVIMENTACAO.RECEITA) linhas.push({ tipo: TIPOS_MOVIMENTACAO.DESPESA, centavos: totais.despesas });
   return linhas;
 }
 
@@ -68,6 +59,11 @@ export function agrupamentoDoPeriodo(de, ate) {
   return diasNoPeriodo(de, ate) <= LIMITE_DIAS_GRAFICO_DIARIO ? AGRUPAMENTOS.DIA : AGRUPAMENTOS.MES;
 }
 
+/** 'dia' | 'mes' → enum AgrupamentoSerie do backend ('DIA' | 'MES'). */
+export function agrupamentoDaApi(agrupamento) {
+  return agrupamento === AGRUPAMENTOS.MES ? 'MES' : 'DIA';
+}
+
 function chavesDoPeriodo(de, ate, agrupamento) {
   const chaves = [];
   if (agrupamento === AGRUPAMENTOS.MES) {
@@ -79,56 +75,38 @@ function chavesDoPeriodo(de, ate, agrupamento) {
 }
 
 /**
- * Série do fluxo de caixa: um ponto por dia ("AAAA-MM-DD") ou por mês ("AAAA-MM") do período,
- * inclusive os vazios (o eixo não pula dias), com { chave, receitas, despesas, saldo } em centavos.
- * Movimentações fora do período são ignoradas.
+ * Série do fluxo de caixa a partir dos pontos do /summary/series (só os dias/meses com lançamento):
+ * um ponto por dia ("AAAA-MM-DD") ou por mês ("AAAA-MM") do período, inclusive os vazios (o eixo
+ * não pula dias), com { chave, receitas, despesas, saldo } em centavos. Pontos fora do período são ignorados.
  */
-export function serieDoFluxoDeCaixa(movimentacoes, { de, ate, agrupamento = agrupamentoDoPeriodo(de, ate) }) {
+export function serieDoFluxoDeCaixa(pontos, { de, ate, agrupamento = agrupamentoDoPeriodo(de, ate) }) {
   if (diasNoPeriodo(de, ate) === 0) return [];
-  const pontos = new Map(chavesDoPeriodo(de, ate, agrupamento).map((chave) => [chave, { chave, receitas: 0, despesas: 0, saldo: 0 }]));
-
-  movimentacoes.forEach((m) => {
-    if (!isDataIsoValida(m.data) || m.data < de || m.data > ate) return;
-    const ponto = pontos.get(agrupamento === AGRUPAMENTOS.MES ? mesDaData(m.data) : m.data);
-    if (m.tipo === TIPOS_MOVIMENTACAO.RECEITA) ponto.receitas += centavosDe(m);
-    else if (m.tipo === TIPOS_MOVIMENTACAO.DESPESA) ponto.despesas += centavosDe(m);
-    ponto.saldo = ponto.receitas - ponto.despesas;
+  const serie = new Map(chavesDoPeriodo(de, ate, agrupamento).map((chave) => [chave, { chave, receitas: 0, despesas: 0, saldo: 0 }]));
+  pontos.forEach((ponto) => {
+    const chave = agrupamento === AGRUPAMENTOS.MES ? mesDaData(ponto.periodo) : ponto.periodo;
+    if (!serie.has(chave)) return;
+    serie.set(chave, { chave, receitas: centavos(ponto.totalReceitas), despesas: centavos(ponto.totalDespesas), saldo: centavos(ponto.saldo) });
   });
-
-  return [...pontos.values()];
+  return [...serie.values()];
 }
 
 /**
- * Total de cada categoria de um tipo, da maior para a menor (empate: nome), com a fração do total
- * do tipo (0 a 1). [{ categoria: { id, nome }, total (centavos), quantidade, fracao }]
+ * Linhas por categoria de um tipo (do /summary/categories, já na ordem do backend: maior total
+ * primeiro), com a fração do total oficial do tipo (0 a 1).
+ *   → [{ categoria: { id, nome, tipo }, total (centavos), quantidade, fracao }]
  */
-export function totaisPorCategoria(movimentacoes, tipo) {
-  const grupos = new Map();
-  movimentacoes
-    .filter((m) => m.tipo === tipo)
-    .forEach((m) => {
-      const id = m.categoria?.id ?? '';
-      const grupo = grupos.get(id) ?? { categoria: { id, nome: m.categoria?.nome ?? 'Sem categoria' }, total: 0, quantidade: 0 };
-      grupo.total += centavosDe(m);
-      grupo.quantidade += 1;
-      grupos.set(id, grupo);
+export function linhasPorCategoria(totaisPorCategoria, tipo, totalDoTipo) {
+  return totaisPorCategoria
+    .filter((linha) => linha.categoria.tipo === tipo)
+    .map((linha) => {
+      const total = centavos(linha.total);
+      return { categoria: linha.categoria, total, quantidade: linha.quantidade, fracao: totalDoTipo > 0 ? total / totalDoTipo : 0 };
     });
-
-  const totalDoTipo = [...grupos.values()].reduce((soma, grupo) => soma + grupo.total, 0);
-  return [...grupos.values()]
-    .map((grupo) => ({ ...grupo, fracao: totalDoTipo > 0 ? grupo.total / totalDoTipo : 0 }))
-    .sort((a, b) => b.total - a.total || a.categoria.nome.localeCompare(b.categoria.nome, 'pt-BR'));
 }
 
 /** 0.4567 → "45,7%". */
 export function formatarPercentual(fracao) {
   return Number.isFinite(fracao) ? FORMATO_PERCENTUAL.format(fracao) : '';
-}
-
-/** Os totais da lista conferem com os do /summary? (Se a lista veio incompleta, não conferem.) */
-export function totaisConferem(calculados, oficiais) {
-  if (!calculados || !oficiais) return true;
-  return calculados.receitas === oficiais.receitas && calculados.despesas === oficiais.despesas;
 }
 
 /**

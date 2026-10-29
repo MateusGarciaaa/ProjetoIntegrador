@@ -1,7 +1,8 @@
-import { criarBanco } from './bancoEmMemoria';
+import { criarBanco, dataHoraDoServidor } from './bancoEmMemoria';
 import { FUSO_HORARIO_SERVIDOR } from '../../constants/eventos';
 import { agoraNoFuso } from '../../utils/datas';
 import { ROTAS_AUTH } from './handlers/auth';
+import { ROTAS_DASHBOARD } from './handlers/dashboard';
 import { ROTAS_EVENTOS } from './handlers/eventos';
 import { ROTAS_FINANCEIRO } from './handlers/financeiro';
 import { ROTAS_MEMBROS } from './handlers/membros';
@@ -20,7 +21,7 @@ const PREFIXO_PUBLICO = '/auth/';
  *     corpo?: { ilegivel(corpo), validar(corpo) → mensagens }, executar(contexto) }
  * Módulo novo = um arquivo de handlers + uma linha aqui.
  */
-const ROTAS = [...ROTAS_AUTH, ...ROTAS_MEMBROS, ...ROTAS_EVENTOS, ...ROTAS_FINANCEIRO];
+const ROTAS = [...ROTAS_AUTH, ...ROTAS_MEMBROS, ...ROTAS_EVENTOS, ...ROTAS_FINANCEIRO, ...ROTAS_DASHBOARD];
 
 function autenticar(banco, cabecalhoAuthorization, agoraMs) {
   if (typeof cabecalhoAuthorization !== 'string' || !cabecalhoAuthorization.startsWith('Bearer ')) return null;
@@ -52,7 +53,8 @@ function validarCorpo(rota, corpo, corpoMalformado, caminho) {
  */
 export function criarServidorSimulado({ validadeTokenSegundos, relogio = () => Date.now(), aoEnviarEmail = null }) {
   // Os eventos e as movimentações de demonstração ficam em volta do "hoje" do relógio do servidor simulado.
-  const banco = criarBanco({ hoje: agoraNoFuso(FUSO_HORARIO_SERVIDOR, new Date(relogio())).data });
+  const inicio = relogio();
+  const banco = criarBanco({ hoje: agoraNoFuso(FUSO_HORARIO_SERVIDOR, new Date(inicio)).data, agora: dataHoraDoServidor(inicio) });
 
   return function atender({ metodo, url, params = {}, corpo = null, authorization = null, corpoMalformado = false }) {
     const caminho = url.split('?')[0];
