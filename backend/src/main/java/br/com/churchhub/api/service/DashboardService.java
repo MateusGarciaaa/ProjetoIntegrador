@@ -2,6 +2,7 @@ package br.com.churchhub.api.service;
 
 import br.com.churchhub.api.dto.AniversarianteResponse;
 import br.com.churchhub.api.dto.DashboardResponse;
+import br.com.churchhub.api.dto.NovoMembroResponse;
 import br.com.churchhub.api.dto.ProximoEventoResponse;
 import br.com.churchhub.api.dto.ResumoFinanceiroResponse;
 import br.com.churchhub.api.entity.StatusMembro;
@@ -15,11 +16,15 @@ import org.springframework.stereotype.Service;
 
 import java.time.Clock;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
 @RequiredArgsConstructor
 public class DashboardService {
+
+    /** "Novos membros": cadastrados nos últimos N dias (contados a partir de agora, no Clock). */
+    public static final int DIAS_NOVOS_MEMBROS = 30;
 
     private final MembroRepository membroRepository;
     private final EventoRepository eventoRepository;
@@ -39,21 +44,35 @@ public class DashboardService {
 
         Long totalMembros = null;
         Long membrosAtivos = null;
+        Long membrosAfastados = null;
+        Long membrosVisitantes = null;
         List<AniversarianteResponse> aniversariantes = null;
+        List<NovoMembroResponse> novosMembros = null;
+        Long totalNovosMembros = null;
         if (visibilidade.membros()) {
             totalMembros = membroRepository.count();
             membrosAtivos = membroRepository.countByStatus(StatusMembro.ATIVO);
+            membrosAfastados = membroRepository.countByStatus(StatusMembro.AFASTADO);
+            membrosVisitantes = membroRepository.countByStatus(StatusMembro.VISITANTE);
             aniversariantes = membroRepository.buscarAniversariantesDoMes(hoje.getMonthValue())
                     .stream()
                     .map(m -> new AniversarianteResponse(m.getId(), m.getNome(), m.getDataNascimento()))
                     .toList();
+
+            LocalDateTime desde = LocalDateTime.now(clock).minusDays(DIAS_NOVOS_MEMBROS);
+            novosMembros = membroRepository.findTop10ByCriadoEmGreaterThanEqualOrderByCriadoEmDescNomeAsc(desde)
+                    .stream()
+                    .map(m -> new NovoMembroResponse(m.getId(), m.getNome(), m.getStatus(), m.getCriadoEm()))
+                    .toList();
+            totalNovosMembros = membroRepository.countByCriadoEmGreaterThanEqual(desde);
         }
 
         ResumoFinanceiroResponse resumoFinanceiro = visibilidade.financeiro()
                 ? montarResumoFinanceiroDoMes(hoje)
                 : null;
 
-        return new DashboardResponse(totalMembros, membrosAtivos, proximosEventos, aniversariantes, resumoFinanceiro);
+        return new DashboardResponse(totalMembros, membrosAtivos, membrosAfastados, membrosVisitantes,
+                proximosEventos, aniversariantes, novosMembros, totalNovosMembros, resumoFinanceiro);
     }
 
     private ResumoFinanceiroResponse montarResumoFinanceiroDoMes(LocalDate hoje) {

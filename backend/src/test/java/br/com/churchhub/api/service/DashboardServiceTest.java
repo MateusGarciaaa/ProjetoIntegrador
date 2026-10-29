@@ -1,6 +1,8 @@
 package br.com.churchhub.api.service;
 
 import br.com.churchhub.api.dto.DashboardResponse;
+import br.com.churchhub.api.dto.NovoMembroResponse;
+import br.com.churchhub.api.entity.Membro;
 import br.com.churchhub.api.entity.StatusMembro;
 import br.com.churchhub.api.repository.EventoRepository;
 import br.com.churchhub.api.repository.MembroRepository;
@@ -17,8 +19,10 @@ import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.List;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -88,6 +92,10 @@ class DashboardServiceTest {
         assertThat(resposta.proximosEventos()).isEmpty();
         assertThat(resposta.totalMembros()).isNull();
         assertThat(resposta.membrosAtivos()).isNull();
+        assertThat(resposta.membrosAfastados()).isNull();
+        assertThat(resposta.membrosVisitantes()).isNull();
+        assertThat(resposta.novosMembros()).isNull();
+        assertThat(resposta.totalNovosMembros()).isNull();
         assertThat(resposta.aniversariantesDoMes()).isNull();
         assertThat(resposta.resumoFinanceiroMesAtual()).isNull();
         verifyNoInteractions(membroRepository, movimentacaoRepository);
@@ -97,16 +105,46 @@ class DashboardServiceTest {
     void membrosSemFinanceiro() {
         when(eventoRepository.findTop5ByDataGreaterThanEqualOrderByDataAscHorarioAsc(HOJE)).thenReturn(List.of());
         when(membroRepository.count()).thenReturn(25L);
-        when(membroRepository.countByStatus(StatusMembro.ATIVO)).thenReturn(20L);
+        when(membroRepository.countByStatus(StatusMembro.ATIVO)).thenReturn(16L);
+        when(membroRepository.countByStatus(StatusMembro.AFASTADO)).thenReturn(5L);
+        when(membroRepository.countByStatus(StatusMembro.VISITANTE)).thenReturn(4L);
         when(membroRepository.buscarAniversariantesDoMes(10)).thenReturn(List.of());
 
         DashboardResponse resposta = servico().gerar(new VisibilidadeDashboard(true, false));
 
         assertThat(resposta.totalMembros()).isEqualTo(25L);
-        assertThat(resposta.membrosAtivos()).isEqualTo(20L);
+        assertThat(resposta.membrosAtivos()).isEqualTo(16L);
+        assertThat(resposta.membrosAfastados()).isEqualTo(5L);
+        assertThat(resposta.membrosVisitantes()).isEqualTo(4L);
         assertThat(resposta.aniversariantesDoMes()).isEmpty();
+        assertThat(resposta.novosMembros()).isEmpty();
+        assertThat(resposta.totalNovosMembros()).isZero();
         assertThat(resposta.resumoFinanceiroMesAtual()).isNull();
         verifyNoInteractions(movimentacaoRepository);
+    }
+
+    /** 30 dias para trás a partir do agora do Clock (22:30 de 31/10 em São Paulo), não da JVM. */
+    @Test
+    void novosMembrosSaoOsCadastradosNosUltimos30DiasDoRelogioDaIgreja() {
+        LocalDateTime desde = LocalDateTime.of(2026, 10, 1, 22, 30);
+        Membro novo = new Membro();
+        novo.setId(UUID.randomUUID());
+        novo.setNome("Paulo Henrique");
+        novo.setStatus(StatusMembro.VISITANTE);
+        novo.setCriadoEm(LocalDateTime.of(2026, 10, 30, 9, 15));
+        when(eventoRepository.findTop5ByDataGreaterThanEqualOrderByDataAscHorarioAsc(HOJE)).thenReturn(List.of());
+        when(membroRepository.buscarAniversariantesDoMes(10)).thenReturn(List.of());
+        when(membroRepository.findTop10ByCriadoEmGreaterThanEqualOrderByCriadoEmDescNomeAsc(desde)).thenReturn(List.of(novo));
+        when(membroRepository.countByCriadoEmGreaterThanEqual(desde)).thenReturn(12L);
+
+        DashboardResponse resposta = servico().gerar(new VisibilidadeDashboard(true, false));
+
+        assertThat(DashboardService.DIAS_NOVOS_MEMBROS).isEqualTo(30);
+        assertThat(resposta.novosMembros()).containsExactly(
+                new NovoMembroResponse(novo.getId(), "Paulo Henrique", StatusMembro.VISITANTE, LocalDateTime.of(2026, 10, 30, 9, 15)));
+        // A lista vem limitada (top 10); o total conta todos os do período.
+        assertThat(resposta.totalNovosMembros()).isEqualTo(12L);
+        verify(membroRepository).countByCriadoEmGreaterThanEqual(desde);
     }
 
     @Test

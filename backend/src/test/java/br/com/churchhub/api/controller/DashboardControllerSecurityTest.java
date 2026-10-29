@@ -28,6 +28,7 @@ import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.List;
 import java.util.UUID;
@@ -47,7 +48,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 /**
  * RN12 de ponta a ponta (controller + DashboardService reais, repositórios simulados):
  * todo perfil logado abre o dashboard, e cada um recebe só os blocos do que já pode ver.
- * A e P: tudo; S: membros e eventos; T: financeiro e eventos; M: só eventos.
+ * A e P: tudo; S: membros (contagens por status, aniversariantes, novos membros) e eventos;
+ * T: financeiro e eventos; M: só eventos.
  */
 @WebMvcTest(DashboardController.class)
 @Import({SecurityConfig.class, SecurityErrorHandler.class, DashboardService.class,
@@ -88,10 +90,21 @@ class DashboardControllerSecurityTest {
         aniversariante.setId(UUID.randomUUID());
         aniversariante.setNome("Ana");
         aniversariante.setDataNascimento(LocalDate.of(1990, 10, 20));
+        Membro novo = new Membro();
+        novo.setId(UUID.randomUUID());
+        novo.setNome("Paulo");
+        novo.setStatus(StatusMembro.VISITANTE);
+        novo.setCriadoEm(LocalDateTime.of(2026, 10, 14, 19, 30));
 
         when(eventoRepository.findTop5ByDataGreaterThanEqualOrderByDataAscHorarioAsc(any())).thenReturn(List.of());
         when(membroRepository.count()).thenReturn(25L);
         when(membroRepository.countByStatus(StatusMembro.ATIVO)).thenReturn(20L);
+        when(membroRepository.countByStatus(StatusMembro.AFASTADO)).thenReturn(3L);
+        when(membroRepository.countByStatus(StatusMembro.VISITANTE)).thenReturn(2L);
+        // Relógio em 15/10/2026 12:00 em São Paulo: novos membros desde 15/09/2026 12:00.
+        when(membroRepository.findTop10ByCriadoEmGreaterThanEqualOrderByCriadoEmDescNomeAsc(LocalDateTime.of(2026, 9, 15, 12, 0)))
+                .thenReturn(List.of(novo));
+        when(membroRepository.countByCriadoEmGreaterThanEqual(LocalDateTime.of(2026, 9, 15, 12, 0))).thenReturn(1L);
         when(membroRepository.buscarAniversariantesDoMes(anyInt())).thenReturn(List.of(aniversariante));
         when(movimentacaoRepository.somar(any()))
                 .thenReturn(new TotaisFinanceiros(new BigDecimal("1500.00"), new BigDecimal("400.00")));
@@ -103,7 +116,15 @@ class DashboardControllerSecurityTest {
         mockMvc.perform(get(DASHBOARD).with(logadoComo(perfil)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.totalMembros").value(25))
+                .andExpect(jsonPath("$.membrosVisitantes").value(2))
+                .andExpect(jsonPath("$.novosMembros[0].nome").value("Paulo"))
                 .andExpect(jsonPath("$.membrosAtivos").value(20))
+                .andExpect(jsonPath("$.membrosAfastados").value(3))
+                .andExpect(jsonPath("$.membrosVisitantes").value(2))
+                .andExpect(jsonPath("$.novosMembros[0].nome").value("Paulo"))
+                .andExpect(jsonPath("$.novosMembros[0].status").value("VISITANTE"))
+                .andExpect(jsonPath("$.novosMembros[0].criadoEm").value("2026-10-14T19:30:00"))
+                .andExpect(jsonPath("$.totalNovosMembros").value(1))
                 .andExpect(jsonPath("$.proximosEventos").isArray())
                 .andExpect(jsonPath("$.aniversariantesDoMes[0].nome").value("Ana"))
                 .andExpect(jsonPath("$.resumoFinanceiroMesAtual.dataInicio").value("2026-10-01"))
@@ -116,6 +137,8 @@ class DashboardControllerSecurityTest {
         mockMvc.perform(get(DASHBOARD).with(logadoComo("SECRETARIO")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.totalMembros").value(25))
+                .andExpect(jsonPath("$.membrosVisitantes").value(2))
+                .andExpect(jsonPath("$.novosMembros[0].nome").value("Paulo"))
                 .andExpect(jsonPath("$.aniversariantesDoMes[0].nome").value("Ana"))
                 .andExpect(jsonPath("$.proximosEventos").isArray())
                 .andExpect(jsonPath("$.resumoFinanceiroMesAtual").value(nullValue()));
@@ -128,11 +151,16 @@ class DashboardControllerSecurityTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.totalMembros").value(nullValue()))
                 .andExpect(jsonPath("$.membrosAtivos").value(nullValue()))
+                .andExpect(jsonPath("$.membrosAfastados").value(nullValue()))
+                .andExpect(jsonPath("$.membrosVisitantes").value(nullValue()))
+                .andExpect(jsonPath("$.novosMembros").value(nullValue()))
+                .andExpect(jsonPath("$.totalNovosMembros").value(nullValue()))
                 .andExpect(jsonPath("$.aniversariantesDoMes").value(nullValue()))
                 .andExpect(jsonPath("$.proximosEventos").isArray())
                 .andExpect(jsonPath("$.resumoFinanceiroMesAtual.totalReceitas").value(1500.00));
         verify(membroRepository, never()).count();
         verify(membroRepository, never()).buscarAniversariantesDoMes(anyInt());
+        verify(membroRepository, never()).countByCriadoEmGreaterThanEqual(any());
     }
 
     @Test
@@ -142,6 +170,10 @@ class DashboardControllerSecurityTest {
                 .andExpect(jsonPath("$.proximosEventos").isArray())
                 .andExpect(jsonPath("$.totalMembros").value(nullValue()))
                 .andExpect(jsonPath("$.membrosAtivos").value(nullValue()))
+                .andExpect(jsonPath("$.membrosAfastados").value(nullValue()))
+                .andExpect(jsonPath("$.membrosVisitantes").value(nullValue()))
+                .andExpect(jsonPath("$.novosMembros").value(nullValue()))
+                .andExpect(jsonPath("$.totalNovosMembros").value(nullValue()))
                 .andExpect(jsonPath("$.aniversariantesDoMes").value(nullValue()))
                 .andExpect(jsonPath("$.resumoFinanceiroMesAtual").value(nullValue()));
         verifyNoInteractions(membroRepository, movimentacaoRepository);

@@ -44,6 +44,11 @@ import static java.time.temporal.TemporalAdjusters.next;
 public class DadosDemonstracaoService {
 
     private static final int QUANTIDADE_ANIVERSARIANTES_DO_MES = 3;
+    /**
+     * Só os últimos da lista ficam com a data de cadastro da carga (aparecem em "Novos membros"); os
+     * demais fazem o papel de membros cadastrados antes da V7, com criado_em NULL.
+     */
+    private static final int QUANTIDADE_NOVOS_MEMBROS = 3;
 
     private final UsuarioService usuarioService;
     private final MembroService membroService;
@@ -86,6 +91,7 @@ public class DadosDemonstracaoService {
             boolean aniversariante = i < QUANTIDADE_ANIVERSARIANTES_DO_MES;
             ids.add(membroService.cadastrar(MEMBROS.get(i).paraRequest(hoje, aniversariante)).id());
         }
+        membroRepository.apagarDataDeCadastro(ids.subList(0, ids.size() - QUANTIDADE_NOVOS_MEMBROS));
         return ids;
     }
 

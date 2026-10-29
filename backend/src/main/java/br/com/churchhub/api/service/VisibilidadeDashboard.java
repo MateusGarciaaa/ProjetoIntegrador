@@ -8,7 +8,7 @@ import java.util.Set;
 
 /**
  * RN12: o dashboard mostra só o que o perfil já pode ver nos módulos de origem.
- * - membros (totais e aniversariantes): quem consulta GET /members (A, P, S);
+ * - membros (contagens por status, aniversariantes e novos membros): quem consulta GET /members (A, P, S);
  * - financeiro (resumo do mês): quem consulta GET /financial (A, T, P);
  * - próximos eventos: todos (GET /events é isAuthenticated()).
  * Se um @PreAuthorize desses módulos mudar, mude aqui também.
