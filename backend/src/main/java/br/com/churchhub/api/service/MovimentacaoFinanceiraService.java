@@ -2,7 +2,10 @@ package br.com.churchhub.api.service;
 
 import br.com.churchhub.api.dto.MovimentacaoFinanceiraRequest;
 import br.com.churchhub.api.dto.MovimentacaoFinanceiraResponse;
+import br.com.churchhub.api.dto.PontoSerieFinanceiraResponse;
 import br.com.churchhub.api.dto.ResumoFinanceiroResponse;
+import br.com.churchhub.api.dto.TotalPorCategoriaResponse;
+import br.com.churchhub.api.entity.AgrupamentoSerie;
 import br.com.churchhub.api.entity.CategoriaFinanceira;
 import br.com.churchhub.api.entity.Membro;
 import br.com.churchhub.api.entity.MovimentacaoFinanceira;
@@ -13,19 +16,22 @@ import br.com.churchhub.api.mapper.MovimentacaoFinanceiraMapper;
 import br.com.churchhub.api.repository.MembroRepository;
 import br.com.churchhub.api.repository.MovimentacaoFinanceiraFiltros;
 import br.com.churchhub.api.repository.MovimentacaoFinanceiraRepository;
+import br.com.churchhub.api.repository.TotaisFinanceiros;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
 public class MovimentacaoFinanceiraService {
+
+    static final String MENSAGEM_PERIODO_INVERTIDO = "A data inicial não pode ser posterior à data final";
 
     private final MovimentacaoFinanceiraRepository movimentacaoRepository;
     private final CategoriaFinanceiraService categoriaFinanceiraService;
@@ -76,11 +82,37 @@ public class MovimentacaoFinanceiraService {
         movimentacaoRepository.delete(buscarEntidadePorId(id));
     }
 
+    /**
+     * Agregações do período (summary, série e por categoria): somadas no banco, com os mesmos
+     * filtros opcionais da listagem. As duas datas são obrigatórias (o controller exige) e em ordem.
+     */
     @Transactional(readOnly = true)
-    public ResumoFinanceiroResponse resumo(LocalDate dataInicio, LocalDate dataFim) {
-        BigDecimal receitas = movimentacaoRepository.somarPorTipo(TipoMovimentacao.RECEITA, dataInicio, dataFim);
-        BigDecimal despesas = movimentacaoRepository.somarPorTipo(TipoMovimentacao.DESPESA, dataInicio, dataFim);
-        return new ResumoFinanceiroResponse(dataInicio, dataFim, receitas, despesas, receitas.subtract(despesas));
+    public ResumoFinanceiroResponse resumo(LocalDate dataInicio, LocalDate dataFim,
+                                           TipoMovimentacao tipo, UUID categoriaId) {
+        validarPeriodo(dataInicio, dataFim);
+        TotaisFinanceiros totais = movimentacaoRepository
+                .somar(MovimentacaoFinanceiraFiltros.de(dataInicio, dataFim, tipo, categoriaId));
+        return new ResumoFinanceiroResponse(dataInicio, dataFim, totais.receitas(), totais.despesas(), totais.saldo());
+    }
+
+    @Transactional(readOnly = true)
+    public List<PontoSerieFinanceiraResponse> serie(LocalDate dataInicio, LocalDate dataFim, AgrupamentoSerie agrupamento,
+                                                    TipoMovimentacao tipo, UUID categoriaId) {
+        validarPeriodo(dataInicio, dataFim);
+        return movimentacaoRepository.serie(MovimentacaoFinanceiraFiltros.de(dataInicio, dataFim, tipo, categoriaId), agrupamento);
+    }
+
+    @Transactional(readOnly = true)
+    public List<TotalPorCategoriaResponse> totaisPorCategoria(LocalDate dataInicio, LocalDate dataFim,
+                                                              TipoMovimentacao tipo, UUID categoriaId) {
+        validarPeriodo(dataInicio, dataFim);
+        return movimentacaoRepository.totaisPorCategoria(MovimentacaoFinanceiraFiltros.de(dataInicio, dataFim, tipo, categoriaId));
+    }
+
+    private static void validarPeriodo(LocalDate dataInicio, LocalDate dataFim) {
+        if (dataInicio.isAfter(dataFim)) {
+            throw new BusinessException(MENSAGEM_PERIODO_INVERTIDO);
+        }
     }
 
     private MovimentacaoFinanceira buscarEntidadePorId(UUID id) {
