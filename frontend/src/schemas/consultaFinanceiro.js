@@ -31,6 +31,12 @@ export function periodoPadrao(hoje) {
   return periodoDoMes(mesDaData(hoje));
 }
 
+/** Os últimos `meses` meses inteiros, contando o atual: em 15/10/2026 com 6 → 01/05/2026 a 31/10/2026. */
+export function periodoDosUltimosMeses(hoje, meses) {
+  const atual = mesDaData(hoje);
+  return { de: periodoDoMes(somarMeses(atual, 1 - meses)).de, ate: periodoDoMes(atual).ate };
+}
+
 /** O período é exatamente um mês inteiro? Devolve o mês ("AAAA-MM") ou null. */
 export function mesDoPeriodo({ de, ate }) {
   if (!isDataIsoValida(de)) return null;

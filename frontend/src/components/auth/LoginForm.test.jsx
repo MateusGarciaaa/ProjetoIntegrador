@@ -97,8 +97,8 @@ describe('login', () => {
 
     await waitFor(() => expect(transporte.adapter).toHaveBeenCalled());
     concluir();
-    expect(await screen.findByRole('heading', { name: 'Eventos' })).toBeTruthy();
-    // Só o login conta: a tela de Eventos, aberta em seguida, faz as próprias consultas.
+    expect(await screen.findByRole('heading', { name: 'Painel' })).toBeTruthy();
+    // Só o login conta: o Painel, aberto em seguida, faz as próprias consultas.
     const logins = transporte.adapter.mock.calls.filter(([config]) => config.url === '/auth/login');
     expect(logins).toHaveLength(1);
   });

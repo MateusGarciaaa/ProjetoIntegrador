@@ -10,9 +10,9 @@ describe('menu por perfil', () => {
   it('mostra só as áreas que o backend libera', () => {
     expect(rotulos(PERFIS.ADMINISTRADOR)).toEqual(['Painel', 'Membros', 'Eventos', 'Financeiro']);
     expect(rotulos(PERFIS.PASTOR)).toEqual(['Painel', 'Membros', 'Eventos', 'Financeiro']);
-    expect(rotulos(PERFIS.SECRETARIO)).toEqual(['Membros', 'Eventos']);
-    expect(rotulos(PERFIS.TESOUREIRO)).toEqual(['Eventos', 'Financeiro']);
-    expect(rotulos(PERFIS.MEMBRO)).toEqual(['Eventos']);
+    expect(rotulos(PERFIS.SECRETARIO)).toEqual(['Painel', 'Membros', 'Eventos']);
+    expect(rotulos(PERFIS.TESOUREIRO)).toEqual(['Painel', 'Eventos', 'Financeiro']);
+    expect(rotulos(PERFIS.MEMBRO)).toEqual(['Painel', 'Eventos']);
   });
 
   it('sem perfil, menu vazio', () => {
@@ -21,12 +21,12 @@ describe('menu por perfil', () => {
 });
 
 describe('rota inicial por perfil', () => {
-  it('leva cada perfil à sua área principal', () => {
+  it('leva todos os perfis ao Painel (cada um vê só os seus blocos, RN12)', () => {
     expect(rotaInicialDoPerfil(PERFIS.ADMINISTRADOR)).toBe(ROTAS.DASHBOARD);
     expect(rotaInicialDoPerfil(PERFIS.PASTOR)).toBe(ROTAS.DASHBOARD);
-    expect(rotaInicialDoPerfil(PERFIS.SECRETARIO)).toBe(ROTAS.MEMBROS);
-    expect(rotaInicialDoPerfil(PERFIS.TESOUREIRO)).toBe(ROTAS.FINANCEIRO);
-    expect(rotaInicialDoPerfil(PERFIS.MEMBRO)).toBe(ROTAS.EVENTOS);
+    expect(rotaInicialDoPerfil(PERFIS.SECRETARIO)).toBe(ROTAS.DASHBOARD);
+    expect(rotaInicialDoPerfil(PERFIS.TESOUREIRO)).toBe(ROTAS.DASHBOARD);
+    expect(rotaInicialDoPerfil(PERFIS.MEMBRO)).toBe(ROTAS.DASHBOARD);
   });
 
   it('a rota inicial é sempre uma área que o perfil pode ver', () => {
@@ -64,6 +64,7 @@ describe('trilhaDoCaminho', () => {
       { rotulo: 'Novo' },
     ]);
     expect(trilhaDoCaminho('/membros/abc/editar', PERFIS.SECRETARIO)).toEqual([
+      { rotulo: 'Início', caminho: '/dashboard' },
       { rotulo: 'Membros', caminho: '/membros' },
       { rotulo: 'Editar' },
     ]);
@@ -72,6 +73,7 @@ describe('trilhaDoCaminho', () => {
 
   it('abas do Financeiro têm rótulo próprio', () => {
     expect(trilhaDoCaminho('/financeiro/fluxo-de-caixa', PERFIS.TESOUREIRO)).toEqual([
+      { rotulo: 'Início', caminho: '/dashboard' },
       { rotulo: 'Financeiro', caminho: '/financeiro' },
       { rotulo: 'Fluxo de caixa' },
     ]);
@@ -81,7 +83,7 @@ describe('trilhaDoCaminho', () => {
   });
 
   it('sem trilha na rota inicial do perfil e fora do menu', () => {
-    expect(trilhaDoCaminho('/membros', PERFIS.SECRETARIO)).toEqual([]);
+    expect(trilhaDoCaminho('/dashboard', PERFIS.SECRETARIO)).toEqual([]);
     expect(trilhaDoCaminho('/nao-existe', PERFIS.ADMINISTRADOR)).toEqual([]);
   });
 });

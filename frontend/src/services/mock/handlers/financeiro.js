@@ -19,6 +19,7 @@ export const MENSAGENS_FINANCEIRO = Object.freeze({
   CATEGORIA_INEXISTENTE: 'Categoria financeira não encontrada',
   MEMBRO_INEXISTENTE: 'Membro não encontrado',
   CATEGORIA_DUPLICADA: 'Já existe uma categoria com este nome para este tipo',
+  PERIODO_INVERTIDO: 'A data inicial não pode ser posterior à data final',
 });
 
 function textoDoNumero(valor) {
@@ -130,14 +131,39 @@ function validarParametrosPeriodo(params) {
   return null;
 }
 
-/** /summary: @RequestParam obrigatório; o Spring resolve os argumentos na ordem (dataInicio primeiro). */
-function validarParametrosResumo(params) {
+function validarDatasObrigatorias(params) {
   for (const nome of ['dataInicio', 'dataFim']) {
     const valor = params[nome];
     if (valor == null || valor === '') return `Parâmetro obrigatório ausente: '${nome}'.`;
     if (!isDataIsoValida(valor)) return `Valor inválido para o parâmetro '${nome}'.`;
   }
   return null;
+}
+
+function validarCategoriaId({ categoriaId }) {
+  if (categoriaId != null && categoriaId !== '' && !UUID.test(categoriaId)) return "Valor inválido para o parâmetro 'categoriaId'.";
+  return null;
+}
+
+/**
+ * /summary e /summary/categories: datas obrigatórias, tipo e categoriaId opcionais; o Spring resolve
+ * os argumentos na ordem do método (dataInicio, dataFim, tipo, categoriaId).
+ */
+function validarParametrosResumo(params) {
+  return validarDatasObrigatorias(params) ?? validarParametroTipo(params) ?? validarCategoriaId(params);
+}
+
+const AGRUPAMENTO_MES = 'MES';
+const AGRUPAMENTOS_SERIE = Object.freeze(['DIA', AGRUPAMENTO_MES]);
+
+/** /summary/series: dataInicio, dataFim, agrupamento (obrigatório, enum DIA|MES), tipo, categoriaId. */
+function validarParametrosSerie(params) {
+  const erroDasDatas = validarDatasObrigatorias(params);
+  if (erroDasDatas) return erroDasDatas;
+  const { agrupamento } = params;
+  if (agrupamento == null || agrupamento === '') return "Parâmetro obrigatório ausente: 'agrupamento'.";
+  if (!AGRUPAMENTOS_SERIE.includes(agrupamento)) return "Valor inválido para o parâmetro 'agrupamento'.";
+  return validarParametroTipo(params) ?? validarCategoriaId(params);
 }
 
 function validarParametroTipo(params) {
@@ -153,11 +179,7 @@ function validarParametroTipo(params) {
 function validarParametrosLista(params) {
   const erroDoPeriodo = validarParametrosPeriodo(params);
   if (erroDoPeriodo) return erroDoPeriodo;
-  const erroDoTipo = validarParametroTipo(params);
-  if (erroDoTipo) return erroDoTipo;
-  const { categoriaId } = params;
-  if (categoriaId != null && categoriaId !== '' && !UUID.test(categoriaId)) return "Valor inválido para o parâmetro 'categoriaId'.";
-  return null;
+  return validarParametroTipo(params) ?? validarCategoriaId(params);
 }
 
 function noPeriodo(movimentacao, dataInicio, dataFim) {
@@ -195,24 +217,82 @@ export function buscarPorId({ banco, id, caminho }) {
   return movimentacao ? ok(200, paraResponse(banco, movimentacao)) : erroApi(404, MENSAGENS_FINANCEIRO.MOVIMENTACAO_INEXISTENTE, caminho);
 }
 
-/** MovimentacaoFinanceiraService.resumo: SUM por tipo no período (COALESCE 0) e saldo = receitas − despesas. */
-export function resumo({ banco, params }) {
-  const { dataInicio, dataFim } = params;
+/**
+ * Agregações (MovimentacaoFinanceiraAgregacoes): mesmos filtros da lista, com o período obrigatório.
+ * Período invertido é BusinessException do serviço (400, depois do @PreAuthorize).
+ */
+function movimentacoesAgregadas(banco, params) {
+  const tipo = params.tipo || null;
+  const categoriaId = params.categoriaId || null;
+  return banco.movimentacoes.filter(
+    (m) => noPeriodo(m, params.dataInicio, params.dataFim) && (!tipo || m.tipo === tipo) && (!categoriaId || m.categoriaId === categoriaId),
+  );
+}
+
+function periodoInvertido({ dataInicio, dataFim }, caminho) {
+  return dataInicio > dataFim ? erroApi(400, MENSAGENS_FINANCEIRO.PERIODO_INVERTIDO, caminho) : null;
+}
+
+/** SUM(CASE WHEN tipo = RECEITA ...) e SUM(CASE WHEN tipo = DESPESA ...), em centavos. */
+function somarCentavos(movimentacoes) {
   let receitas = 0;
   let despesas = 0;
-  banco.movimentacoes
-    .filter((m) => noPeriodo(m, dataInicio, dataFim))
-    .forEach((m) => {
-      if (m.tipo === TIPOS_MOVIMENTACAO.RECEITA) receitas += paraCentavos(m.valor);
-      else despesas += paraCentavos(m.valor);
-    });
-  return ok(200, {
-    dataInicio,
-    dataFim,
+  movimentacoes.forEach((m) => {
+    if (m.tipo === TIPOS_MOVIMENTACAO.RECEITA) receitas += paraCentavos(m.valor);
+    else despesas += paraCentavos(m.valor);
+  });
+  return { receitas, despesas };
+}
+
+function totaisParaJson({ receitas, despesas }) {
+  return {
     totalReceitas: centavosParaValor(receitas),
     totalDespesas: centavosParaValor(despesas),
     saldo: centavosParaValor(receitas - despesas),
+  };
+}
+
+/** GET /financial/summary: período, tipo e categoria; saldo = receitas − despesas. */
+export function resumo({ banco, params, caminho }) {
+  const erro = periodoInvertido(params, caminho);
+  if (erro) return erro;
+  const { dataInicio, dataFim } = params;
+  return ok(200, { dataInicio, dataFim, ...totaisParaJson(somarCentavos(movimentacoesAgregadas(banco, params))) });
+}
+
+/** GET /financial/summary/series: só os dias (ou meses, no 1º dia) com lançamento, em ordem de data. */
+export function serie({ banco, params, caminho }) {
+  const erro = periodoInvertido(params, caminho);
+  if (erro) return erro;
+  const grupos = new Map();
+  movimentacoesAgregadas(banco, params).forEach((m) => {
+    const periodo = params.agrupamento === AGRUPAMENTO_MES ? `${m.data.slice(0, 7)}-01` : m.data;
+    grupos.set(periodo, [...(grupos.get(periodo) ?? []), m]);
   });
+  const pontos = [...grupos.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([periodo, movimentacoes]) => ({ periodo, ...totaisParaJson(somarCentavos(movimentacoes)) }));
+  return ok(200, pontos);
+}
+
+/** GET /financial/summary/categories: total e quantidade por categoria, do maior total para o menor (empate: nome). */
+export function totaisPorCategoria({ banco, params, caminho }) {
+  const erro = periodoInvertido(params, caminho);
+  if (erro) return erro;
+  const grupos = new Map();
+  movimentacoesAgregadas(banco, params).forEach((m) => {
+    const grupo = grupos.get(m.categoriaId) ?? { centavos: 0, quantidade: 0 };
+    grupos.set(m.categoriaId, { centavos: grupo.centavos + paraCentavos(m.valor), quantidade: grupo.quantidade + 1 });
+  });
+  const linhas = [...grupos.entries()]
+    .map(([categoriaId, { centavos, quantidade }]) => ({
+      categoria: copiarCategoria(banco.categorias.find((c) => c.id === categoriaId)),
+      centavos,
+      quantidade,
+    }))
+    .sort((a, b) => b.centavos - a.centavos || a.categoria.nome.localeCompare(b.categoria.nome, 'pt-BR'))
+    .map(({ categoria, centavos, quantidade }) => ({ categoria, total: centavosParaValor(centavos), quantidade }));
+  return ok(200, linhas);
 }
 
 /** Ordem do serviço: categoria existe → tipo compatível (BusinessException, 400) → membro existe. */
@@ -296,6 +376,14 @@ export const ROTAS_FINANCEIRO = Object.freeze([
   { metodo: 'get', padrao: /^\/financial$/, perfis: CONSULTA, parametros: validarParametrosLista, executar: listar },
   { metodo: 'post', padrao: /^\/financial$/, perfis: ESCRITA, corpo: CORPO_MOVIMENTACAO, executar: cadastrar },
   { metodo: 'get', padrao: /^\/financial\/summary$/, perfis: CONSULTA, parametros: validarParametrosResumo, executar: resumo },
+  { metodo: 'get', padrao: /^\/financial\/summary\/series$/, perfis: CONSULTA, parametros: validarParametrosSerie, executar: serie },
+  {
+    metodo: 'get',
+    padrao: /^\/financial\/summary\/categories$/,
+    perfis: CONSULTA,
+    parametros: validarParametrosResumo,
+    executar: totaisPorCategoria,
+  },
   { metodo: 'get', padrao: /^\/financial\/([^/]+)$/, perfis: CONSULTA, executar: buscarPorId },
   { metodo: 'put', padrao: /^\/financial\/([^/]+)$/, perfis: ESCRITA, corpo: CORPO_MOVIMENTACAO, executar: atualizar },
   { metodo: 'delete', padrao: /^\/financial\/([^/]+)$/, perfis: [ADMINISTRADOR], executar: excluir },

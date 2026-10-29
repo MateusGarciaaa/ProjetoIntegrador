@@ -1,0 +1,60 @@
+.grafico {
+  display: grid;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.linha {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--space-1) var(--space-3);
+  align-items: baseline;
+}
+
+.nome {
+  overflow-wrap: anywhere;
+  font-size: var(--text-sm);
+  color: var(--color-ink);
+}
+
+.valor {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  font-variant-numeric: tabular-nums;
+  color: var(--color-ink);
+  text-align: right;
+}
+
+.percentual {
+  font-weight: normal;
+  color: var(--color-ink-muted);
+}
+
+.trilho {
+  grid-column: 1 / -1;
+  display: block;
+  height: 0.625rem;
+  background: var(--color-surface-sunken);
+  border-radius: 4px;
+}
+
+/* Ponta arredondada de 4 px, base presa ao início do trilho. */
+.barra {
+  display: block;
+  height: 100%;
+  min-width: 2px;
+  background: var(--color-serie-despesa);
+  border-radius: 0 4px 4px 0;
+}
+
+.linha:hover .barra {
+  filter: brightness(0.9);
+}
+
+@media (forced-colors: active) {
+  .barra {
+    background: CanvasText;
+  }
+}

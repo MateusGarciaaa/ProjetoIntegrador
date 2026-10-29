@@ -49,15 +49,15 @@ export function caminhoNovoEvento(dataIso) {
 }
 
 /**
- * Primeira tela de cada perfil: a área mais usada entre as que o backend libera para ele
- * (o dashboard só existe para A e P; MEMBRO só pode ver eventos).
+ * Primeira tela: o Painel, para todos os perfis (GET /dashboard é isAuthenticated() e cada perfil
+ * recebe só os blocos que pode ver, RN12).
  */
 const ROTA_INICIAL_POR_PERFIL = Object.freeze({
   [PERFIS.ADMINISTRADOR]: ROTAS.DASHBOARD,
   [PERFIS.PASTOR]: ROTAS.DASHBOARD,
-  [PERFIS.SECRETARIO]: ROTAS.MEMBROS,
-  [PERFIS.TESOUREIRO]: ROTAS.FINANCEIRO,
-  [PERFIS.MEMBRO]: ROTAS.EVENTOS,
+  [PERFIS.SECRETARIO]: ROTAS.DASHBOARD,
+  [PERFIS.TESOUREIRO]: ROTAS.DASHBOARD,
+  [PERFIS.MEMBRO]: ROTAS.DASHBOARD,
 });
 
 /** Perfil desconhecido cai em Membros, que mostra "Sem acesso" com a explicação. */

@@ -1,7 +1,7 @@
 import { LIMITES_MEMBRO } from '../../../constants/membros';
 import { PERFIS } from '../../../constants/perfis';
 import { STATUS_MEMBRO } from '../../../constants/statusMembro';
-import { novoId } from '../bancoEmMemoria';
+import { dataHoraDoServidor, novoId } from '../bancoEmMemoria';
 import { lerPageable, paginaSpring } from '../paginacao';
 import { erroApi, ok } from '../respostas';
 
@@ -10,8 +10,11 @@ const CAMPOS_DATA = ['dataNascimento', 'dataBatismo', 'dataConversao'];
 const EMAIL_HIBERNATE = /^[^\s@]+@[^\s@]+$/;
 const DATA_ISO = /^\d{4}-\d{2}-\d{2}$/;
 
+/** MembroResponse: a entidade sem criadoEm (o backend não devolve a data de cadastro em /members). */
 function copiar(membro) {
-  return { ...membro };
+  const resposta = { ...membro };
+  delete resposta.criadoEm;
+  return resposta;
 }
 
 /** Falhas de desserialização (data ou enum inválidos) viram 400 no backend (HttpMessageNotReadableException). */
@@ -43,7 +46,7 @@ export function validarMembroRequest(corpo) {
   return erros;
 }
 
-function paraEntidade(corpo, id) {
+function paraEntidade(corpo, id, criadoEm = null) {
   return {
     id,
     nome: corpo.nome,
@@ -55,6 +58,7 @@ function paraEntidade(corpo, id) {
     dataBatismo: corpo.dataBatismo ?? null,
     dataConversao: corpo.dataConversao ?? null,
     status: corpo.status ?? STATUS_MEMBRO.ATIVO,
+    criadoEm,
   };
 }
 
@@ -119,10 +123,11 @@ export function buscarPorId({ banco, id, caminho }) {
   return membro ? ok(200, copiar(membro)) : erroApi(404, 'Membro não encontrado', caminho);
 }
 
-export function cadastrar({ banco, corpo, caminho }) {
+/** @CreatedDate: a hora do cadastro no fuso da igreja (o Clock do servidor simulado). */
+export function cadastrar({ banco, corpo, caminho, agoraMs }) {
   const erro = conflito(banco, corpo, null, caminho);
   if (erro) return erro;
-  const membro = paraEntidade(corpo, novoId());
+  const membro = paraEntidade(corpo, novoId(), dataHoraDoServidor(agoraMs));
   banco.membros.push(membro);
   return ok(201, copiar(membro));
 }
@@ -132,7 +137,8 @@ export function atualizar({ banco, id, corpo, caminho }) {
   if (indice < 0) return erroApi(404, 'Membro não encontrado', caminho);
   const erro = conflito(banco, corpo, id, caminho);
   if (erro) return erro;
-  banco.membros[indice] = paraEntidade(corpo, id);
+  // updatable = false: a data de cadastro não muda na edição.
+  banco.membros[indice] = paraEntidade(corpo, id, banco.membros[indice].criadoEm);
   return ok(200, copiar(banco.membros[indice]));
 }
 

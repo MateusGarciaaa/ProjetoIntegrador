@@ -1,13 +1,33 @@
+import { FUSO_HORARIO_SERVIDOR } from '../../constants/eventos';
+import { agoraNoFuso } from '../../utils/datas';
 import { CONTAS_DEMO, SENHA_DEMO } from './contasDemo';
-import { criarCategoriasIniciais, criarEventosIniciais, criarMembrosIniciais, criarMovimentacoesIniciais } from './dadosIniciais';
+import {
+  criarCategoriasIniciais,
+  criarEventosIniciais,
+  criarMembrosIniciais,
+  criarMovimentacoesIniciais,
+  QUANTIDADE_NOVOS_MEMBROS_DEMO,
+} from './dadosIniciais';
+
+/** LocalDateTime do servidor ("AAAA-MM-DDTHH:mm:ss", fuso da igreja), como o Clock da aplicação. */
+export function dataHoraDoServidor(agoraMs) {
+  const { data, horario } = agoraNoFuso(FUSO_HORARIO_SERVIDOR, new Date(agoraMs));
+  return `${data}T${horario}`;
+}
 
 /**
  * Estado do backend simulado. Recarregar a página volta aos dados iniciais.
- * hoje (AAAA-MM-DD, no fuso do servidor) posiciona os eventos e as movimentações de demonstração,
- * como o DadosDemonstracaoService faz com o Clock da aplicação.
+ * hoje (AAAA-MM-DD, no fuso da igreja) posiciona os eventos e as movimentações de demonstração,
+ * como o DadosDemonstracaoService faz com o Clock da aplicação; os últimos membros ganham a data
+ * de cadastro da carga ("Novos membros") e os demais ficam com null.
+ *   agora: "AAAA-MM-DDTHH:mm:ss" da carga (padrão: o início de hoje).
  */
-export function criarBanco({ hoje } = {}) {
-  const membros = criarMembrosIniciais();
+export function criarBanco({ hoje, agora = hoje ? `${hoje}T00:00:00` : null } = {}) {
+  const iniciais = criarMembrosIniciais();
+  const membros = iniciais.map((membro, indice) => ({
+    ...membro,
+    criadoEm: agora && indice >= iniciais.length - QUANTIDADE_NOVOS_MEMBROS_DEMO ? agora : null,
+  }));
   const categorias = criarCategoriasIniciais();
   return {
     usuarios: CONTAS_DEMO.map((conta) => ({ ...conta, senha: SENHA_DEMO, ativo: true })),

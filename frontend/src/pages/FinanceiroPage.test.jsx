@@ -94,9 +94,12 @@ describe('movimentações: listagem', () => {
     fireEvent.change(screen.getByLabelText('Categoria'), { target: { value: AGUA_E_ENERGIA } });
     await waitFor(() => expect(descricoes().sort()).toEqual(['Conta de energia elétrica', 'Conta de água'].sort()));
     expect(pedidosDaLista().at(-1).params).toMatchObject({ tipo: 'DESPESA', categoriaId: AGUA_E_ENERGIA });
-    // O summary não separa por categoria: só a quantidade.
+    // O summary recebe os mesmos filtros: o total passa a ser o da categoria.
     expect(screen.getByText('2 movimentações')).toBeTruthy();
-    expect(screen.queryByText(/^Despesas:/)).toBeNull();
+    const resumos = chamadas('get').filter((c) => c.url === '/financial/summary');
+    expect(resumos.at(-1).params).toEqual({ dataInicio: MES.de, dataFim: MES.ate, tipo: 'DESPESA', categoriaId: AGUA_E_ENERGIA });
+    await waitFor(() => expect(screen.getByText(/^Despesas: /).textContent).not.toBe('Despesas: R$ 2.328,50'));
+    expect(screen.queryByText(/^Receitas:/)).toBeNull();
 
     fireEvent.click(screen.getByRole('button', { name: 'Limpar filtros' }));
     await waitFor(() => expect(descricoes()).toHaveLength(10));
@@ -160,6 +163,10 @@ describe('fluxo de caixa e relatório', () => {
     expect(screen.getByText('Ver os valores em tabela')).toBeTruthy();
     const resumo = chamadas('get').find((c) => c.url === '/financial/summary');
     expect(resumo.params).toEqual({ dataInicio: MES.de, dataFim: MES.ate });
+    // A série vem somada do backend; a lista de lançamentos nem é pedida.
+    const serie = chamadas('get').find((c) => c.url === '/financial/summary/series');
+    expect(serie.params).toEqual({ dataInicio: MES.de, dataFim: MES.ate, agrupamento: 'DIA' });
+    expect(pedidosDaLista()).toHaveLength(0);
   });
 
   it('relatório: totais por categoria, lançamentos e botão de imprimir (sem exportação)', async () => {
@@ -173,14 +180,16 @@ describe('fluxo de caixa e relatório', () => {
     expect(screen.getByRole('heading', { name: 'Lançamentos (11)' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Imprimir' })).toBeTruthy();
     expect(screen.queryByRole('button', { name: /exportar/i })).toBeNull();
+    // Somas por categoria vêm do backend (GROUP BY), não da lista.
+    const porCategoria = chamadas('get').find((c) => c.url === '/financial/summary/categories');
+    expect(porCategoria.params).toEqual({ dataInicio: MES.de, dataFim: MES.ate });
   });
 });
 
-describe('período acima do limite de uma página (2000 do Spring)', () => {
+describe('período com mais lançamentos do que cabe numa página (2000 do Spring)', () => {
   const DIZIMOS = '3a9d2b1c-6e4f-4a8b-9c2d-000000000001';
-  const AVISO = /O período tem mais lançamentos do que o (gráfico|relatório) consegue somar; reduza o período./;
 
-  /** +2000 receitas de R$ 1,00 no 1º dia do mês: 2.011 no período, só 2.000 cabem numa página. */
+  /** +2000 receitas de R$ 1,00 no 1º dia do mês: 2.011 no período, mais do que uma página de 2000. */
   function lancarEmMassa(atender, authorization) {
     for (let i = 0; i < 2000; i += 1) {
       const corpo = { descricao: `Oferta ${i}`, valor: 1, data: MES.de, tipo: 'RECEITA', categoriaId: DIZIMOS, membroId: null };
@@ -188,22 +197,22 @@ describe('período acima do limite de uma página (2000 do Spring)', () => {
     }
   }
 
-  it('fluxo de caixa: mantém os totais oficiais do /summary e troca o gráfico pelo aviso', async () => {
+  it('fluxo de caixa: totais e gráfico certos, sem aviso de limite (tudo somado no banco)', async () => {
     abrir('/financeiro/fluxo-de-caixa', PERFIS.TESOUREIRO, { preparar: lancarEmMassa });
-    expect(await screen.findByText(AVISO, {}, { timeout: 5000 })).toBeTruthy();
-    expect(screen.getByText(/Chegaram 2.000 de 2.011 lançamentos/)).toBeTruthy();
-    // 4.097,90 + 2.000,00: o summary soma no banco, então os cartões continuam certos.
-    expect(screen.getByText('R$ 6.097,90')).toBeTruthy();
-    expect(screen.queryByRole('img', { name: /receitas e despesas/i })).toBeNull();
-    expect(screen.queryByText('Ver os valores em tabela')).toBeNull();
+    // 4.097,90 + 2.000,00.
+    expect(await screen.findByText('R$ 6.097,90', {}, { timeout: 5000 })).toBeTruthy();
+    expect(await screen.findByRole('img', { name: /receitas e despesas por dia/i })).toBeTruthy();
+    expect(screen.queryByText(/reduza o período/)).toBeNull();
   });
 
-  it('relatório: nada de somas por categoria nem impressão, só o aviso', async () => {
+  it('relatório: somas por categoria do backend e todos os lançamentos, página a página', async () => {
     abrir('/financeiro/relatorio', PERFIS.TESOUREIRO, { preparar: lancarEmMassa });
-    expect(await screen.findByText(AVISO, {}, { timeout: 5000 })).toBeTruthy();
-    expect(screen.getByText(/Chegaram 2.000 de 2.011 lançamentos/)).toBeTruthy();
-    expect(screen.queryByRole('heading', { name: 'Receitas por categoria' })).toBeNull();
-    expect(screen.queryByRole('heading', { name: /^Lançamentos/ })).toBeNull();
-    expect(screen.getByRole('button', { name: 'Imprimir' }).disabled).toBe(true);
+    expect(await screen.findByRole('heading', { name: 'Lançamentos (2011)' }, { timeout: 10000 })).toBeTruthy();
+    const receitas = screen.getByRole('heading', { name: 'Receitas por categoria' }).closest('section');
+    // 1.645,50 + 2.000,00.
+    expect(within(receitas).getByRole('rowheader', { name: 'Dízimos' }).closest('tr').textContent).toContain(reais('R$ 3.645,50'));
+    expect(pedidosDaLista().map((c) => c.params.page)).toEqual([0, 1]);
+    expect(screen.getByRole('button', { name: 'Imprimir' }).disabled).toBe(false);
+    expect(screen.queryByText(/reduza o período/)).toBeNull();
   });
 });

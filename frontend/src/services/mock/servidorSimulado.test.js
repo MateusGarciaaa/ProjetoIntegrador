@@ -792,3 +792,183 @@ describe('financeiro simulado (MovimentacaoFinanceiraController e CategoriaFinan
     expect(atender({ metodo: 'delete', url: `/members/${ANA.id}`, authorization }).status).toBe(204);
   });
 });
+
+describe('agregações financeiras simuladas (/financial/summary, /series, /categories)', () => {
+  const AGOSTO_E_SETEMBRO = { dataInicio: '2026-08-01', dataFim: '2026-09-30' };
+  const SETEMBRO = { dataInicio: '2026-09-01', dataFim: '2026-09-30' };
+  const AGUA_E_ENERGIA = '3a9d2b1c-6e4f-4a8b-9c2d-000000000004';
+
+  function consultar(atender, authorization, url, params) {
+    return atender({ metodo: 'get', url, authorization, params });
+  }
+
+  it('summary aceita tipo e categoriaId, como a listagem', () => {
+    const atender = novoServidor();
+    const authorization = entrar(atender, 'PASTOR');
+    const resumo = (params) => consultar(atender, authorization, '/financial/summary', params).data;
+    expect(resumo({ ...SETEMBRO, tipo: 'DESPESA' })).toMatchObject({ totalReceitas: 0, totalDespesas: 2328.5, saldo: -2328.5 });
+    expect(resumo({ ...SETEMBRO, categoriaId: AGUA_E_ENERGIA }).totalReceitas).toBe(0);
+    expect(resumo({ ...SETEMBRO, categoriaId: AGUA_E_ENERGIA }).totalDespesas).toBeGreaterThan(0);
+    expect(resumo({ ...SETEMBRO, tipo: 'receita' }).message).toBe("Valor inválido para o parâmetro 'tipo'.");
+  });
+
+  it('série por mês e por dia: só os períodos com lançamento, somando igual ao summary', () => {
+    const atender = novoServidor();
+    const authorization = entrar(atender, 'TESOUREIRO');
+    const porMes = consultar(atender, authorization, '/financial/summary/series', { ...AGOSTO_E_SETEMBRO, agrupamento: 'MES' }).data;
+    expect(porMes.map((p) => p.periodo)).toEqual(['2026-08-01', '2026-09-01']);
+    expect(porMes[1]).toEqual({ periodo: '2026-09-01', totalReceitas: 4097.9, totalDespesas: 2328.5, saldo: 1769.4 });
+
+    const porDia = consultar(atender, authorization, '/financial/summary/series', { ...SETEMBRO, agrupamento: 'DIA' }).data;
+    expect(porDia.length).toBeGreaterThan(1);
+    expect(porDia.every((p) => p.totalReceitas || p.totalDespesas)).toBe(true);
+    expect([...porDia.map((p) => p.periodo)].sort()).toEqual(porDia.map((p) => p.periodo));
+    const centavos = (campo) => porDia.reduce((soma, p) => soma + Math.round(p[campo] * 100), 0);
+    expect(centavos('totalReceitas')).toBe(409790);
+    expect(centavos('totalDespesas')).toBe(232850);
+  });
+
+  it('totais por categoria: do maior para o menor, com quantidade, filtrando por tipo', () => {
+    const atender = novoServidor();
+    const authorization = entrar(atender, 'ADMINISTRADOR');
+    const linhas = consultar(atender, authorization, '/financial/summary/categories', { ...SETEMBRO, tipo: 'DESPESA' }).data;
+    expect(linhas.length).toBeGreaterThan(0);
+    expect(linhas.every((l) => l.categoria.tipo === 'DESPESA')).toBe(true);
+    expect(linhas.map((l) => l.total)).toEqual([...linhas.map((l) => l.total)].sort((a, b) => b - a));
+    expect(linhas.reduce((soma, l) => soma + Math.round(l.total * 100), 0)).toBe(232850);
+    expect(linhas.reduce((soma, l) => soma + l.quantidade, 0)).toBe(4);
+  });
+
+  it('validações iguais às do controller e do serviço', () => {
+    const atender = novoServidor();
+    const authorization = entrar(atender, 'ADMINISTRADOR');
+    const serie = (params) => consultar(atender, authorization, '/financial/summary/series', params).data.message;
+    expect(serie(SETEMBRO)).toBe("Parâmetro obrigatório ausente: 'agrupamento'.");
+    expect(serie({ ...SETEMBRO, agrupamento: 'SEMANA' })).toBe("Valor inválido para o parâmetro 'agrupamento'.");
+    expect(serie({ dataFim: '2026-09-30', agrupamento: 'MES' })).toBe("Parâmetro obrigatório ausente: 'dataInicio'.");
+    expect(serie({ ...SETEMBRO, agrupamento: 'MES', categoriaId: 'x' })).toBe("Valor inválido para o parâmetro 'categoriaId'.");
+    ['/financial/summary', '/financial/summary/series', '/financial/summary/categories'].forEach((url) => {
+      expect(consultar(atender, authorization, url, { dataInicio: '2026-09-30', dataFim: '2026-09-01', agrupamento: 'MES' })).toMatchObject({
+        status: 400,
+        data: { message: 'A data inicial não pode ser posterior à data final' },
+      });
+    });
+  });
+
+  it('A, T e P consultam; S e M recebem 403', () => {
+    const atender = novoServidor();
+    ['ADMINISTRADOR', 'TESOUREIRO', 'PASTOR'].forEach((perfil) => {
+      const authorization = entrar(atender, perfil);
+      expect(consultar(atender, authorization, '/financial/summary/series', { ...SETEMBRO, agrupamento: 'MES' }).status).toBe(200);
+      expect(consultar(atender, authorization, '/financial/summary/categories', SETEMBRO).status).toBe(200);
+    });
+    ['SECRETARIO', 'MEMBRO'].forEach((perfil) => {
+      const authorization = entrar(atender, perfil);
+      expect(consultar(atender, authorization, '/financial/summary/series', { ...SETEMBRO, agrupamento: 'MES' }).status).toBe(403);
+      expect(consultar(atender, authorization, '/financial/summary/categories', SETEMBRO).status).toBe(403);
+    });
+  });
+});
+
+describe('dashboard simulado (DashboardController, RN12)', () => {
+  function dashboard(atender, perfil) {
+    return atender({ metodo: 'get', url: '/dashboard', authorization: entrar(atender, perfil) });
+  }
+
+  it('A e P recebem todos os blocos; o resumo é o do mês atual em São Paulo', () => {
+    const atender = novoServidor();
+    ['ADMINISTRADOR', 'PASTOR'].forEach((perfil) => {
+      const { status, data } = dashboard(atender, perfil);
+      expect(status).toBe(200);
+      expect(data.totalMembros).toBe(criarMembrosIniciais().length);
+      expect(data.membrosAtivos).toBeGreaterThan(0);
+      expect(data.membrosAtivos).toBeLessThanOrEqual(data.totalMembros);
+      expect(Array.isArray(data.aniversariantesDoMes)).toBe(true);
+      expect(data.resumoFinanceiroMesAtual).toEqual({
+        dataInicio: '2026-09-01',
+        dataFim: '2026-09-30',
+        totalReceitas: 4097.9,
+        totalDespesas: 2328.5,
+        saldo: 1769.4,
+      });
+    });
+  });
+
+  it('S vê membros sem financeiro; T vê financeiro sem membros; M só eventos', () => {
+    const atender = novoServidor();
+    expect(dashboard(atender, 'SECRETARIO').data).toMatchObject({ resumoFinanceiroMesAtual: null });
+    expect(dashboard(atender, 'SECRETARIO').data.totalMembros).not.toBeNull();
+    expect(dashboard(atender, 'TESOUREIRO').data).toMatchObject({ totalMembros: null, membrosAtivos: null, aniversariantesDoMes: null });
+    expect(dashboard(atender, 'TESOUREIRO').data.resumoFinanceiroMesAtual).not.toBeNull();
+    expect(dashboard(atender, 'MEMBRO').data).toMatchObject({
+      totalMembros: null,
+      membrosAtivos: null,
+      aniversariantesDoMes: null,
+      resumoFinanceiroMesAtual: null,
+    });
+    expect(Array.isArray(dashboard(atender, 'MEMBRO').data.proximosEventos)).toBe(true);
+  });
+
+  it('próximos eventos: até 5, a partir de hoje, em ordem de data e horário', () => {
+    const atender = novoServidor();
+    const { proximosEventos } = dashboard(atender, 'MEMBRO').data;
+    expect(proximosEventos.length).toBeGreaterThan(0);
+    expect(proximosEventos.length).toBeLessThanOrEqual(5);
+    expect(proximosEventos.every((e) => e.data >= '2026-09-30')).toBe(true);
+    const chaves = proximosEventos.map((e) => `${e.data}T${e.horario}`);
+    expect([...chaves].sort()).toEqual(chaves);
+    expect(Object.keys(proximosEventos[0]).sort()).toEqual(['data', 'horario', 'id', 'titulo']);
+  });
+
+  it('aniversariantes: os do mês do relógio do servidor, ordenados pelo dia', () => {
+    const atender = novoServidor();
+    const { aniversariantesDoMes } = dashboard(atender, 'SECRETARIO').data;
+    const esperados = criarMembrosIniciais().filter((m) => m.dataNascimento?.slice(5, 7) === '09');
+    expect(aniversariantesDoMes.map((a) => a.nome).sort()).toEqual(esperados.map((m) => m.nome).sort());
+    const dias = aniversariantesDoMes.map((a) => a.dataNascimento.slice(8));
+    expect([...dias].sort()).toEqual(dias);
+  });
+
+  it('contagens por status separadas, somando o total (S vê; T e M recebem null)', () => {
+    const atender = novoServidor();
+    const { data } = dashboard(atender, 'SECRETARIO');
+    const membros = criarMembrosIniciais();
+    const contar = (status) => membros.filter((m) => m.status === status).length;
+    expect(data).toMatchObject({ membrosAtivos: contar('ATIVO'), membrosAfastados: contar('AFASTADO'), membrosVisitantes: contar('VISITANTE') });
+    expect(data.membrosAtivos + data.membrosAfastados + data.membrosVisitantes).toBe(data.totalMembros);
+    for (const perfil of ['TESOUREIRO', 'MEMBRO']) {
+      expect(dashboard(atender, perfil).data).toMatchObject({ membrosAfastados: null, membrosVisitantes: null, novosMembros: null, totalNovosMembros: null });
+    }
+  });
+
+  it('novos membros: os 3 últimos da carga (os demais sem data) e quem for cadastrado, mais recente primeiro', () => {
+    let agora = AGORA;
+    const atender = novoServidor(() => agora);
+    const ultimos = criarMembrosIniciais().slice(-3);
+    const antes = dashboard(atender, 'PASTOR').data;
+    expect(antes.totalNovosMembros).toBe(3);
+    expect(antes.novosMembros.map((m) => m.nome)).toEqual(ultimos.map((m) => m.nome).sort((a, b) => a.localeCompare(b, 'pt-BR')));
+    // AGORA = 30/09/2026 12:00 UTC = 09:00 em São Paulo.
+    expect(antes.novosMembros[0]).toMatchObject({ criadoEm: '2026-09-30T09:00:00', status: ultimos.find((m) => m.nome === antes.novosMembros[0].nome).status });
+
+    agora = AGORA + 60 * 60 * 1000;
+    const authorization = entrar(atender, 'SECRETARIO');
+    const criado = atender({ metodo: 'post', url: '/members', authorization, corpo: novoMembro });
+    expect(criado.status).toBe(201);
+    // MembroResponse não tem a data de cadastro.
+    expect(criado.data).not.toHaveProperty('criadoEm');
+    const depois = dashboard(atender, 'PASTOR').data;
+    expect(depois.totalNovosMembros).toBe(4);
+    expect(depois.novosMembros[0]).toEqual({ id: criado.data.id, nome: novoMembro.nome, status: 'ATIVO', criadoEm: '2026-09-30T10:00:00' });
+
+    // A edição não muda a data de cadastro; 31 dias depois ninguém mais é novo.
+    atender({ metodo: 'put', url: `/members/${criado.data.id}`, authorization, corpo: { ...novoMembro, nome: 'Paulo H.' } });
+    expect(dashboard(atender, 'PASTOR').data.novosMembros[0].criadoEm).toBe('2026-09-30T10:00:00');
+    agora = AGORA + 31 * 24 * 60 * 60 * 1000;
+    expect(dashboard(atender, 'PASTOR').data).toMatchObject({ novosMembros: [], totalNovosMembros: 0 });
+  });
+
+  it('sem token: 401', () => {
+    expect(novoServidor()({ metodo: 'get', url: '/dashboard' }).status).toBe(401);
+  });
+});
