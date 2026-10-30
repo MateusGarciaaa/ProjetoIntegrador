@@ -1,5 +1,6 @@
 package br.com.churchhub.api.security;
 
+import br.com.churchhub.api.exception.SessaoEncerradaException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -26,9 +27,16 @@ public class SecurityErrorHandler implements AuthenticationEntryPoint, AccessDen
         this.resolver = resolver;
     }
 
+    /** Situação do token recusado pelo {@link JwtAuthenticationFilter}, para o 401 dizer o motivo. */
+    public static final String ATRIBUTO_SITUACAO_TOKEN = SecurityErrorHandler.class.getName() + ".SITUACAO_TOKEN";
+
     @Override
     public void commence(HttpServletRequest request, HttpServletResponse response,
                          AuthenticationException exception) throws IOException {
+        if (request.getAttribute(ATRIBUTO_SITUACAO_TOKEN) instanceof SituacaoToken situacao
+                && situacao.getMotivo() != null) {
+            exception = new SessaoEncerradaException(situacao.getMotivo());
+        }
         delegar(request, response, exception, HttpServletResponse.SC_UNAUTHORIZED);
     }
 

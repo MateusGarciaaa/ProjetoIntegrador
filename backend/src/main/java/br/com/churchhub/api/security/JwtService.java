@@ -10,6 +10,7 @@ import org.springframework.stereotype.Component;
 
 import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
+import java.time.Clock;
 import java.time.Instant;
 import java.util.Date;
 
@@ -19,21 +20,29 @@ public class JwtService {
     /** HS256 exige chave de no mínimo 256 bits. */
     private static final int TAMANHO_MINIMO_SEGREDO_BYTES = 32;
 
+    static final String CLAIM_PERFIL = "perfil";
+    static final String CLAIM_NOME = "nome";
+
     private final SecretKey key;
     private final long expirationMs;
+    /** O mesmo relógio que grava usuarios.senha_alterada_em: iat e troca de senha na mesma régua. */
+    private final Clock clock;
 
     public JwtService(
             @Value("${app.jwt.secret}") String secret,
-            @Value("${app.jwt.expiration-ms}") long expirationMs) {
+            @Value("${app.jwt.expiration-ms}") long expirationMs,
+            Clock clock) {
         this.key = criarChave(secret);
         this.expirationMs = expirationMs;
+        this.clock = clock;
     }
 
     public String generateToken(UsuarioDetailsImpl userDetails) {
-        Instant now = Instant.now();
+        Instant now = Instant.now(clock);
         return Jwts.builder()
                 .subject(userDetails.getUsername())
-                .claim("perfil", extractRole(userDetails))
+                .claim(CLAIM_PERFIL, extractRole(userDetails))
+                .claim(CLAIM_NOME, userDetails.getNome())
                 .issuedAt(Date.from(now))
                 .expiration(Date.from(now.plusMillis(expirationMs)))
                 .signWith(key)
@@ -44,26 +53,45 @@ public class JwtService {
         return parseClaims(token).getSubject();
     }
 
-    public boolean isTokenValid(String token, UserDetails userDetails) {
+    /**
+     * Confere o token contra o estado atual do usuário, relido do banco a cada requisição.
+     * Assinatura e prazo ({@code exp}) são verificados pelo parser, no relógio da aplicação.
+     *
+     * <p>Precisão: o {@code iat} do JWT tem resolução de segundos (o jjwt descarta os
+     * milissegundos) e {@code senhaAlteradaEm} é gravado já truncado em segundos. O token
+     * emitido logo após a troca, no mesmo segundo, tem {@code iat == senhaAlteradaEm} e vale;
+     * por isso a recusa é só para {@code iat < senhaAlteradaEm}. Consequência aceita: um token
+     * emitido no mesmo segundo, antes da troca, também continua valendo.</p>
+     */
+    public SituacaoToken avaliar(String token, UsuarioDetailsImpl usuario) {
+        Claims claims;
         try {
-            String username = extractUsername(token);
-            return username.equals(userDetails.getUsername()) && !isExpired(token);
+            claims = parseClaims(token);
         } catch (JwtException | IllegalArgumentException e) {
-            return false;
+            return SituacaoToken.INVALIDO;
         }
+        if (!usuario.getUsername().equals(claims.getSubject()) || !usuario.isEnabled()) {
+            return SituacaoToken.INVALIDO;
+        }
+        Instant senhaAlteradaEm = usuario.getSenhaAlteradaEm();
+        if (senhaAlteradaEm != null && (claims.getIssuedAt() == null
+                || claims.getIssuedAt().toInstant().isBefore(senhaAlteradaEm))) {
+            return SituacaoToken.SENHA_ALTERADA;
+        }
+        if (!extractRole(usuario).equals(claims.get(CLAIM_PERFIL, String.class))) {
+            return SituacaoToken.PERFIL_ALTERADO;
+        }
+        return SituacaoToken.VALIDO;
     }
 
     public long getExpirationSeconds() {
         return expirationMs / 1000;
     }
 
-    private boolean isExpired(String token) {
-        return parseClaims(token).getExpiration().before(new Date());
-    }
-
     private Claims parseClaims(String token) {
         return Jwts.parser()
                 .verifyWith(key)
+                .clock(() -> Date.from(Instant.now(clock)))
                 .build()
                 .parseSignedClaims(token)
                 .getPayload();
@@ -83,7 +111,7 @@ public class JwtService {
         return Keys.hmacShaKeyFor(bytes);
     }
 
-    private String extractRole(UsuarioDetailsImpl userDetails) {
+    private static String extractRole(UserDetails userDetails) {
         return userDetails.getAuthorities().iterator().next().getAuthority();
     }
 }

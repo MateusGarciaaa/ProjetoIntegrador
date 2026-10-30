@@ -13,6 +13,9 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.time.Clock;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.UUID;
 
 @Entity
@@ -39,4 +42,25 @@ public class Usuario {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "perfil_id", nullable = false)
     private Perfil perfil;
+
+    /**
+     * Última definição de senha (V8), truncada em segundos. {@code null} = convite pendente.
+     * Tokens com {@code iat} anterior a este instante são recusados (troca de senha encerra as sessões).
+     */
+    @Column(name = "senha_alterada_em")
+    private Instant senhaAlteradaEm;
+
+    /**
+     * Grava a nova senha (já codificada) e o instante da troca, truncado em segundos: o {@code iat}
+     * do JWT tem precisão de segundos, e o token emitido logo depois, no mesmo segundo, precisa valer.
+     */
+    public void definirSenha(String senhaCodificada, Clock clock) {
+        this.senha = senhaCodificada;
+        this.senhaAlteradaEm = Instant.now(clock).truncatedTo(ChronoUnit.SECONDS);
+    }
+
+    /** Cadastrado pelo administrador e ainda não definiu a senha pelo link do convite. */
+    public boolean isConvitePendente() {
+        return senhaAlteradaEm == null;
+    }
 }

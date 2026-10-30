@@ -158,6 +158,9 @@ class AuthServiceTest {
 
         assertThat(token.getUsuario().getSenha()).isEqualTo("hash");
         assertThat(token.isUsado()).isTrue();
+        // Registra a troca (encerra as sessões abertas) e, se era convite, ele deixa de estar pendente.
+        assertThat(token.getUsuario().getSenhaAlteradaEm()).isEqualTo(INSTANTE);
+        assertThat(token.getUsuario().isConvitePendente()).isFalse();
     }
 
     @Test

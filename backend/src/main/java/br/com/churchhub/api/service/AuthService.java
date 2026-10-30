@@ -112,7 +112,8 @@ public class AuthService {
                 .orElseThrow(InvalidOrExpiredResetTokenException::new);
 
         Usuario usuario = resetToken.getUsuario();
-        usuario.setSenha(passwordEncoder.encode(request.newPassword()));
+        // Encerra as sessões abertas: tokens emitidos antes da troca deixam de valer (JwtService.avaliar).
+        usuario.definirSenha(passwordEncoder.encode(request.newPassword()), clock);
         usuarioRepository.save(usuario);
 
         resetToken.setUsado(true);

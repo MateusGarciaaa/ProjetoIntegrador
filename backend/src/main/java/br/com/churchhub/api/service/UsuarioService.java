@@ -12,6 +12,8 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Clock;
+
 /**
  * Regras de cadastro de usuários do sistema. Hoje atende a carga inicial; é a base
  * para o futuro cadastro de usuários pelo administrador (RN02).
@@ -23,6 +25,7 @@ public class UsuarioService {
     private final UsuarioRepository usuarioRepository;
     private final PerfilRepository perfilRepository;
     private final PasswordEncoder passwordEncoder;
+    private final Clock clock;
 
     public boolean existeAlgumUsuario() {
         return usuarioRepository.count() > 0;
@@ -47,7 +50,7 @@ public class UsuarioService {
         Usuario usuario = new Usuario();
         usuario.setNome(nome);
         usuario.setEmail(emailNormalizado);
-        usuario.setSenha(passwordEncoder.encode(senha));
+        usuario.definirSenha(passwordEncoder.encode(senha), clock);
         usuario.setPerfil(buscarPerfil(nomePerfil));
         usuarioRepository.save(usuario);
         return true;

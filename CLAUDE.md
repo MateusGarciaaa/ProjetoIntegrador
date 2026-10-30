@@ -52,7 +52,7 @@ npm run build
 Layered: `controller` → `service` → `repository`, with `dto` (Java records, `*Request`/`*Response`), `mapper` (hand-written `@Component` mappers, no MapStruct), `entity` (JPA).
 
 - All routes live under `/api/v1/...` (e.g. `/members`, `/financial`). Authorization is per-method via `@PreAuthorize("hasAnyRole(...)")`; profiles are `ADMINISTRADOR`, `PASTOR`, `SECRETARIO`, `TESOUREIRO`, `MEMBRO` (`NomePerfil`). Only `/api/v1/auth/**`, Swagger and health are public (`SecurityConfig`).
-- JWT claims: `sub` = email, `perfil` = `ROLE_<PERFIL>`. Stateless; `JwtAuthenticationFilter` + `SecurityErrorHandler` produce JSON 401/403.
+- JWT claims: `sub` = email, `perfil` = `ROLE_<PERFIL>`, `nome`. Stateless; `JwtAuthenticationFilter` + `SecurityErrorHandler` produce JSON 401/403. The filter reloads the user on every request (`JwtService.avaliar`): a token dies at once if the user is deactivated, if `iat` < `usuarios.senha_alterada_em` (seconds precision) or if the DB profile differs from the `perfil` claim.
 - Errors: services throw `ResourceNotFoundException` / `ConflictException` / `BusinessException` etc.; `GlobalExceptionHandler` maps them to `ApiError { timestamp, status, error, message, path }`. Bad input (malformed JSON, non-UUID id, bad `sort`, oversized fields) must return 400, never 500. Validation messages are joined in `message` with `", "`.
 - Schema is owned by Flyway (`src/main/resources/db/migration/V<n>__*.sql`); Hibernate is `ddl-auto: validate`. Any entity change needs a new migration — never edit existing ones.
 - All environment-specific config comes from env vars (`application.yml`, typed via `config/properties/*`). `JWT_SECRET` intentionally has no default.
