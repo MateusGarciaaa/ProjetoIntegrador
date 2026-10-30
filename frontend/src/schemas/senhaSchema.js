@@ -14,6 +14,35 @@ export const MENSAGEM_NEUTRA_ESQUECI = 'Se o e-mail existir em nossa base, um li
 export const MENSAGEM_TOKEN_INVALIDO =
   'Este link de redefinição é inválido ou expirou. Os links valem por 30 minutos e só podem ser usados uma vez.';
 
+export const MENSAGEM_CONVITE_INVALIDO =
+  'Este convite é inválido ou expirou. Os convites valem por 72 horas e só podem ser usados uma vez: peça ao administrador para reenviá-lo.';
+
+/**
+ * Textos da tela do link (/reset-password). O convite de um usuário novo traz &convite=1, que só
+ * troca os textos: quem decide se o link vale é sempre o token, conferido pelo backend.
+ */
+export const TEXTOS_LINK_SENHA = Object.freeze({
+  redefinicao: Object.freeze({
+    titulo: 'Redefinir senha',
+    descricao: 'Escolha uma nova senha para acessar o ChurchHub.',
+    botao: 'Redefinir senha',
+    sucesso: 'Senha redefinida. Entre com a nova senha.',
+    linkInvalido: MENSAGEM_TOKEN_INVALIDO,
+  }),
+  convite: Object.freeze({
+    titulo: 'Bem-vindo ao ChurchHub!',
+    descricao: 'Defina sua senha para começar.',
+    botao: 'Definir senha',
+    sucesso: 'Senha definida. Entre com o seu e-mail e a nova senha.',
+    linkInvalido: MENSAGEM_CONVITE_INVALIDO,
+  }),
+});
+
+/** Textos conforme o indicador do link: só "convite=1" vale como convite. */
+export function textosDoLink(parametros) {
+  return parametros.get('convite') === '1' ? TEXTOS_LINK_SENHA.convite : TEXTOS_LINK_SENHA.redefinicao;
+}
+
 export const VALORES_INICIAIS_ESQUECI = Object.freeze({ email: '' });
 export const VALORES_INICIAIS_REDEFINICAO = Object.freeze({ novaSenha: '', confirmacao: '' });
 

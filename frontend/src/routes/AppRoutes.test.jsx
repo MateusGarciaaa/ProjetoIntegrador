@@ -18,11 +18,11 @@ function abrir(caminho, perfil) {
 const menu = () => screen.getByRole('navigation', { name: 'Seções' });
 
 describe('rotas por perfil', () => {
-  it('MEMBRO entra no Painel e só vê Painel e Eventos no menu', async () => {
+  it('MEMBRO entra no Painel e só vê Painel, Eventos e Minha conta no menu', async () => {
     abrir('/', PERFIS.MEMBRO);
     // 1º teste do arquivo: paga a importação a frio da página (React.lazy), lenta com a suíte inteira rodando.
     expect(await screen.findByRole('heading', { name: 'Painel' }, { timeout: 5000 })).toBeTruthy();
-    expect(menu().textContent).toBe('PainelEventos');
+    expect(menu().textContent).toBe('PainelEventosMinha conta');
   });
 
   it('todos os perfis entram no Painel (RN12: cada um vê só os seus blocos)', async () => {
@@ -36,7 +36,7 @@ describe('rotas por perfil', () => {
   it('TESOUREIRO não vê Membros no menu nem abre /membros', async () => {
     abrir('/membros', PERFIS.TESOUREIRO);
     expect(await screen.findByRole('heading', { name: 'Sem acesso à área Membros' })).toBeTruthy();
-    expect(menu().textContent).toBe('PainelEventosFinanceiro');
+    expect(menu().textContent).toBe('PainelEventosFinanceiroMinha conta');
   });
 
   it('MEMBRO não acessa a gestão de membros (lista nem detalhes)', async () => {
@@ -109,7 +109,7 @@ describe('rotas por perfil', () => {
     cleanup();
     abrir('/financeiro/relatorio', PERFIS.PASTOR);
     expect(await screen.findByRole('link', { name: 'Relatório' })).toBeTruthy();
-    expect(menu().textContent).toBe('PainelMembrosEventosFinanceiro');
+    expect(menu().textContent).toBe('PainelMembrosEventosFinanceiroMinha conta');
     cleanup();
 
     // TESOUREIRO cadastra e edita; o menu dele não tem Membros.

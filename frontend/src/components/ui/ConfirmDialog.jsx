@@ -3,8 +3,21 @@ import { Button } from './Button';
 import { Modal } from './Modal';
 import styles from './ConfirmDialog.module.css';
 
-/** Confirmação de ação destrutiva. O foco inicial fica em "Cancelar", a opção segura. */
-export function ConfirmDialog({ aberto, titulo, rotuloConfirmar, processando = false, erro, onConfirmar, onCancelar, children }) {
+/**
+ * Confirmação de ação destrutiva. O foco inicial fica em "Cancelar", a opção segura.
+ * varianteConfirmar: "perigo" (padrão) ou "primario", para confirmações que não destroem nada (ex.: reativar).
+ */
+export function ConfirmDialog({
+  aberto,
+  titulo,
+  rotuloConfirmar,
+  varianteConfirmar = 'perigo',
+  processando = false,
+  erro,
+  onConfirmar,
+  onCancelar,
+  children,
+}) {
   return (
     <Modal
       aberto={aberto}
@@ -17,7 +30,7 @@ export function ConfirmDialog({ aberto, titulo, rotuloConfirmar, processando = f
           <Button variante="secundario" onClick={onCancelar} disabled={processando} data-autofocus>
             Cancelar
           </Button>
-          <Button variante="perigo" onClick={onConfirmar} carregando={processando}>
+          <Button variante={varianteConfirmar} onClick={onConfirmar} carregando={processando}>
             {rotuloConfirmar}
           </Button>
         </>

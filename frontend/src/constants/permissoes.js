@@ -19,6 +19,8 @@ export const PERMISSOES = Object.freeze({
   DASHBOARD_VISUALIZAR: 'dashboard.visualizar',
   DASHBOARD_MEMBROS: 'dashboard.membros',
   DASHBOARD_FINANCEIRO: 'dashboard.financeiro',
+  USUARIOS_GERENCIAR: 'usuarios.gerenciar',
+  CONTA_GERENCIAR: 'conta.gerenciar',
 });
 
 const { ADMINISTRADOR, PASTOR, SECRETARIO, TESOUREIRO, MEMBRO } = PERFIS;
@@ -60,6 +62,13 @@ const MATRIZ = Object.freeze({
   [PERMISSOES.DASHBOARD_MEMBROS]: [ADMINISTRADOR, PASTOR, SECRETARIO],
   // resumoFinanceiroMesAtual e os gráficos (GET /financial/summary/**): quem consulta GET /financial.
   [PERMISSOES.DASHBOARD_FINANCEIRO]: [ADMINISTRADOR, PASTOR, TESOUREIRO],
+
+  // UsuarioController: hasRole('ADMINISTRADOR') em todas as rotas — GET /users e /users/{id},
+  // POST /users, PUT /users/{id}, POST /users/{id}/deactivate, /activate e /invite (RN02).
+  [PERMISSOES.USUARIOS_GERENCIAR]: [ADMINISTRADOR],
+
+  // MeController: GET /me e PUT /me/password são isAuthenticated() — cada um cuida da própria conta.
+  [PERMISSOES.CONTA_GERENCIAR]: [ADMINISTRADOR, PASTOR, SECRETARIO, TESOUREIRO, MEMBRO],
 });
 
 export function temPermissao(perfil, permissao) {

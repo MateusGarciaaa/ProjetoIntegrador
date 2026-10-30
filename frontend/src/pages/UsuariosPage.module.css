@@ -1,0 +1,37 @@
+.barra {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+
+.painel {
+  background: var(--color-surface);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.atualizando {
+  opacity: 0.55;
+  transition: opacity var(--duration-base) var(--easing);
+  pointer-events: none;
+}
+
+.caixa {
+  margin-top: var(--space-5);
+  max-width: 36rem;
+}
+
+.voltar {
+  margin-bottom: var(--space-3);
+  margin-left: calc(var(--space-2) * -1);
+}
+
+@media (max-width: 599px) {
+  .novo {
+    width: 100%;
+  }
+}

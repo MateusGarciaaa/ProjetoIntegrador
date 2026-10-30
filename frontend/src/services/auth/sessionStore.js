@@ -5,7 +5,23 @@ const CHAVE = 'churchhub.sessao';
 export const MOTIVOS_FIM_SESSAO = Object.freeze({
   EXPIRADA: 'expirada',
   RECUSADA: 'recusada',
+  ACESSO_ALTERADO: 'acesso-alterado',
+  SENHA_ALTERADA: 'senha-alterada',
 });
+
+/**
+ * Mensagens exatas do 401 com motivo (SituacaoToken no backend): o token era autêntico, mas o
+ * perfil ou a senha mudaram depois da emissão. Provisório como o errosServidor.js: depende do texto.
+ */
+const MOTIVO_POR_MENSAGEM = Object.freeze({
+  'Seu acesso foi alterado. Entre novamente.': MOTIVOS_FIM_SESSAO.ACESSO_ALTERADO,
+  'Sua senha foi alterada. Entre novamente.': MOTIVOS_FIM_SESSAO.SENHA_ALTERADA,
+});
+
+/** Motivo do encerramento a partir da mensagem do 401; qualquer outra é "sessão recusada". */
+export function motivoDaRecusa(mensagem) {
+  return MOTIVO_POR_MENSAGEM[mensagem] ?? MOTIVOS_FIM_SESSAO.RECUSADA;
+}
 
 /**
  * sessionStorage: o token some ao fechar o navegador e não é compartilhado entre abas.

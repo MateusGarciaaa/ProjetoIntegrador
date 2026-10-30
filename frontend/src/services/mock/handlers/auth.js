@@ -3,10 +3,31 @@ import { emitirTokenFalso } from '../mockJwt';
 import { erroApi, ok } from '../respostas';
 
 /** @Email do Hibernate: aceita domínio sem ponto e trata vazio como válido. */
-const EMAIL_HIBERNATE = /^[^\s@]+@[^\s@]+$/;
+export const EMAIL_HIBERNATE = /^[^\s@]+@[^\s@]+$/;
 
 /** app.jwt.reset-token-expiration-minutes (application.yml). */
 const VALIDADE_TOKEN_REDEFINICAO_MS = 30 * 60 * 1000;
+
+/** AuthService.VALIDADE_CONVITE: o convite vale mais que a redefinição. */
+export const VALIDADE_CONVITE_MS = 72 * 60 * 60 * 1000;
+
+/** Usuario.definirSenha: o instante da troca, truncado em segundos (precisão do iat). */
+export function instanteDaTroca(agoraMs) {
+  return Math.floor(agoraMs / 1000) * 1000;
+}
+
+/** AuthService.gerarLink: só o link mais recente vale (os pendentes são invalidados antes). */
+export function gerarLink(banco, usuario, agoraMs, validadeMs) {
+  invalidarLinksPendentes(banco, usuario);
+  const token = novoId();
+  banco.tokensRedefinicao.push({ token, email: usuario.email, expiraEm: agoraMs + validadeMs, usado: false });
+  return token;
+}
+
+/** PasswordResetTokenRepository.invalidarPendentes. */
+export function invalidarLinksPendentes(banco, usuario) {
+  banco.tokensRedefinicao.filter((t) => t.email === usuario.email).forEach((t) => (t.usado = true));
+}
 
 export const MENSAGENS_AUTH = Object.freeze({
   CREDENCIAIS_INVALIDAS: 'E-mail ou senha inválidos',
@@ -14,13 +35,13 @@ export const MENSAGENS_AUTH = Object.freeze({
   TOKEN_INVALIDO: 'Token de redefinição inválido ou expirado',
 });
 
-const emBranco = (valor) => typeof valor !== 'string' || !valor.trim();
+export const emBranco = (valor) => typeof valor !== 'string' || !valor.trim();
 
 /** @CabeNoBcrypt: até 72 bytes em UTF-8 (não caracteres). */
-const MENSAGEM_BCRYPT = 'é longa demais: o limite é de 72 bytes (letras acentuadas e símbolos ocupam 2 ou mais)';
-const excedeBcrypt = (senha) => typeof senha === 'string' && new TextEncoder().encode(senha).length > 72;
+export const MENSAGEM_BCRYPT = 'é longa demais: o limite é de 72 bytes (letras acentuadas e símbolos ocupam 2 ou mais)';
+export const excedeBcrypt = (senha) => typeof senha === 'string' && new TextEncoder().encode(senha).length > 72;
 
-function validarEmail(email) {
+export function validarEmail(email) {
   const erros = [];
   if (emBranco(email)) erros.push('O e-mail é obrigatório');
   if (typeof email === 'string' && email.length > 0 && !EMAIL_HIBERNATE.test(email)) erros.push('E-mail inválido');
@@ -28,7 +49,7 @@ function validarEmail(email) {
 }
 
 /** Corpo que não é objeto JSON não chega ao @Valid (HttpMessageNotReadableException). */
-function corpoIlegivel(corpo) {
+export function corpoIlegivel(corpo) {
   return !corpo || typeof corpo !== 'object' || Array.isArray(corpo);
 }
 
@@ -59,7 +80,7 @@ function validarResetPasswordRequest(corpo) {
 }
 
 /** NormalizadorEmail do backend, usado no login e no forgot-password. */
-const normalizarEmail = (email) => email.trim().toLowerCase();
+export const normalizarEmail = (email) => email.trim().toLowerCase();
 
 export function login({ banco, corpo, caminho, agoraMs, validadeSegundos }) {
   // Usuário inativo também falha, com a mesma mensagem.
@@ -68,7 +89,7 @@ export function login({ banco, corpo, caminho, agoraMs, validadeSegundos }) {
     return erroApi(401, MENSAGENS_AUTH.CREDENCIAIS_INVALIDAS, caminho);
   }
 
-  const token = emitirTokenFalso({ email: usuario.email, perfil: usuario.perfil, agoraMs, validadeSegundos });
+  const token = emitirTokenFalso({ email: usuario.email, nome: usuario.nome, perfil: usuario.perfil, agoraMs, validadeSegundos });
   return ok(200, { token, type: 'Bearer', expiresIn: validadeSegundos });
 }
 
@@ -79,9 +100,7 @@ export function login({ banco, corpo, caminho, agoraMs, validadeSegundos }) {
 export function esqueciSenha({ banco, corpo, agoraMs, aoEnviarEmail }) {
   const usuario = banco.usuarios.find((u) => u.email === normalizarEmail(corpo.email) && u.ativo);
   if (usuario) {
-    banco.tokensRedefinicao.filter((t) => t.email === usuario.email).forEach((t) => (t.usado = true));
-    const token = novoId();
-    banco.tokensRedefinicao.push({ token, email: usuario.email, expiraEm: agoraMs + VALIDADE_TOKEN_REDEFINICAO_MS, usado: false });
+    const token = gerarLink(banco, usuario, agoraMs, VALIDADE_TOKEN_REDEFINICAO_MS);
     aoEnviarEmail?.({ para: usuario.email, link: `/reset-password?token=${token}` });
   }
   return ok(200, { message: MENSAGENS_AUTH.ESQUECI_SENHA });
@@ -95,6 +114,8 @@ export function redefinirSenha({ banco, corpo, caminho, agoraMs }) {
     return erroApi(400, MENSAGENS_AUTH.TOKEN_INVALIDO, caminho);
   }
   usuario.senha = corpo.newPassword;
+  // Encerra as sessões abertas e, se era convite, ele deixa de estar pendente.
+  usuario.senhaAlteradaEmMs = instanteDaTroca(agoraMs);
   registro.usado = true;
   return ok(204);
 }

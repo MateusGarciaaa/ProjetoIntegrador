@@ -3,9 +3,9 @@ import { Link } from 'react-router-dom';
 import { ROTAS } from '../../constants/rotas';
 import { ESTADOS_REDEFINICAO, useRedefinirSenha } from '../../hooks/useRecuperacaoSenha';
 import {
-  MENSAGEM_TOKEN_INVALIDO,
   SENHA_MAX,
   SENHA_MIN,
+  TEXTOS_LINK_SENHA,
   VALORES_INICIAIS_REDEFINICAO,
   validarRedefinicao,
 } from '../../schemas/senhaSchema';
@@ -16,8 +16,11 @@ import styles from './LoginForm.module.css';
 
 const ORDEM_CAMPOS = ['novaSenha', 'confirmacao'];
 
-/** token: o valor de ?token= do link enviado por e-mail (ausente = link inválido). */
-export function RedefinirSenhaForm({ token }) {
+/**
+ * token: o valor de ?token= do link enviado por e-mail (ausente = link inválido).
+ * textos: os da redefinição ou os do convite (TEXTOS_LINK_SENHA), conforme o indicador do link.
+ */
+export function RedefinirSenhaForm({ token, textos = TEXTOS_LINK_SENHA.redefinicao }) {
   const { estado, enviando, redefinir } = useRedefinirSenha(token);
   const idBase = useId();
   const [valores, setValores] = useState(VALORES_INICIAIS_REDEFINICAO);
@@ -55,7 +58,7 @@ export function RedefinirSenhaForm({ token }) {
   if (estado === ESTADOS_REDEFINICAO.TOKEN_INVALIDO) {
     return (
       <div className={styles.formulario}>
-        <Alert>{MENSAGEM_TOKEN_INVALIDO}</Alert>
+        <Alert>{textos.linkInvalido}</Alert>
         <p className={styles.rodape}>
           <Link to={ROTAS.ESQUECI_SENHA}>Pedir um novo link</Link>
         </p>
@@ -66,7 +69,7 @@ export function RedefinirSenhaForm({ token }) {
   if (estado === ESTADOS_REDEFINICAO.SUCESSO) {
     return (
       <div className={styles.formulario}>
-        <Alert tom="info">Senha redefinida. Entre com a nova senha.</Alert>
+        <Alert tom="info">{textos.sucesso}</Alert>
         <p className={styles.rodape}>
           <Link to={ROTAS.LOGIN}>Ir para o login</Link>
         </p>
@@ -97,7 +100,7 @@ export function RedefinirSenhaForm({ token }) {
         onChange={(evento) => alterar('confirmacao', evento.target.value)}
       />
       <Button type="submit" blocoInteiro carregando={enviando} className={styles.enviar}>
-        {enviando ? 'Salvando…' : 'Redefinir senha'}
+        {enviando ? 'Salvando…' : textos.botao}
       </Button>
     </form>
   );

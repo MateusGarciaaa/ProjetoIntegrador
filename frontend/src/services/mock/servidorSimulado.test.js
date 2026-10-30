@@ -60,7 +60,7 @@ describe('login simulado', () => {
     expect(data).toMatchObject({ type: 'Bearer', expiresIn: 3600 });
     expect(lerUsuarioDoToken(data.token)).toEqual({
       email: 'secretario@churchhub.local',
-      nome: null,
+      nome: 'Marcos Tavares',
       perfil: 'SECRETARIO',
       expiraEmSegundos: AGORA / 1000 + 3600,
     });
@@ -970,5 +970,221 @@ describe('dashboard simulado (DashboardController, RN12)', () => {
 
   it('sem token: 401', () => {
     expect(novoServidor()({ metodo: 'get', url: '/dashboard' }).status).toBe(401);
+  });
+});
+
+describe('sessão simulada (JwtAuthenticationFilter: desativação, senha e perfil)', () => {
+  function usuarioDoBanco(atender, perfil) {
+    const admin = entrar(atender, 'ADMINISTRADOR');
+    const conta = CONTAS_DEMO.find((c) => c.perfil === perfil);
+    const lista = atender({ metodo: 'get', url: '/users', authorization: admin, params: { size: '2000' } }).data.content;
+    return { admin, alvo: lista.find((u) => u.email === conta.email) };
+  }
+
+  it('usuário desativado recebe 401 genérico na requisição seguinte', () => {
+    const atender = novoServidor();
+    const token = entrar(atender, 'SECRETARIO');
+    const { admin, alvo } = usuarioDoBanco(atender, 'SECRETARIO');
+    expect(atender({ metodo: 'post', url: `/users/${alvo.id}/deactivate`, authorization: admin }).status).toBe(200);
+
+    expect(atender({ metodo: 'get', url: '/me', authorization: token }).data).toMatchObject({
+      status: 401,
+      message: MENSAGENS_BACKEND.NAO_AUTENTICADO,
+    });
+  });
+
+  it('perfil alterado derruba a sessão com o motivo', () => {
+    const atender = novoServidor();
+    const token = entrar(atender, 'TESOUREIRO');
+    const { admin, alvo } = usuarioDoBanco(atender, 'TESOUREIRO');
+    atender({ metodo: 'put', url: `/users/${alvo.id}`, authorization: admin, corpo: { nome: alvo.nome, perfil: 'PASTOR' } });
+
+    expect(atender({ metodo: 'get', url: '/me', authorization: token }).data).toMatchObject({
+      status: 401,
+      message: 'Seu acesso foi alterado. Entre novamente.',
+    });
+  });
+});
+
+describe('Minha conta simulada (MeController)', () => {
+  it('todo perfil vê os próprios dados; anônimo recebe 401', () => {
+    const atender = novoServidor();
+    CONTAS_DEMO.forEach((conta) => {
+      const { status, data } = atender({ metodo: 'get', url: '/me', authorization: entrar(atender, conta.perfil) });
+      expect(status).toBe(200);
+      expect(data).toMatchObject({ nome: conta.nome, email: conta.email, perfil: conta.perfil });
+      expect(data).not.toHaveProperty('senha');
+    });
+    expect(atender({ metodo: 'get', url: '/me' }).status).toBe(401);
+  });
+
+  it('valida o corpo como o AlterarSenhaRequest', () => {
+    const atender = novoServidor();
+    const { status, data } = atender({
+      metodo: 'put',
+      url: '/me/password',
+      authorization: entrar(atender, 'MEMBRO'),
+      corpo: { currentPassword: '', newPassword: '12345' },
+    });
+    expect(status).toBe(400);
+    expect(data.message).toBe('A senha atual é obrigatória, A nova senha deve ter entre 6 e 72 caracteres');
+  });
+
+  it('senha atual errada e senha repetida são 400', () => {
+    const atender = novoServidor();
+    const authorization = entrar(atender, 'PASTOR');
+    const trocar = (corpo) => atender({ metodo: 'put', url: '/me/password', authorization, corpo });
+    expect(trocar({ currentPassword: 'errada', newPassword: 'outra123' }).data).toMatchObject({
+      status: 400,
+      message: 'A senha atual está incorreta',
+    });
+    expect(trocar({ currentPassword: SENHA_DEMO, newPassword: SENHA_DEMO }).data).toMatchObject({
+      status: 400,
+      message: 'A nova senha deve ser diferente da atual',
+    });
+  });
+
+  it('a troca devolve token novo e derruba os tokens de segundos anteriores', () => {
+    let agora = AGORA;
+    const atender = novoServidor(() => agora);
+    const antigo = entrar(atender, 'PASTOR');
+
+    agora = AGORA + 5400;
+    const { status, data } = atender({
+      metodo: 'put',
+      url: '/me/password',
+      authorization: antigo,
+      corpo: { currentPassword: SENHA_DEMO, newPassword: 'senhaNova1' },
+    });
+    expect(status).toBe(200);
+    expect(data).toMatchObject({ type: 'Bearer', expiresIn: 3600 });
+
+    // Token devolvido no mesmo segundo da troca vale; o anterior cai com o motivo.
+    expect(atender({ metodo: 'get', url: '/me', authorization: `Bearer ${data.token}` }).status).toBe(200);
+    expect(atender({ metodo: 'get', url: '/me', authorization: antigo }).data).toMatchObject({
+      status: 401,
+      message: 'Sua senha foi alterada. Entre novamente.',
+    });
+    const login = (password) =>
+      atender({ metodo: 'post', url: '/auth/login', corpo: { email: 'pastor@churchhub.local', password } }).status;
+    expect(login('senhaNova1')).toBe(200);
+    expect(login(SENHA_DEMO)).toBe(401);
+  });
+});
+
+describe('usuários simulados (UsuarioController, RN02)', () => {
+  function servidorComCaixa(relogio = () => AGORA) {
+    const emails = [];
+    const atender = criarServidorSimulado({
+      validadeTokenSegundos: 3600,
+      relogio,
+      aoEnviarEmail: (email) => emails.push(email),
+    });
+    return { atender, emails, admin: entrar(atender, 'ADMINISTRADOR') };
+  }
+
+  const tokenDoLink = (link) => new URLSearchParams(link.split('?')[1]).get('token');
+
+  it('só o Administrador acessa; os demais recebem 403 e o anônimo 401', () => {
+    const atender = novoServidor();
+    expect(atender({ metodo: 'get', url: '/users', authorization: entrar(atender, 'ADMINISTRADOR') }).status).toBe(200);
+    ['PASTOR', 'SECRETARIO', 'TESOUREIRO', 'MEMBRO'].forEach((perfil) => {
+      expect(atender({ metodo: 'get', url: '/users', authorization: entrar(atender, perfil) }).status).toBe(403);
+    });
+    expect(atender({ metodo: 'get', url: '/users' }).status).toBe(401);
+  });
+
+  it('lista ordenada por nome, com filtros por perfil e ativo; LIDER é 400', () => {
+    const { atender, admin } = servidorComCaixa();
+    const listar = (params) => atender({ metodo: 'get', url: '/users', authorization: admin, params });
+    const todos = listar({}).data;
+    const nomes = todos.content.map((u) => u.nome);
+    expect(todos.totalElements).toBe(5);
+    expect(nomes).toEqual([...nomes].sort((a, b) => a.localeCompare(b, 'pt-BR')));
+    expect(todos.content[0]).toEqual(expect.objectContaining({ ativo: true, convitePendente: false }));
+    expect(listar({ perfil: 'TESOUREIRO' }).data.content.map((u) => u.email)).toEqual(['tesoureiro@churchhub.local']);
+    expect(listar({ ativo: 'false' }).data.totalElements).toBe(0);
+    expect(listar({ perfil: 'LIDER' }).data.message).toBe("Valor inválido para o parâmetro 'perfil'.");
+    expect(listar({ ativo: 'talvez' }).status).toBe(400);
+  });
+
+  it('cadastro: e-mail normalizado, convite pendente, link com o indicador e 409 de e-mail repetido', () => {
+    const { atender, admin, emails } = servidorComCaixa();
+    const cadastrar = (corpo) => atender({ metodo: 'post', url: '/users', authorization: admin, corpo });
+    const { status, data } = cadastrar({ nome: ' Paula Lima ', email: 'Paula@Igreja.ORG', perfil: 'PASTOR' });
+    expect(status).toBe(201);
+    expect(data).toMatchObject({ nome: 'Paula Lima', email: 'paula@igreja.org', perfil: 'PASTOR', ativo: true, convitePendente: true });
+    expect(emails).toHaveLength(1);
+    expect(emails[0].link).toMatch(/^\/reset-password\?token=[^&]+&convite=1$/);
+
+    expect(cadastrar({ nome: 'Outra', email: 'PAULA@igreja.org', perfil: 'MEMBRO' }).data).toMatchObject({
+      status: 409,
+      message: 'Já existe um usuário com este e-mail',
+    });
+    expect(cadastrar({ nome: 'X', email: 'x@igreja.org', perfil: 'LIDER' }).data.message).toBe(MENSAGENS_BACKEND.CORPO_INVALIDO);
+    expect(cadastrar({ nome: '', email: 'invalido' }).data.message).toBe('O nome é obrigatório, E-mail inválido, O perfil é obrigatório');
+  });
+
+  it('convite vale 72 horas, o reenvio invalida o anterior e o aceite encerra a pendência', () => {
+    let agora = AGORA;
+    const { atender, admin, emails } = servidorComCaixa(() => agora);
+    const { data: criado } = atender({
+      metodo: 'post',
+      url: '/users',
+      authorization: admin,
+      corpo: { nome: 'Novo', email: 'novo@igreja.org', perfil: 'MEMBRO' },
+    });
+    expect(atender({ metodo: 'post', url: `/users/${criado.id}/invite`, authorization: admin }).status).toBe(204);
+    const [primeiro, segundo] = emails.map(({ link }) => tokenDoLink(link));
+    const aceitar = (token) =>
+      atender({ metodo: 'post', url: '/auth/reset-password', corpo: { token, newPassword: 'senhaNova1' } }).status;
+
+    agora = AGORA + 71 * 60 * 60 * 1000;
+    expect(aceitar(primeiro)).toBe(400);
+    expect(aceitar(segundo)).toBe(204);
+
+    expect(atender({ metodo: 'get', url: `/users/${criado.id}`, authorization: entrar(atender, 'ADMINISTRADOR') }).data.convitePendente).toBe(false);
+    expect(
+      atender({ metodo: 'post', url: `/users/${criado.id}/invite`, authorization: entrar(atender, 'ADMINISTRADOR') }).data.message,
+    ).toMatch(/^Este usuário já definiu a senha/);
+  });
+
+  it('convite vencido depois de 72 horas', () => {
+    let agora = AGORA;
+    const { atender, admin, emails } = servidorComCaixa(() => agora);
+    atender({ metodo: 'post', url: '/users', authorization: admin, corpo: { nome: 'Novo', email: 'novo@igreja.org', perfil: 'MEMBRO' } });
+    agora = AGORA + 72 * 60 * 60 * 1000;
+    const token = tokenDoLink(emails[0].link);
+    expect(atender({ metodo: 'post', url: '/auth/reset-password', corpo: { token, newPassword: 'senhaNova1' } }).status).toBe(400);
+  });
+
+  it('o Administrador não se desativa nem tira o próprio perfil; inativo não recebe convite', () => {
+    const { atender, admin } = servidorComCaixa();
+    const eu = atender({ metodo: 'get', url: '/me', authorization: admin }).data;
+    expect(atender({ metodo: 'post', url: `/users/${eu.id}/deactivate`, authorization: admin }).data).toMatchObject({
+      status: 409,
+      message: 'Você não pode desativar a sua própria conta',
+    });
+    expect(
+      atender({ metodo: 'put', url: `/users/${eu.id}`, authorization: admin, corpo: { nome: eu.nome, perfil: 'PASTOR' } }).data,
+    ).toMatchObject({ status: 409, message: 'Você não pode remover o seu próprio perfil de Administrador' });
+
+    const { data: criado } = atender({
+      metodo: 'post',
+      url: '/users',
+      authorization: admin,
+      corpo: { nome: 'Novo', email: 'novo@igreja.org', perfil: 'MEMBRO' },
+    });
+    atender({ metodo: 'post', url: `/users/${criado.id}/deactivate`, authorization: admin });
+    expect(atender({ metodo: 'post', url: `/users/${criado.id}/invite`, authorization: admin }).data.message).toBe(
+      'Ative o usuário antes de reenviar o convite',
+    );
+    expect(atender({ metodo: 'post', url: `/users/${criado.id}/activate`, authorization: admin }).data.ativo).toBe(true);
+  });
+
+  it('id inexistente é 404 e id que não é UUID é 400', () => {
+    const { atender, admin } = servidorComCaixa();
+    expect(atender({ metodo: 'get', url: '/users/00000000-0000-4000-8000-000000000999', authorization: admin }).status).toBe(404);
+    expect(atender({ metodo: 'post', url: '/users/abc/activate', authorization: admin }).status).toBe(400);
   });
 });

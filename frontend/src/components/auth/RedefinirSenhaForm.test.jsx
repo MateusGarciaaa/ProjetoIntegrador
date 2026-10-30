@@ -94,3 +94,35 @@ describe('redefinir senha', () => {
     expect(screen.queryByRole('alert')).toBeNull();
   });
 });
+
+describe('link de convite (&convite=1)', () => {
+  it('dá as boas-vindas e envia só o token, como a redefinição', async () => {
+    transporte = instalarTransporte(resposta(204));
+    abrir(`/reset-password?token=${TOKEN}&convite=1`);
+
+    expect(screen.getByRole('heading', { name: 'Bem-vindo ao ChurchHub!' })).toBeTruthy();
+    expect(screen.getByText('Defina sua senha para começar.')).toBeTruthy();
+    fireEvent.change(screen.getByLabelText('Nova senha'), { target: { value: 'novaSenha1' } });
+    fireEvent.change(screen.getByLabelText('Confirme a nova senha'), { target: { value: 'novaSenha1' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Definir senha' }));
+
+    expect(await screen.findByText('Senha definida. Entre com o seu e-mail e a nova senha.')).toBeTruthy();
+    // O indicador não vai para o backend: quem valida o link é o token.
+    expect(transporte.corpoEnviado()).toEqual({ token: TOKEN, newPassword: 'novaSenha1' });
+  });
+
+  it('convite vencido explica que o administrador precisa reenviar', async () => {
+    transporte = instalarTransporte(resposta(400, corpoApi(400, 'Token de redefinição inválido ou expirado', CAMINHO)));
+    abrir(`/reset-password?token=${TOKEN}&convite=1`);
+    fireEvent.change(screen.getByLabelText('Nova senha'), { target: { value: 'novaSenha1' } });
+    fireEvent.change(screen.getByLabelText('Confirme a nova senha'), { target: { value: 'novaSenha1' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Definir senha' }));
+
+    expect((await screen.findByRole('alert')).textContent).toMatch(/^Este convite é inválido ou expirou/);
+  });
+
+  it('sem o indicador (ou com outro valor), a tela continua sendo a de redefinição', () => {
+    abrir(`/reset-password?token=${TOKEN}&convite=talvez`);
+    expect(screen.getByRole('heading', { name: 'Redefinir senha' })).toBeTruthy();
+  });
+});

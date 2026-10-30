@@ -104,6 +104,14 @@ describe('httpClient', () => {
     expect(lerSessao()).toBeNull();
   });
 
+  it('401 com motivo (perfil ou senha alterados) encerra a sessão dizendo por quê', async () => {
+    iniciarSessao();
+    await erroDe(httpClient.get('/members', { adapter: responder(401, corpoApi(401, 'Seu acesso foi alterado. Entre novamente.')) }));
+    iniciarSessao();
+    await erroDe(httpClient.get('/me', { adapter: responder(401, corpoApi(401, 'Sua senha foi alterada. Entre novamente.')) }));
+    expect(encerramentos).toEqual([MOTIVOS_FIM_SESSAO.ACESSO_ALTERADO, MOTIVOS_FIM_SESSAO.SENHA_ALTERADA]);
+  });
+
   it('401 no login é "credenciais inválidas" e não encerra nada', async () => {
     const adapter = responder(401, corpoApi(401, 'E-mail ou senha inválidos', '/api/v1/auth/login'));
     const erro = await erroDe(httpClient.post('/auth/login', {}, { adapter }));

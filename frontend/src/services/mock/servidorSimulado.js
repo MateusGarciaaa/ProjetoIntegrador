@@ -2,6 +2,8 @@ import { criarBanco, dataHoraDoServidor } from './bancoEmMemoria';
 import { FUSO_HORARIO_SERVIDOR } from '../../constants/eventos';
 import { agoraNoFuso } from '../../utils/datas';
 import { ROTAS_AUTH } from './handlers/auth';
+import { ROTAS_CONTA } from './handlers/conta';
+import { ROTAS_USUARIOS } from './handlers/usuarios';
 import { ROTAS_DASHBOARD } from './handlers/dashboard';
 import { ROTAS_EVENTOS } from './handlers/eventos';
 import { ROTAS_FINANCEIRO } from './handlers/financeiro';
@@ -21,13 +23,31 @@ const PREFIXO_PUBLICO = '/auth/';
  *     corpo?: { ilegivel(corpo), validar(corpo) → mensagens }, executar(contexto) }
  * Módulo novo = um arquivo de handlers + uma linha aqui.
  */
-const ROTAS = [...ROTAS_AUTH, ...ROTAS_MEMBROS, ...ROTAS_EVENTOS, ...ROTAS_FINANCEIRO, ...ROTAS_DASHBOARD];
+const ROTAS = [
+  ...ROTAS_AUTH,
+  ...ROTAS_CONTA,
+  ...ROTAS_USUARIOS,
+  ...ROTAS_MEMBROS,
+  ...ROTAS_EVENTOS,
+  ...ROTAS_FINANCEIRO,
+  ...ROTAS_DASHBOARD,
+];
 
+/**
+ * JwtService.avaliar: o usuário é relido do banco a cada requisição. Desativado → 401 genérico;
+ * token emitido antes da última troca de senha (iat < senhaAlteradaEm, em segundos) ou com a claim
+ * perfil diferente do perfil atual → 401 com o motivo. Devolve { usuario } ou { motivo }.
+ */
 function autenticar(banco, cabecalhoAuthorization, agoraMs) {
-  if (typeof cabecalhoAuthorization !== 'string' || !cabecalhoAuthorization.startsWith('Bearer ')) return null;
+  if (typeof cabecalhoAuthorization !== 'string' || !cabecalhoAuthorization.startsWith('Bearer ')) return {};
   const payload = verificarTokenFalso(cabecalhoAuthorization.slice(7), agoraMs);
-  // O backend relê o usuário do banco a cada requisição (loadUserByUsername).
-  return payload ? banco.usuarios.find((u) => u.email === payload.sub) ?? null : null;
+  const usuario = payload ? banco.usuarios.find((u) => u.email === payload.sub) : null;
+  if (!usuario || !usuario.ativo) return {};
+  if (usuario.senhaAlteradaEmMs != null && payload.iat * 1000 < usuario.senhaAlteradaEmMs) {
+    return { motivo: MENSAGENS_BACKEND.SENHA_ALTERADA };
+  }
+  if (payload.perfil !== `ROLE_${usuario.perfil}`) return { motivo: MENSAGENS_BACKEND.PERFIL_ALTERADO };
+  return { usuario };
 }
 
 /** Caminho conhecido com outro método → 405; caminho desconhecido → 404 (NoResourceFoundException). */
@@ -69,8 +89,8 @@ export function criarServidorSimulado({ validadeTokenSegundos, relogio = () => D
     // Rota pública inexistente não exige token: o Spring responde 404/405 direto.
     if (caminho.startsWith(PREFIXO_PUBLICO)) return rotaInexistente(metodo, caminho);
 
-    const usuario = autenticar(banco, authorization, agoraMs);
-    if (!usuario) return naoAutenticado(caminho);
+    const { usuario, motivo } = autenticar(banco, authorization, agoraMs);
+    if (!usuario) return naoAutenticado(caminho, motivo);
     if (!rota) return rotaInexistente(metodo, caminho);
 
     const id = rota.padrao.exec(caminho)[1];
@@ -86,6 +106,16 @@ export function criarServidorSimulado({ validadeTokenSegundos, relogio = () => D
       return erroApi(403, 'Você não possui permissão para acessar este recurso.', caminho);
     }
 
-    return rota.executar({ banco, id, corpo, params, caminho, usuario, agoraMs });
+    return rota.executar({
+      banco,
+      id,
+      corpo,
+      params,
+      caminho,
+      usuario,
+      agoraMs,
+      validadeSegundos: validadeTokenSegundos,
+      aoEnviarEmail,
+    });
   };
 }

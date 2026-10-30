@@ -29,6 +29,9 @@ const FluxoCaixaPage = carregarPagina(() => import('../pages/FluxoCaixaPage'), '
 const RelatorioFinanceiroPage = carregarPagina(() => import('../pages/RelatorioFinanceiroPage'), 'RelatorioFinanceiroPage');
 const MovimentacaoFormPage = carregarPagina(() => import('../pages/MovimentacaoFormPage'), 'MovimentacaoFormPage');
 const DashboardPage = carregarPagina(() => import('../pages/DashboardPage'), 'DashboardPage');
+const UsuariosPage = carregarPagina(() => import('../pages/UsuariosPage'), 'UsuariosPage');
+const UsuarioFormPage = carregarPagina(() => import('../pages/UsuarioFormPage'), 'UsuarioFormPage');
+const MinhaContaPage = carregarPagina(() => import('../pages/MinhaContaPage'), 'MinhaContaPage');
 const NotFoundPage = carregarPagina(() => import('../pages/NotFoundPage'), 'NotFoundPage');
 
 function RedirecionamentoInicial() {
@@ -86,6 +89,10 @@ export function AppRoutes() {
           {rotaProtegida(ROTAS.RELATORIO_FINANCEIRO, PERMISSOES.FINANCEIRO_VISUALIZAR, 'Financeiro', <RelatorioFinanceiroPage />)}
           {rotaProtegida(ROTAS.FINANCEIRO_NOVO, PERMISSOES.FINANCEIRO_CRIAR, 'Financeiro', <MovimentacaoFormPage />)}
           {rotaProtegida(ROTAS.FINANCEIRO_EDICAO, PERMISSOES.FINANCEIRO_EDITAR, 'Financeiro', <MovimentacaoFormPage />)}
+          {rotaProtegida(ROTAS.USUARIOS, PERMISSOES.USUARIOS_GERENCIAR, 'Usuários', <UsuariosPage />)}
+          {rotaProtegida(ROTAS.USUARIO_NOVO, PERMISSOES.USUARIOS_GERENCIAR, 'Usuários', <UsuarioFormPage />)}
+          {rotaProtegida(ROTAS.USUARIO_EDICAO, PERMISSOES.USUARIOS_GERENCIAR, 'Usuários', <UsuarioFormPage />)}
+          {rotaProtegida(ROTAS.MINHA_CONTA, PERMISSOES.CONTA_GERENCIAR, 'Minha conta', <MinhaContaPage />)}
           <Route path="*" element={<NotFoundPage />} />
         </Route>
       </Routes>

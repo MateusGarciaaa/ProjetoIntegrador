@@ -14,11 +14,13 @@ function base64UrlParaTexto(segmento) {
 
 const ASSINATURA = textoParaBase64Url(ASSINATURA_FALSA);
 
-/** Mesmas claims do JwtService: sub, perfil ("ROLE_X"), iat e exp (em segundos). */
-export function emitirTokenFalso({ email, perfil, agoraMs, validadeSegundos }) {
+/** Mesmas claims do JwtService: sub, perfil ("ROLE_X"), nome, iat e exp (em segundos). */
+export function emitirTokenFalso({ email, nome, perfil, agoraMs, validadeSegundos }) {
   const iat = Math.floor(agoraMs / 1000);
   const cabecalho = textoParaBase64Url(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));
-  const payload = textoParaBase64Url(JSON.stringify({ sub: email, perfil: `ROLE_${perfil}`, iat, exp: iat + validadeSegundos }));
+  const payload = textoParaBase64Url(
+    JSON.stringify({ sub: email, perfil: `ROLE_${perfil}`, nome, iat, exp: iat + validadeSegundos }),
+  );
   return `${cabecalho}.${payload}.${ASSINATURA}`;
 }
 

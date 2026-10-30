@@ -15,14 +15,14 @@ export function CaixaEmailSimulada() {
         E-mails simulados
       </h2>
       <p className={styles.texto}>
-        Modo demonstração: nenhum e-mail é enviado de verdade. Os links de redefinição gerados aparecem aqui.
+        Modo demonstração: nenhum e-mail é enviado de verdade. Os links de redefinição e os convites gerados aparecem aqui.
       </p>
       {emails.length > 0 && (
         <ul className={styles.contas}>
           {emails.map(({ para, link }) => (
             <li key={link}>
               <Link className={styles.conta} to={link}>
-                <span className={styles.perfil}>Redefinir senha</span>
+                <span className={styles.perfil}>{link.includes('convite=1') ? 'Convite' : 'Redefinir senha'}</span>
                 <span className={styles.email}>{para}</span>
               </Link>
             </li>

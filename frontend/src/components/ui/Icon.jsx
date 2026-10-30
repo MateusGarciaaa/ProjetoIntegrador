@@ -113,6 +113,28 @@ const CAMINHOS = {
       <path d="M8 10.5V7.5a4 4 0 0 1 8 0v3" />
     </>
   ),
+  // Pessoa com escudo: contas de acesso (Usuários).
+  usuarios: (
+    <>
+      <circle cx="9" cy="8" r="3.5" />
+      <path d="M2.5 20c0-3.6 2.9-6.5 6.5-6.5 1.4 0 2.6.4 3.6 1.1" />
+      <path d="M18 12.5l3.5 1.3v2.7c0 2.2-1.5 3.7-3.5 4.5-2-.8-3.5-2.3-3.5-4.5v-2.7z" />
+    </>
+  ),
+  // Pessoa em círculo: a própria conta (Minha conta).
+  conta: (
+    <>
+      <circle cx="12" cy="12" r="9" />
+      <circle cx="12" cy="10" r="3" />
+      <path d="M6.6 18.2c1.2-1.9 3.1-3 5.4-3s4.2 1.1 5.4 3" />
+    </>
+  ),
+  envelope: (
+    <>
+      <rect x="3" y="5.5" width="18" height="13" rx="2" />
+      <path d="M3.5 7l8.5 6 8.5-6" />
+    </>
+  ),
 };
 
 /** Ícones decorativos: o significado sempre vem de um texto visível ou de aria-label. */

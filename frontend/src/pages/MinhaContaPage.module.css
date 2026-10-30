@@ -1,0 +1,39 @@
+.grade {
+  display: grid;
+  gap: var(--space-5);
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr));
+  align-items: start;
+}
+
+.dados {
+  display: grid;
+  gap: var(--space-3);
+  margin: 0;
+}
+
+.dados dt {
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+  color: var(--color-ink-muted);
+}
+
+.dados dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.nota {
+  margin: var(--space-4) 0 0;
+  font-size: var(--text-sm);
+  color: var(--color-ink-muted);
+}
+
+.formulario {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.acoes {
+  display: flex;
+  justify-content: flex-end;
+}

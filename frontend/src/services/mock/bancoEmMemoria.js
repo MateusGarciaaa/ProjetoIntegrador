@@ -30,7 +30,9 @@ export function criarBanco({ hoje, agora = hoje ? `${hoje}T00:00:00` : null } = 
   }));
   const categorias = criarCategoriasIniciais();
   return {
-    usuarios: CONTAS_DEMO.map((conta) => ({ ...conta, senha: SENHA_DEMO, ativo: true })),
+    // senhaAlteradaEmMs: usuarios.senha_alterada_em (V8), em ms e truncado em segundos; null = convite pendente.
+    // As contas de demonstração já têm senha, definida "antes" de qualquer token (0).
+    usuarios: CONTAS_DEMO.map((conta) => ({ id: novoId(), ...conta, senha: SENHA_DEMO, ativo: true, senhaAlteradaEmMs: 0 })),
     membros,
     eventos: hoje ? criarEventosIniciais(hoje) : [],
     categorias,
