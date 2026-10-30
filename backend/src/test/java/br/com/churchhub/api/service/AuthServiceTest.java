@@ -149,6 +149,35 @@ class AuthServiceTest {
         assertThat(novo.getValue().getExpiraEm()).isEqualTo(AGORA.plusMinutes(30));
     }
 
+    // ---------- convite (RN02) ----------
+
+    @Test
+    void conviteVale72HorasInvalidaOsLinksAnterioresEUsaOEmailDeConvite() {
+        Usuario usuario = usuario(true);
+
+        authService.enviarConvite(usuario);
+
+        InOrder ordem = inOrder(resetTokenRepository, mailSender);
+        ordem.verify(resetTokenRepository).invalidarPendentes(usuario);
+        ArgumentCaptor<PasswordResetToken> novo = ArgumentCaptor.forClass(PasswordResetToken.class);
+        ordem.verify(resetTokenRepository).save(novo.capture());
+        ordem.verify(mailSender).sendInviteEmail(EMAIL, novo.getValue().getToken());
+        assertThat(novo.getValue().getExpiraEm()).isEqualTo(AGORA.plusHours(72));
+        verify(mailSender, never()).sendPasswordResetEmail(any(), any());
+    }
+
+    @Test
+    void conviteNaoMudaOPrazoDaRedefinicao() {
+        when(usuarioRepository.findByEmail(EMAIL)).thenReturn(Optional.of(usuario(true)));
+        authService.enviarConvite(usuario(true));
+        authService.forgotPassword(new ForgotPasswordRequest(EMAIL));
+
+        ArgumentCaptor<PasswordResetToken> links = ArgumentCaptor.forClass(PasswordResetToken.class);
+        verify(resetTokenRepository, org.mockito.Mockito.times(2)).save(links.capture());
+        assertThat(links.getAllValues()).extracting(PasswordResetToken::getExpiraEm)
+                .containsExactly(AGORA.plusHours(72), AGORA.plusMinutes(30));
+    }
+
     @Test
     void tokenAindaNoPrazoRedefineASenhaEFicaUsado() {
         PasswordResetToken token = tokenQueExpiraEm(AGORA.plusMinutes(1));

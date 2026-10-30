@@ -24,6 +24,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Clock;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
@@ -32,6 +33,12 @@ public class AuthService {
 
     static final String MENSAGEM_FORGOT_PASSWORD =
             "Se o e-mail existir em nossa base, um link de redefinição foi enviado.";
+
+    /**
+     * Validade do convite: quem é cadastrado pode demorar a abrir o e-mail, ao contrário de quem
+     * acabou de pedir a redefinição (30 min, app.jwt.reset-token-expiration-minutes).
+     */
+    public static final Duration VALIDADE_CONVITE = Duration.ofHours(72);
 
     private final AuthenticationManager authenticationManager;
     private final UsuarioRepository usuarioRepository;
@@ -89,17 +96,32 @@ public class AuthService {
         return new ForgotPasswordResponse(MENSAGEM_FORGOT_PASSWORD);
     }
 
-    /** Só o link mais recente vale: os anteriores ainda pendentes são invalidados antes. */
     private void enviarLinkDeRedefinicao(Usuario usuario) {
+        String token = gerarLink(usuario, Duration.ofMinutes(resetTokenExpirationMinutes));
+        mailSender.sendPasswordResetEmail(usuario.getEmail(), token);
+    }
+
+    /**
+     * Convite de usuário cadastrado pelo administrador (RN02): o mesmo link e a mesma tela da
+     * redefinição, com validade de {@link #VALIDADE_CONVITE} (a validade é gravada por token,
+     * em {@code expira_em}). Também invalida os links anteriores, inclusive um convite pendente.
+     */
+    @Transactional
+    public void enviarConvite(Usuario usuario) {
+        String token = gerarLink(usuario, VALIDADE_CONVITE);
+        mailSender.sendInviteEmail(usuario.getEmail(), token);
+    }
+
+    /** Só o link mais recente vale: os anteriores ainda pendentes são invalidados antes. */
+    private String gerarLink(Usuario usuario, Duration validade) {
         resetTokenRepository.invalidarPendentes(usuario);
 
         PasswordResetToken resetToken = new PasswordResetToken();
         resetToken.setToken(UUID.randomUUID().toString());
         resetToken.setUsuario(usuario);
-        resetToken.setExpiraEm(LocalDateTime.now(clock).plusMinutes(resetTokenExpirationMinutes));
+        resetToken.setExpiraEm(LocalDateTime.now(clock).plus(validade));
         resetTokenRepository.save(resetToken);
-
-        mailSender.sendPasswordResetEmail(usuario.getEmail(), resetToken.getToken());
+        return resetToken.getToken();
     }
 
     @Transactional
