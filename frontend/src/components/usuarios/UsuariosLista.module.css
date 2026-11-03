@@ -1,0 +1,17 @@
+.secundario {
+  color: var(--color-ink-muted);
+  overflow-wrap: anywhere;
+}
+
+.situacao {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+.voce {
+  margin-left: var(--space-2);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+  color: var(--color-ink-subtle);
+}

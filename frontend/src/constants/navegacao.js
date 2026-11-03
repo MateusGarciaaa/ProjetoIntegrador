@@ -7,6 +7,8 @@ export const ITENS_MENU = Object.freeze([
   { rotulo: 'Membros', caminho: ROTAS.MEMBROS, icone: 'membros', permissao: PERMISSOES.MEMBROS_VISUALIZAR },
   { rotulo: 'Eventos', caminho: ROTAS.EVENTOS, icone: 'calendario', permissao: PERMISSOES.EVENTOS_VISUALIZAR },
   { rotulo: 'Financeiro', caminho: ROTAS.FINANCEIRO, icone: 'financeiro', permissao: PERMISSOES.FINANCEIRO_VISUALIZAR },
+  { rotulo: 'Usuários', caminho: ROTAS.USUARIOS, icone: 'usuarios', permissao: PERMISSOES.USUARIOS_GERENCIAR },
+  { rotulo: 'Minha conta', caminho: ROTAS.MINHA_CONTA, icone: 'conta', permissao: PERMISSOES.CONTA_GERENCIAR },
 ]);
 
 export function itensMenuDoPerfil(perfil) {

@@ -1,4 +1,6 @@
+import { Link } from 'react-router-dom';
 import { rotuloPerfil } from '../constants/perfis';
+import { ROTAS } from '../constants/rotas';
 import { Wordmark } from '../components/brand/Wordmark';
 import { Button, IconButton } from '../components/ui/Button';
 import { useAuth } from '../hooks/useAuth';
@@ -13,7 +15,7 @@ function iniciais(texto) {
 
 export function AppHeader({ menuAberto, onAbrirMenu }) {
   const { usuario, sair } = useAuth();
-  // Não existe claim de nome no JWT: mostra o e-mail até o backend passar a enviar "nome".
+  // Nome do GET /me (atualizado ao abrir o app) ou da claim "nome"; o e-mail só se nenhum vier.
   const exibicao = usuario.nome ?? usuario.email;
 
   return (
@@ -29,15 +31,15 @@ export function AppHeader({ menuAberto, onAbrirMenu }) {
       <Wordmark className={styles.marcaMovel} />
 
       <div className={styles.usuario}>
-        <span className={styles.avatar} aria-hidden="true">
-          {iniciais(exibicao)}
-        </span>
-        <div className={styles.identificacao}>
-          <span className={styles.nome} title={exibicao}>
-            {exibicao}
+        <Link to={ROTAS.MINHA_CONTA} className={styles.conta} title={usuario.email} aria-label={`Minha conta: ${exibicao}`}>
+          <span className={styles.avatar} aria-hidden="true">
+            {iniciais(exibicao)}
           </span>
-          <span className={styles.perfil}>{rotuloPerfil(usuario.perfil)}</span>
-        </div>
+          <span className={styles.identificacao}>
+            <span className={styles.nome}>{exibicao}</span>
+            <span className={styles.perfil}>{rotuloPerfil(usuario.perfil)}</span>
+          </span>
+        </Link>
         <span className={styles.divisor} aria-hidden="true" />
         <Button variante="fantasma" pequeno icone="sair" onClick={sair}>
           <span className={styles.textoSair}>Sair</span>

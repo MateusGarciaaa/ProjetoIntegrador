@@ -22,6 +22,8 @@ export const MENSAGENS_ERRO = Object.freeze({
   VALIDACAO: 'Confira os dados informados.',
   NAO_AUTENTICADO: 'Sua sessão não é mais válida. Entre novamente.',
   SESSAO_EXPIRADA: 'Sua sessão expirou. Entre novamente.',
+  ACESSO_ALTERADO: 'Seu acesso foi alterado. Entre novamente.',
+  SENHA_ALTERADA: 'Sua senha foi alterada. Entre novamente.',
   SEM_PERMISSAO: 'Seu perfil não tem permissão para esta ação.',
   NAO_ENCONTRADO: 'O registro não foi encontrado.',
   CONFLITO: 'Já existe um registro com esses dados.',

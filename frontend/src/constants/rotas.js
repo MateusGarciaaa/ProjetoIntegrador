@@ -4,7 +4,8 @@ export const ROTAS = Object.freeze({
   INICIO: '/',
   LOGIN: '/login',
   ESQUECI_SENHA: '/esqueci-senha',
-  // Caminho do link gerado pelo backend (LoggingMailSender): /reset-password?token=<UUID>.
+  // Caminho do link gerado pelo backend (LoggingMailSender): /reset-password?token=<UUID>;
+  // no convite de um usuário novo, com &convite=1 (só muda o texto da tela).
   REDEFINIR_SENHA: '/reset-password',
   DASHBOARD: '/dashboard',
   MEMBROS: '/membros',
@@ -20,7 +21,16 @@ export const ROTAS = Object.freeze({
   FINANCEIRO_EDICAO: '/financeiro/:id/editar',
   FLUXO_DE_CAIXA: '/financeiro/fluxo-de-caixa',
   RELATORIO_FINANCEIRO: '/financeiro/relatorio',
+  USUARIOS: '/usuarios',
+  USUARIO_NOVO: '/usuarios/novo',
+  USUARIO_EDICAO: '/usuarios/:id/editar',
+  MINHA_CONTA: '/minha-conta',
 });
+
+/** Não há página de detalhes do usuário: a lista já mostra todos os campos. */
+export function caminhoEdicaoUsuario(id) {
+  return `${ROTAS.USUARIOS}/${encodeURIComponent(id)}/editar`;
+}
 
 export function caminhoDoMembro(id) {
   return `${ROTAS.MEMBROS}/${encodeURIComponent(id)}`;

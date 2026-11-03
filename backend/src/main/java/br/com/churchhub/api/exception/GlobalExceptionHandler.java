@@ -78,6 +78,12 @@ public class GlobalExceptionHandler {
         return responder(HttpStatus.UNAUTHORIZED, ex.getMessage(), request);
     }
 
+    /** Token autêntico emitido antes de uma troca de senha ou de perfil (vem do SecurityErrorHandler). */
+    @ExceptionHandler(SessaoEncerradaException.class)
+    public ResponseEntity<ApiError> handleSessaoEncerrada(SessaoEncerradaException ex, HttpServletRequest request) {
+        return responder(HttpStatus.UNAUTHORIZED, ex.getMessage(), request);
+    }
+
     /** Token ausente, inválido ou expirado em rota protegida (vem do SecurityErrorHandler). */
     @ExceptionHandler(AuthenticationException.class)
     public ResponseEntity<ApiError> handleAuthentication(AuthenticationException ex, HttpServletRequest request) {

@@ -5,6 +5,7 @@ import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
+import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
@@ -19,6 +20,14 @@ public class UsuarioDetailsImpl implements UserDetails {
 
     public UUID getId() {
         return usuario.getId();
+    }
+
+    public String getNome() {
+        return usuario.getNome();
+    }
+
+    public Instant getSenhaAlteradaEm() {
+        return usuario.getSenhaAlteradaEm();
     }
 
     @Override

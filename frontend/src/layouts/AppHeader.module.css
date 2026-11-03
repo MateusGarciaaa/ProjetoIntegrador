@@ -27,6 +27,23 @@
   min-width: 0;
 }
 
+/* Avatar, nome e perfil levam a "Minha conta". */
+.conta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+  padding: var(--space-1) var(--space-2);
+  margin: calc(-1 * var(--space-1)) calc(-1 * var(--space-2));
+  border-radius: var(--radius-md);
+  color: inherit;
+  text-decoration: none;
+}
+
+.conta:hover {
+  background: var(--color-primary-soft);
+}
+
 .avatar {
   display: grid;
   place-items: center;

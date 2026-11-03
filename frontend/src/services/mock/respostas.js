@@ -37,13 +37,16 @@ export function erroApi(status, message, caminho) {
 
 export const MENSAGENS_BACKEND = Object.freeze({
   NAO_AUTENTICADO: 'Sessão inválida ou expirada. Faça login novamente.',
+  // SituacaoToken: token autêntico, mas a senha ou o perfil mudaram depois da emissão.
+  SENHA_ALTERADA: 'Sua senha foi alterada. Entre novamente.',
+  PERFIL_ALTERADO: 'Seu acesso foi alterado. Entre novamente.',
   CORPO_INVALIDO: 'Corpo da requisição inválido. Confira o JSON, as datas (AAAA-MM-DD) e os valores permitidos.',
   RECURSO_INEXISTENTE: 'Recurso não encontrado.',
 });
 
-/** Token ausente, inválido ou vencido: SecurityErrorHandler → GlobalExceptionHandler. */
-export function naoAutenticado(caminho) {
-  return erroApi(401, MENSAGENS_BACKEND.NAO_AUTENTICADO, caminho);
+/** Token ausente, inválido ou vencido (ou recusado com motivo): SecurityErrorHandler → GlobalExceptionHandler. */
+export function naoAutenticado(caminho, motivo = null) {
+  return erroApi(401, motivo ?? MENSAGENS_BACKEND.NAO_AUTENTICADO, caminho);
 }
 
 /** HttpMessageNotReadableException: JSON malformado, data ou enum inválidos. */

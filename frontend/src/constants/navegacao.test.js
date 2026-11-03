@@ -8,11 +8,23 @@ const rotulos = (perfil) => itensMenuDoPerfil(perfil).map((item) => item.rotulo)
 
 describe('menu por perfil', () => {
   it('mostra só as áreas que o backend libera', () => {
-    expect(rotulos(PERFIS.ADMINISTRADOR)).toEqual(['Painel', 'Membros', 'Eventos', 'Financeiro']);
-    expect(rotulos(PERFIS.PASTOR)).toEqual(['Painel', 'Membros', 'Eventos', 'Financeiro']);
-    expect(rotulos(PERFIS.SECRETARIO)).toEqual(['Painel', 'Membros', 'Eventos']);
-    expect(rotulos(PERFIS.TESOUREIRO)).toEqual(['Painel', 'Eventos', 'Financeiro']);
-    expect(rotulos(PERFIS.MEMBRO)).toEqual(['Painel', 'Eventos']);
+    expect(rotulos(PERFIS.ADMINISTRADOR)).toEqual(['Painel', 'Membros', 'Eventos', 'Financeiro', 'Usuários', 'Minha conta']);
+    expect(rotulos(PERFIS.PASTOR)).toEqual(['Painel', 'Membros', 'Eventos', 'Financeiro', 'Minha conta']);
+    expect(rotulos(PERFIS.SECRETARIO)).toEqual(['Painel', 'Membros', 'Eventos', 'Minha conta']);
+    expect(rotulos(PERFIS.TESOUREIRO)).toEqual(['Painel', 'Eventos', 'Financeiro', 'Minha conta']);
+    expect(rotulos(PERFIS.MEMBRO)).toEqual(['Painel', 'Eventos', 'Minha conta']);
+  });
+
+  it('Usuários só para o Administrador; Minha conta para todos', () => {
+    expect(trilhaDoCaminho('/usuarios/abc/editar', PERFIS.ADMINISTRADOR)).toEqual([
+      { rotulo: 'Início', caminho: '/dashboard' },
+      { rotulo: 'Usuários', caminho: '/usuarios' },
+      { rotulo: 'Editar' },
+    ]);
+    expect(trilhaDoCaminho('/minha-conta', PERFIS.MEMBRO)).toEqual([
+      { rotulo: 'Início', caminho: '/dashboard' },
+      { rotulo: 'Minha conta', caminho: '/minha-conta' },
+    ]);
   });
 
   it('sem perfil, menu vazio', () => {

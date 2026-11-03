@@ -27,7 +27,7 @@ function Sonda({ localizacao }) {
  * Com o servidor simulado, passe o token que ele emitiu no login ({ token }).
  * Devolve `localizacao.atual` ({ pathname, search, state }) sempre atualizada.
  */
-export function abrirApp(caminho, perfil, { token } = {}) {
+export function abrirApp(caminho, perfil, { token, renovarSessao = () => {} } = {}) {
   const exp = Math.floor(Date.now() / 1000) + 3600;
   const email = `${perfil.toLowerCase()}@churchhub.local`;
   salvarSessao({ token: token ?? tokenCom({ sub: email, perfil: `ROLE_${perfil}`, exp }), expiresAt: exp * 1000 });
@@ -39,6 +39,7 @@ export function abrirApp(caminho, perfil, { token } = {}) {
     saidaVoluntaria: false,
     entrar: async () => {},
     sair: () => {},
+    renovarSessao,
     limparAvisoSessao: () => {},
   };
   const localizacao = { atual: null };
@@ -60,11 +61,11 @@ export function abrirApp(caminho, perfil, { token } = {}) {
  * Devolve também o transporte (chamadas feitas, restaurar()) e o atender (para preparar dados).
  * preparar(atender, authorization): roda antes de abrir a tela (ex.: cadastrar lançamentos em massa).
  */
-export function abrirAppComServidor(caminho, perfil, { preparar } = {}) {
+export function abrirAppComServidor(caminho, perfil, { preparar, renovarSessao = () => {} } = {}) {
   const atender = criarServidorSimulado({ validadeTokenSegundos: 3600 });
   const conta = CONTAS_DEMO.find((c) => c.perfil === perfil);
   const { data } = atender({ metodo: 'post', url: '/auth/login', corpo: { email: conta.email, password: SENHA_DEMO } });
   preparar?.(atender, `Bearer ${data.token}`);
   const transporte = instalarTransporte(transporteDoServidor(atender));
-  return { ...abrirApp(caminho, perfil, { token: data.token }), transporte, atender };
+  return { ...abrirApp(caminho, perfil, { token: data.token, renovarSessao }), transporte, atender };
 }
