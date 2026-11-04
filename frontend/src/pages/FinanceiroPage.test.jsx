@@ -5,10 +5,11 @@ import { PERFIS } from '../constants/perfis';
 import { periodoPadrao } from '../schemas/consultaFinanceiro';
 import { agoraDoServidor } from '../schemas/regrasEvento';
 import { abrirAppComServidor } from '../test-utils/app';
+import { AGORA_DOS_TESTES, fixarAgora } from '../test-utils/relogio';
 
 /** O Intl separa "R$" do número com espaço não separável (U+00A0). */
 const reais = (texto) => texto.replace(' ', ' ');
-const MES = periodoPadrao(agoraDoServidor().data);
+const MES = periodoPadrao(agoraDoServidor(new Date(AGORA_DOS_TESTES)).data);
 
 let transporte;
 
@@ -29,6 +30,15 @@ const descricoes = () => within(tabela()).getAllByRole('rowheader').map((celula)
 const linhaDa = (descricao) => within(tabela()).getAllByRole('rowheader', { name: descricao })[0].closest('tr');
 const chamadas = (metodo) => transporte.adapter.mock.calls.map(([config]) => config).filter((c) => c.method === metodo);
 const pedidosDaLista = () => chamadas('get').filter((c) => c.url === '/financial');
+
+/** Receitas, despesas e saldo dos cartões do fluxo de caixa, depois que o /summary responde. */
+async function cartoesDoPeriodo() {
+  const cartoes = await screen.findByRole('region', { name: 'Totais do período' }, { timeout: 5000 });
+  await waitFor(() => expect(cartoes.getAttribute('aria-busy')).toBe('false'));
+  return Array.from(cartoes.querySelectorAll('p'))
+    .map((p) => p.textContent)
+    .filter((texto) => texto.startsWith('R$'));
+}
 
 async function abrirLista(perfil, caminho = '/financeiro') {
   const aberto = abrir(caminho, perfil);
@@ -156,9 +166,7 @@ describe('movimentações: ações por perfil', () => {
 describe('fluxo de caixa e relatório', () => {
   it('fluxo de caixa: totais do /summary e gráfico por dia com a tabela dos valores', async () => {
     abrir('/financeiro/fluxo-de-caixa', PERFIS.PASTOR);
-    expect(await screen.findByText('R$ 4.097,90', {}, { timeout: 5000 })).toBeTruthy();
-    expect(screen.getByText('R$ 2.328,50')).toBeTruthy();
-    expect(screen.getByText('R$ 1.769,40')).toBeTruthy();
+    expect(await cartoesDoPeriodo()).toEqual(['R$ 4.097,90', 'R$ 2.328,50', 'R$ 1.769,40'].map(reais));
     expect(await screen.findByRole('img', { name: /receitas e despesas por dia/i })).toBeTruthy();
     expect(screen.getByText('Ver os valores em tabela')).toBeTruthy();
     const resumo = chamadas('get').find((c) => c.url === '/financial/summary');
@@ -167,6 +175,16 @@ describe('fluxo de caixa e relatório', () => {
     const serie = chamadas('get').find((c) => c.url === '/financial/summary/series');
     expect(serie.params).toEqual({ dataInicio: MES.de, dataFim: MES.ate, agrupamento: 'DIA' });
     expect(pedidosDaLista()).toHaveLength(0);
+  });
+
+  it('fluxo de caixa no dia 3: os lançamentos do mês caem até hoje e os totais continuam os do /summary', async () => {
+    // No começo do mês, os lançamentos de dia maior caem no próprio dia 3 (como no backend): o total
+    // de um dia da tabela do gráfico pode ser igual ao total do mês, e os cartões não se confundem.
+    fixarAgora('2026-11-03T15:00:00Z');
+    abrir('/financeiro/fluxo-de-caixa', PERFIS.PASTOR);
+    expect(await cartoesDoPeriodo()).toEqual(['R$ 4.097,90', 'R$ 2.328,50', 'R$ 1.769,40'].map(reais));
+    const resumo = chamadas('get').find((c) => c.url === '/financial/summary');
+    expect(resumo.params).toEqual({ dataInicio: '2026-11-01', dataFim: '2026-11-30' });
   });
 
   it('relatório: totais por categoria, lançamentos e botão de imprimir (sem exportação)', async () => {

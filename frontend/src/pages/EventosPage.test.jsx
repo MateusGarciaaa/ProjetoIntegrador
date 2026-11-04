@@ -7,11 +7,12 @@ import { agoraDoServidor, MOTIVO_EVENTO_ENCERRADO } from '../schemas/regrasEvent
 import { CONTAS_DEMO, SENHA_DEMO } from '../services/mock/contasDemo';
 import { criarEventosIniciais } from '../services/mock/dadosIniciais';
 import { abrirAppComServidor } from '../test-utils/app';
+import { AGORA_DOS_TESTES } from '../test-utils/relogio';
 import { intervaloDaGrade, mesDaData, somarMeses } from '../utils/calendario';
 import { formatarData, formatarDataPorExtenso, formatarMesAno } from '../utils/datas';
 
 // Os eventos de demonstração ficam em volta de hoje (no fuso do servidor), como no backend.
-const HOJE = agoraDoServidor().data;
+const HOJE = agoraDoServidor(new Date(AGORA_DOS_TESTES)).data;
 const EVENTOS = criarEventosIniciais(HOJE);
 const ENCERRADO = EVENTOS.find((e) => e.titulo === 'Culto de ação de graças');
 const CELEBRACAO = EVENTOS.find((e) => e.titulo === 'Culto de celebração');
