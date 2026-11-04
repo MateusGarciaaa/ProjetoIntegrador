@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { ATRASO_BUSCA_USUARIOS_MS, OPCOES_PERFIL, OPCOES_SITUACAO } from '../../constants/usuarios';
+import { ATRASO_BUSCA_MS } from '../../constants/consultas';
+import { OPCOES_PERFIL, OPCOES_SITUACAO } from '../../constants/usuarios';
 import { useDebouncedValue } from '../../hooks/useDebouncedValue';
 import { SelectField } from '../ui/FormField';
 import { SearchField } from '../ui/SearchField';
@@ -10,7 +11,7 @@ const TODOS = { valor: '', rotulo: 'Todos' };
 /** Busca por nome (com espera após a digitação), perfil e situação. A busca efetiva vive na URL. */
 export function UsuariosFiltros({ consulta, onBuscar, onFiltrarPerfil, onFiltrarSituacao }) {
   const [texto, setTexto] = useState(consulta.nome);
-  const termo = useDebouncedValue(texto.trim(), ATRASO_BUSCA_USUARIOS_MS);
+  const termo = useDebouncedValue(texto.trim(), ATRASO_BUSCA_MS);
   // Último nome combinado com a URL: evita reenviar o que veio dela e eco entre os dois efeitos.
   const ultimoNome = useRef(consulta.nome);
 

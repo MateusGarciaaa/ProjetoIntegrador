@@ -5,7 +5,7 @@ import { Button } from '../ui/Button';
 import { EmptyState } from '../ui/EmptyState';
 import { Pagination } from '../ui/Pagination';
 import { MembrosLista } from './MembrosLista';
-import { MembrosSkeleton } from './MembrosSkeleton';
+import { ListaSkeleton } from '../ui/ListaSkeleton';
 import styles from './MembrosResultado.module.css';
 
 function descreverFiltros({ nome, status }) {
@@ -36,7 +36,7 @@ export function MembrosResultado({ pagina, erro, carregando, consulta, botaoNovo
     );
   }
 
-  if (!pagina) return <MembrosSkeleton />;
+  if (!pagina) return <ListaSkeleton rotulo="Carregando membros…" />;
 
   if (pagina.totalElements === 0 && temFiltro(consulta)) {
     return (

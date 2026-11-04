@@ -7,7 +7,7 @@ import { Button, ButtonLink } from '../components/ui/Button';
 import { EmptyState } from '../components/ui/EmptyState';
 import { PageHeader } from '../components/ui/PageHeader';
 import { Pagination } from '../components/ui/Pagination';
-import { CarregandoPagina } from '../components/ui/CarregandoPagina';
+import { ListaSkeleton } from '../components/ui/ListaSkeleton';
 import { appConfig } from '../config/env';
 import { ROTAS } from '../constants/rotas';
 import { useAuth } from '../hooks/useAuth';
@@ -36,7 +36,7 @@ function Resultado({ pagina, erro, carregando, consulta, onRecarregar, onLimpar,
       />
     );
   }
-  if (!pagina) return <CarregandoPagina />;
+  if (!pagina) return <ListaSkeleton rotulo="Carregando usuários…" />;
   if (pagina.totalElements === 0 && temFiltroUsuarios(consulta)) {
     return (
       <EmptyState

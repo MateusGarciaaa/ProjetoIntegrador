@@ -23,7 +23,6 @@ export const CAMPOS_MEMBRO = Object.freeze([
 const CAMPOS_DATA = ['dataNascimento', 'dataConversao', 'dataBatismo'];
 
 /** Tamanho de uma data completa digitada (DD/MM/AAAA). */
-export const TAMANHO_DATA_MASCARADA = 10;
 
 /** Valores do formulário (sempre texto; datas em DD/MM/AAAA) a partir de um MembroResponse, ou vazios. */
 export function valoresIniciaisMembro(membro) {

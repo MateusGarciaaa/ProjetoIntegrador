@@ -9,7 +9,7 @@ import { Button, IconButton } from '../ui/Button';
 import { EmptyState } from '../ui/EmptyState';
 import { AgendaDoMes } from './AgendaDoMes';
 import { CalendarioMensal } from './CalendarioMensal';
-import { EventosSkeleton } from './EventosSkeleton';
+import { ListaSkeleton } from '../ui/ListaSkeleton';
 import styles from './CalendarioEventos.module.css';
 
 /**
@@ -37,7 +37,7 @@ export function CalendarioEventos({ mes, hoje, agora, eventos, erro, carregando,
         />
       );
     }
-    if (!eventos) return <EventosSkeleton rotulo={`Carregando eventos de ${titulo}…`} />;
+    if (!eventos) return <ListaSkeleton rotulo={`Carregando eventos de ${titulo}…`} />;
     const props = { mes, eventosPorData, hoje, agora };
     return emGrade ? <CalendarioMensal {...props} podeCriar={podeCriar} onVerDia={onVerDia} /> : <AgendaDoMes {...props} />;
   }

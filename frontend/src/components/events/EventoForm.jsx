@@ -1,5 +1,6 @@
 import { LIMITES_EVENTO } from '../../constants/eventos';
-import { TAMANHO_DATA_MASCARADA, TAMANHO_HORARIO_MASCARADO } from '../../schemas/eventoSchema';
+import { TAMANHO_DATA_DIGITADA } from '../../constants/consultas';
+import { TAMANHO_HORARIO_MASCARADO } from '../../schemas/eventoSchema';
 import { Alert } from '../ui/Alert';
 import { TextAreaField, TextField } from '../ui/FormField';
 import styles from './EventoForm.module.css';
@@ -45,7 +46,7 @@ export function EventoForm({ idFormulario, valores, erros, erroGeral, onAlterar,
           inputMode="numeric"
           autoComplete="off"
           placeholder="DD/MM/AAAA"
-          maxLength={TAMANHO_DATA_MASCARADA}
+          maxLength={TAMANHO_DATA_DIGITADA}
         />
         <TextField
           {...campo('horario')}

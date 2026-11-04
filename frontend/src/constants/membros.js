@@ -23,7 +23,6 @@ export const ORDENACAO_PADRAO_MEMBROS = Object.freeze({ campo: 'nome', direcao: 
  */
 export const DESEMPATE_MEMBROS = Object.freeze(['nome,asc', 'id,asc']);
 
-export const ATRASO_BUSCA_MS = 400;
 
 /** Limite do GET /members/lookup (MembroService.TAMANHO_MAXIMO_PAGINA_RESUMO); acima disso o backend reduz. */
 export const TAMANHO_MAXIMO_BUSCA_MEMBROS = 20;

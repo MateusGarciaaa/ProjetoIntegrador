@@ -36,11 +36,6 @@ export const LIMITE_NOME_CATEGORIA = 100;
 
 export const TAMANHO_PAGINA_MOVIMENTACOES = 10;
 
-/**
- * Lista de lançamentos do relatório: páginas do máximo do Spring, até a última. (Totais, série e
- * somas por categoria não dependem disso: vêm agregados do backend.)
- */
-export const TAMANHO_PAGINA_PERIODO = 2000;
 
 /**
  * Mais recentes primeiro. O @PageableDefault do controller é só "data" (sem desempate);

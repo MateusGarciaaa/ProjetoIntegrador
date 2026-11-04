@@ -1,4 +1,4 @@
-import { TAMANHO_MAXIMO_PAGINA } from '../http/pagina';
+import { TAMANHO_MAXIMO_PAGINA } from '../../constants/consultas';
 
 /** Padrão do @PageableDefault dos controllers (size = 20). */
 const TAMANHO_PADRAO = 20;

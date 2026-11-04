@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { TAMANHO_DATA_DIGITADA } from '../../constants/consultas';
 import { validarPeriodo } from '../../schemas/consultaEventos';
 import { limitesDoMes, mesDaData } from '../../utils/calendario';
 import { formatarData, formatarDataDigitada } from '../../utils/datas';
@@ -12,8 +13,6 @@ const CAMPOS_ORDENACAO = [
   { campo: 'data', rotulo: 'Data' },
   { campo: 'titulo', rotulo: 'Título' },
 ];
-
-const TAMANHO_DATA = 10;
 
 function textoDoPeriodo({ de, ate }) {
   return { de: formatarData(de), ate: formatarData(ate) };
@@ -68,7 +67,7 @@ export function EventosFiltros({ consulta, hoje, onFiltrarPeriodo, onOrdenar }) 
           inputMode="numeric"
           autoComplete="off"
           placeholder="DD/MM/AAAA"
-          maxLength={TAMANHO_DATA}
+          maxLength={TAMANHO_DATA_DIGITADA}
           value={texto.de}
           erro={erros.de}
           onChange={(evento) => alterar('de', evento.target.value)}
@@ -80,7 +79,7 @@ export function EventosFiltros({ consulta, hoje, onFiltrarPeriodo, onOrdenar }) 
           inputMode="numeric"
           autoComplete="off"
           placeholder="DD/MM/AAAA"
-          maxLength={TAMANHO_DATA}
+          maxLength={TAMANHO_DATA_DIGITADA}
           value={texto.ate}
           erro={erros.ate}
           onChange={(evento) => alterar('ate', evento.target.value)}

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
+import { TAMANHO_MAXIMO_PAGINA } from '../../constants/consultas';
 import { ApiError, TIPOS_ERRO } from './apiError';
-import { faixaDaPagina, montarParametrosPagina, normalizarPagina, TAMANHO_MAXIMO_PAGINA } from './pagina';
+import { faixaDaPagina, montarParametrosPagina, normalizarPagina } from './pagina';
 
 const membros = [{ id: '1' }, { id: '2' }];
 const ESPERADO = { content: membros, number: 1, size: 10, totalElements: 12, totalPages: 2 };

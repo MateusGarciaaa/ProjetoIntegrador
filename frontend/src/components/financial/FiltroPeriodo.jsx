@@ -1,12 +1,11 @@
 import { useEffect, useState } from 'react';
+import { TAMANHO_DATA_DIGITADA } from '../../constants/consultas';
 import { validarPeriodo } from '../../schemas/consultaEventos';
 import { descreverPeriodo, periodoDoMesVizinho, periodoPadrao } from '../../schemas/consultaFinanceiro';
 import { formatarData, formatarDataDigitada } from '../../utils/datas';
 import { Button } from '../ui/Button';
 import { TextField } from '../ui/FormField';
 import styles from './FiltroPeriodo.module.css';
-
-const TAMANHO_DATA = 10;
 
 function textoDoPeriodo({ de, ate }) {
   return { de: formatarData(de), ate: formatarData(ate) };
@@ -53,7 +52,7 @@ export function FiltroPeriodo({ periodo, hoje, onFiltrar, idPrefixo = 'financeir
           inputMode="numeric"
           autoComplete="off"
           placeholder="DD/MM/AAAA"
-          maxLength={TAMANHO_DATA}
+          maxLength={TAMANHO_DATA_DIGITADA}
           value={texto.de}
           erro={erros.de}
           onChange={(evento) => alterar('de', evento.target.value)}
@@ -65,7 +64,7 @@ export function FiltroPeriodo({ periodo, hoje, onFiltrar, idPrefixo = 'financeir
           inputMode="numeric"
           autoComplete="off"
           placeholder="DD/MM/AAAA"
-          maxLength={TAMANHO_DATA}
+          maxLength={TAMANHO_DATA_DIGITADA}
           value={texto.ate}
           erro={erros.ate}
           onChange={(evento) => alterar('ate', evento.target.value)}

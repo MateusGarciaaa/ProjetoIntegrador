@@ -1,6 +1,6 @@
 import { LIMITES_MEMBRO } from '../../constants/membros';
 import { OPCOES_STATUS } from '../../constants/statusMembro';
-import { TAMANHO_DATA_MASCARADA } from '../../schemas/membroSchema';
+import { TAMANHO_DATA_DIGITADA } from '../../constants/consultas';
 import { Alert } from '../ui/Alert';
 import { SelectField, TextField } from '../ui/FormField';
 import styles from './MembroForm.module.css';
@@ -33,7 +33,7 @@ export function MembroForm({ idFormulario, valores, erros, erroGeral, onAlterar,
       inputMode: 'numeric',
       autoComplete: 'off',
       placeholder: 'DD/MM/AAAA',
-      maxLength: TAMANHO_DATA_MASCARADA,
+      maxLength: TAMANHO_DATA_DIGITADA,
     };
   }
 

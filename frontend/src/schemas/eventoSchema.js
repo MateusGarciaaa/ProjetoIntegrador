@@ -7,7 +7,6 @@ import { criarMapeadorDeErros } from './errosServidor';
 export const CAMPOS_EVENTO = Object.freeze(['titulo', 'data', 'horario', 'local', 'descricao']);
 
 /** Tamanho de uma data completa digitada (DD/MM/AAAA) e de um horário (HH:mm). */
-export const TAMANHO_DATA_MASCARADA = 10;
 export const TAMANHO_HORARIO_MASCARADO = 5;
 
 /**

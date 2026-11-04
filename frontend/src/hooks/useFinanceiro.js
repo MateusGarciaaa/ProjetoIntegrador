@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
-import { ORDENACAO_MOVIMENTACOES, TAMANHO_PAGINA_MOVIMENTACOES, TAMANHO_PAGINA_PERIODO } from '../constants/financeiro';
+import { TAMANHO_MAXIMO_PAGINA } from '../constants/consultas';
+import { ORDENACAO_MOVIMENTACOES, TAMANHO_PAGINA_MOVIMENTACOES } from '../constants/financeiro';
 import { financeiroService } from '../services/financial/financeiroService';
 import { useConsultaPaginada } from './useConsultaPaginada';
 
@@ -53,7 +54,7 @@ export function useMovimentacoes({ de, ate, tipo, categoria, pagina }) {
  */
 export function useMovimentacoesDoPeriodo({ de, ate }) {
   const consulta = useMemo(
-    () => ({ dataInicio: de, dataFim: ate, tamanho: TAMANHO_PAGINA_PERIODO, ordenacao: ORDENACAO_MOVIMENTACOES }),
+    () => ({ dataInicio: de, dataFim: ate, tamanho: TAMANHO_MAXIMO_PAGINA, ordenacao: ORDENACAO_MOVIMENTACOES }),
     [de, ate],
   );
   const { pagina, ...resto } = useConsultaPaginada(buscarTodasAsMovimentacoes, consulta);
