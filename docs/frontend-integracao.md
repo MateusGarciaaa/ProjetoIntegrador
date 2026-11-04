@@ -1,6 +1,7 @@
-# Integração frontend × backend — diagnóstico
+# Integração frontend × backend — estado final
 
-> Fotografia de 2026-10-26 (commit 2087a3c), atualizada ao fim da Fundação e da Autenticação no mesmo dia ao fim de Membros e ao fim de Eventos em 2026-10-27, e ao fim do Financeiro e do Dashboard em 2026-10-28, e ao fim de Usuários e Minha conta em 2026-10-29. Ler no início de cada sessão. Atualizar a tabela e o checklist ao concluir cada módulo.
+> **Estado final em 2026-11-03** (revisão final, branch `chore/revisao-final`): os 34 endpoints do backend estão integrados, o modo simulado cobre todos, e a matriz de permissões bate com os `@PreAuthorize` (seção 4). O que falta está em duas listas: **pendências do backend** (seção 5) e **Fase 2 e backlog do TCC** (seção 7).
+> Histórico: fotografia de 2026-10-26 (commit 2087a3c), atualizada ao fim de cada módulo (Fundação e Autenticação em 2026-10-26, Membros e Eventos em 2026-10-27, Financeiro e Dashboard em 2026-10-28, Usuários e Minha conta em 2026-10-29). Ler no início de cada sessão; ao mudar o backend, atualizar a seção 2, a 4 e o mock.
 > Fontes: `backend/src/main/java/br/com/churchhub/api/{controller,dto,service,security,exception}` e `frontend/src/{services,constants,routes,schemas,hooks}`.
 
 ## 1. Convenções do backend (valem para todos os módulos)
@@ -67,22 +68,11 @@ Perfis: A = ADMINISTRADOR, P = PASTOR, S = SECRETARIO, T = TESOUREIRO, M = MEMBR
 | 22 | `GET /dashboard` | — | — | 200 `DashboardResponse { totalMembros, membrosAtivos, membrosAfastados, membrosVisitantes, proximosEventos[≤5]{id,titulo,data,horario}, aniversariantesDoMes[{id,nome,dataNascimento}], novosMembros[≤10]{id,nome,status,criadoEm}, totalNovosMembros, resumoFinanceiroMesAtual }`. Contagens por status com `countByStatus`; novos membros = `criado_em` (V7) nos últimos `DIAS_NOVOS_MEMBROS` = 30 dias do `Clock`, mais recentes primeiro (`criadoEm` `LocalDateTime` do fuso da igreja, ex. `"2026-10-28T22:34:08.960032"`; `NULL` nunca entra). **RN12 no servidor** (`VisibilidadeDashboard`): as contagens, `aniversariantesDoMes`, `novosMembros` e `totalNovosMembros` só para A P S; `resumoFinanceiroMesAtual` só para A P T; os demais recebem `null` (e o repositório nem é consultado). "Hoje", mês atual e aniversariantes do `Clock` | **qualquer autenticado** (desde o Dashboard; antes A P) | **INTEGRADO** (`/dashboard`, tela inicial de todos os perfis) |
 | — | `GET /actuator/health` | — | — | 200 | público | NÃO USADO (útil para "acordar" o servidor) |
 
-### FALTA NO BACKEND (exigido pelas telas previstas)
+Todos os 34 endpoints acima têm chamada nos services do front (34 chamadas em `services/<recurso>/`) e rota no backend simulado.
 
-| Tela | Necessidade | Situação |
-|---|---|---|
-| ~~Login / topo~~ | ~~Nome do usuário logado~~ | **Feito** (`feat(api)` de Minha conta): claim `nome` no JWT e `GET /me` (fora de `/auth/**`, que é público e não recebe o token do front). `usuarios.nome` já existia desde a V1 (`NOT NULL`), sem migration |
-| Login | Link de redefinição apontando para o frontend | `LoggingMailSender` só registra no log `/reset-password?token=…` (caminho relativo, sem URL base, sem e-mail real) |
-| Sessão | `POST /auth/refresh` (previsto em 07-API.md) | Não existe |
-| ~~Dashboard~~ | ~~Novos membros; membros por status~~ | **Feito** (`feat(api)` de novos membros): V7 com `membros.criado_em` (TIMESTAMP, nullable, sem backfill), preenchido pela auditoria do JPA (`@CreatedDate` + `DateTimeProvider` do `Clock`, `AuditoriaConfig`); `/dashboard` com afastados e visitantes separados |
-| Dashboard | Aniversariantes da semana | Só do mês (`buscarAniversariantesDoMes`); o Painel marca "Hoje" |
-| ~~Dashboard~~ | ~~Dados para gráficos; acesso para T e S~~ | **Feito** (`feat(api)` do Dashboard): `/financial/summary/series` e `/summary/categories`; `/dashboard` com `isAuthenticated()` e blocos por perfil |
-| Financeiro | Filtro `membroId` na listagem | Não existe (`tipo` e `categoriaId` feitos) |
-| Financeiro | Exportação (PDF/CSV) | Não existe; o relatório usa a impressão do navegador. ~~Fluxo de caixa / relatório por categoria~~ → **feito** (agregações no banco) |
-| Financeiro | Editar/excluir/buscar categoria (`GET/PUT/DELETE /financial-categories/{id}`) | Não existe |
-| Membros | Busca por CPF/e-mail, busca sem acento | Não existe (backlog, pendência 10). ~~Filtro por status~~ → **feito** (`feat(api)`, 2026-10-27) |
-| ~~Usuários (admin)~~ | ~~CRUD de usuários, perfil, ativar/desativar (RN02)~~ | **Feito** (`feat(api)` de gestão de usuários): rotas U1–U7. Convite = o mesmo link de `/reset-password?token=…&convite=1` (o indicador `convite=1` só troca o texto da tela para "Bem-vindo ao ChurchHub! Defina sua senha para começar."; quem valida é o token no backend; mesma tabela, invalida os links anteriores), com validade própria de 72 h (`AuthService.VALIDADE_CONVITE`, gravada por token em `expira_em`; a redefinição continua com 30 min) e `MailSender.sendInviteEmail`. Senha do cadastro = hash BCrypt de 32 bytes aleatórios (ninguém entra até aceitar o convite); `senha_alterada_em` nulo = convite pendente. "Nunca sem Administrador ativo": as operações travam os administradores ativos (`SELECT … FOR UPDATE`, `travarAdministradoresAtivos`) antes de ler o alvo, então duas desativações cruzadas não correm juntas. RN13: log `AUDITORIA` (cadastro, perfil, ativação, desativação, convite reenviado, troca de senha), escrito só depois do commit |
-| Meu perfil | ~~`GET /me`, trocar senha logado~~ → **feitos** (`feat(api)` de Minha conta). Falta o membro editar a própria ficha | `Usuario` não tem vínculo com `Membro` → exige migration (backlog do TCC, pendência 8) |
+**Decisões de implementação dos Usuários (registro).** Convite = o mesmo link de `/reset-password?token=…&convite=1` (o indicador só troca o texto da tela; quem valida é o token), com validade própria de 72 h (`AuthService.VALIDADE_CONVITE`, gravada por token em `expira_em`; a redefinição continua com 30 min) e `MailSender.sendInviteEmail`. Senha do cadastro = hash BCrypt de 32 bytes aleatórios (ninguém entra até aceitar o convite); `senha_alterada_em` nulo = convite pendente. "Nunca sem Administrador ativo": as operações travam os administradores ativos (`SELECT … FOR UPDATE`) antes de ler o alvo. RN13: log `AUDITORIA` (cadastro, perfil, ativação, desativação, convite reenviado, troca de senha), escrito só depois do commit.
+
+O que ainda falta no backend para as telas está consolidado na seção 5.
 
 ## 3. Divergências mock × backend real
 
@@ -90,7 +80,7 @@ O mock (`services/mock/`) implementa as 3 rotas de `/auth` (login, forgot-passwo
 
 | # | Assunto | Mock | Backend real | Impacto |
 |---|---|---|---|---|
-| 1 | Rotas cobertas | auth (3) + members + events + financial (inclusive agregações) + financial-categories + dashboard | 24 endpoints | Nenhum: todas as telas funcionam no modo simulado |
+| 1 | Rotas cobertas | as 34: auth (3), me (2), users (7), members (6), events (5), financial (8, inclusive agregações), financial-categories (2), dashboard (1) | 34 endpoints | Nenhum: todas as telas funcionam no modo simulado |
 | 2 | Rotas públicas | ~~401~~ → **corrigido na Fundação** (`/auth/**` inexistente → 404 sem token); ~~forgot/reset sem handler~~ → **corrigido na Autenticação** | 200 / 204 | Nenhum |
 | 3 | E-mail no login e no forgot-password | ~~comparação exata~~ → **corrigido na Autenticação**: normaliza nos dois, como o real; forgot-password também ignora usuário inativo e invalida links pendentes | idem (`NormalizadorEmail`) | Nenhum |
 | 4 | Mensagens de validação de auth | ~~padrões do Hibernate~~ → **corrigido na Autenticação**: mensagens do `LoginRequest`, `ForgotPasswordRequest` e `ResetPasswordRequest` | do DTO | Ordem das mensagens unidas: o Spring não garante a ordem dos `FieldError`; o mock usa a ordem dos campos no record |
@@ -107,7 +97,30 @@ Sem divergência: ordem auth → `{id}` → `@Valid` → `@PreAuthorize`; 400 pa
 
 ## 4. Divergências de permissão
 
-**Fundação concluída:** `constants/permissoes.js` espelha todos os `@PreAuthorize` (16 permissões, comentário com o endpoint em cada linha) e `permissoes.test.js` transcreve a mesma tabela de forma independente. As `ROTAS` do mock ainda só cobrem membros (cada módulo acrescenta as suas). Uso no front: `usePermissao().pode(...)`, `<PodeAcessar permissao senao>`, `RequirePermission` (rotas → `SemAcessoPage`), `itensMenuDoPerfil` (menu) e `rotaInicialDoPerfil`.
+**Conferido na revisão final (2026-11-03):** `constants/permissoes.js` espelha os `@PreAuthorize` dos 7 controllers (20 permissões, comentário com o endpoint em cada linha) e `permissoes.test.js` transcreve a mesma tabela de forma independente; as `ROTAS` do mock têm a própria cópia dos perfis por rota. Uso no front: `usePermissao().pode(...)` (botões e blocos), `RequirePermission` (rotas → `SemAcessoPage`), `itensMenuDoPerfil` (menu) e `rotaInicialDoPerfil` (Painel para todos). Rotas, menu, botões e os links do Painel foram percorridos para os 5 perfis: nenhuma divergência.
+
+**Matriz perfil × funcionalidade (estado final).**
+
+| Funcionalidade | A | P | S | T | M |
+|---|:-:|:-:|:-:|:-:|:-:|
+| Painel: acesso e próximos eventos | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Painel: membros por status, aniversariantes, novos membros | ✓ | ✓ | ✓ | – | – |
+| Painel: financeiro do mês e gráficos | ✓ | ✓ | – | ✓ | – |
+| Membros: listar e ver a ficha | ✓ | ✓ | ✓ | – | – |
+| Membros: cadastrar e editar | ✓ | – | ✓ | – | – |
+| Membros: excluir (RN14) | ✓ | – | – | – | – |
+| Busca de membro no lançamento (`/members/lookup`) | ✓ | – | – | ✓ | – |
+| Eventos: calendário, lista e detalhes | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Eventos: cadastrar | ✓ | – | ✓ | – | – |
+| Eventos: editar | ✓ | – | ✓ (só não encerrado, RN09) | – | – |
+| Eventos: excluir | ✓ | – | – | – | – |
+| Financeiro: movimentações, fluxo de caixa, relatório | ✓ | ✓ | – | ✓ | – |
+| Financeiro: lançar e editar; nova categoria | ✓ | – | – | ✓ | – |
+| Financeiro: excluir | ✓ | – | – | – | – |
+| Usuários: listar, convidar, editar perfil, ativar/desativar, reenviar convite | ✓ | – | – | – | – |
+| Minha conta: dados e troca de senha | ✓ | ✓ | ✓ | ✓ | ✓ |
+
+O backend também libera o `/members/lookup` para P e S, mas a única tela que o usa é o formulário financeiro.
 
 | Permissão | Backend |
 |---|---|
@@ -135,14 +148,14 @@ Problemas de regra:
 4. **RN09 — critério conferido no código (Eventos, 2026-10-27).** `EventoService.jaEncerrado` = `LocalDateTime.of(data, horario).isBefore(LocalDateTime.now(clock))` sobre o evento **gravado**, com o `Clock` no fuso `APP_TIMEZONE`; só a autoridade `ROLE_ADMINISTRADOR` passa, os demais recebem **409**. Não há status nem hora de término: "encerrado" = **o horário de início já passou** (no instante exato do início ainda não; `EventoServiceTest` cobre o limite). O front usa o mesmo critério (`schemas/regrasEvento.js`, `isEventoEncerrado`), com o "agora" em `America/Sao_Paulo` (`FUSO_HORARIO_SERVIDOR`), não no fuso do navegador — se `APP_TIMEZONE` mudar, mude junto. Não cabe na matriz: `situacaoEdicaoEvento(perfil, evento, agora)` decide — A sempre edita; S vê "Editar" desabilitado (`aria-disabled` + `title` + `aria-describedby` com o motivo) e um aviso nos detalhes; abrindo `/eventos/:id/editar` de evento encerrado pela URL, S vê o motivo no lugar do formulário. Se o evento começar com o formulário aberto, o 409 do backend aparece no topo do formulário (nada do que foi digitado se perde).
 5. **TESOUREIRO e a ficha de membros — corrigido em 2026-10-26.** O Tesoureiro estava nos `@PreAuthorize` de `GET /members` e `/members/{id}` desde a criação do controller (antes do módulo financeiro), sem justificativa registrada, e recebia CPF, contato e endereço. A única necessidade real é escolher o membro de um lançamento (`membroId` opcional); para isso existe agora `GET /members/lookup` (id, nome, status). A listagem de movimentações já traz `membroNome`, então o Tesoureiro não precisa de `/members/{id}`.
 6. **Módulo Membros × pedido da sessão (2026-10-27).** Pedido e backend coincidem para A (tudo), S (lista, cadastra, edita; não exclui), P (só consulta) e M (sem acesso). O pedido não citava o **TESOUREIRO**: segue o backend — sem acesso a `/membros` (lista, detalhes, formulário), só `/members/lookup`. Nenhuma mudança em `permissoes.js`. As subpáginas usam as permissões do endpoint que chamam: `/membros/novo` → `membros.criar`, `/membros/:id` → `membros.visualizar`, `/membros/:id/editar` → `membros.editar` (P abrindo a URL de edição vê "Sem acesso").
-7. **Módulo Eventos — regra vigente (2026-10-27, após o `fix(eventos)`).** Os documentos divergiam sobre o SECRETARIO (19-Permissoes: "consultar"; 04-CasosDeUso: "cadastrar eventos"). **Vale o backend**, que coincide com o 04-CasosDeUso: `POST` e `PUT /events` têm `hasAnyRole('ADMINISTRADOR','SECRETARIO')` — S cadastra e edita (respeitando a RN09) e **não exclui** (`DELETE` só A). A **consulta** (`GET /events` e `/events/{id}`) passou a `isAuthenticated()`: a agenda não é informação sensível, então todos os perfis veem, **inclusive o TESOUREIRO** (antes recebia 403). P, T e M só consultam. No front: `eventos.visualizar` inclui T em `permissoes.js` e em `permissoes.test.js`, o menu do T passou a ser "Eventos, Financeiro" (a rota inicial dele continua `/financeiro`), e as `ROTAS_EVENTOS` do mock aceitam qualquer perfil logado no `GET`. Subpáginas: `/eventos/novo` → `eventos.criar`, `/eventos/:id` → `eventos.visualizar`, `/eventos/:id/editar` → `eventos.editar`. Testes no backend: `EventoControllerSecurityTest`.
+7. **Módulo Eventos — regra vigente (2026-10-27, após o `fix(eventos)`).** Os documentos divergiam sobre o SECRETARIO (19-Permissoes: "consultar"; 04-CasosDeUso: "cadastrar eventos"). **Vale o backend**, que coincide com o 04-CasosDeUso: `POST` e `PUT /events` têm `hasAnyRole('ADMINISTRADOR','SECRETARIO')` — S cadastra e edita (respeitando a RN09) e **não exclui** (`DELETE` só A). A **consulta** (`GET /events` e `/events/{id}`) passou a `isAuthenticated()`: a agenda não é informação sensível, então todos os perfis veem, **inclusive o TESOUREIRO** (antes recebia 403). P, T e M só consultam. No front: `eventos.visualizar` inclui T em `permissoes.js` e em `permissoes.test.js`, o menu do T passou a ser "Eventos, Financeiro" (desde o Dashboard, "Painel, Eventos, Financeiro, Minha conta", com o Painel como rota inicial), e as `ROTAS_EVENTOS` do mock aceitam qualquer perfil logado no `GET`. Subpáginas: `/eventos/novo` → `eventos.criar`, `/eventos/:id` → `eventos.visualizar`, `/eventos/:id/editar` → `eventos.editar`. Testes no backend: `EventoControllerSecurityTest`.
 
 ## 5. Pendências do backend
 
-Por prioridade para o frontend (cada item que mude schema exige migration nova; nunca editar V1–V7):
+Lista consolidada na revisão final (2026-11-03): **só o que continua aberto**. Os itens resolvidos ao longo dos módulos (BCrypt × 72 bytes, sessão derrubada ao trocar senha/perfil, normalização de e-mail, links anteriores invalidados, usuário inativo sem link, fuso `APP_TIMEZONE` + `Clock`, RN09 → 409, desempates de ordenação, filtros `tipo`/`categoriaId`/`status`, agregações financeiras, novos membros, `GET /me`, gestão de usuários) estão registrados nos checklists da seção 6. Cada item que mude schema exige migration nova (nunca editar V1–V8). A prioridade e o encaixe no TCC estão na seção 7.
 
-1. **Fixar o formato da página explicitamente.** Hoje é o DIRECT por padrão do Spring Boot 4.1 (o Spring Data registra aviso recomendando VIA_DTO); uma atualização de versão poderia mudá-lo em silêncio. Sugestão: `@EnableSpringDataWebSupport(pageSerializationMode = VIA_DTO)` ou `spring.data.web.pageable.serialization-mode` no `application.yml`. O front aceita os dois formatos, mas o mock precisa acompanhar (`mock/paginacao.js`).
-2. **Erros de validação estruturados por campo.** Hoje o front deduz o campo pelo texto da mensagem (seção 1, "Mapeamento de erros por campo"). Proposta, compatível com o formato atual (só acrescenta um campo opcional ao record `ApiError`):
+1. **Formato da página implícito.** É o DIRECT por padrão do Spring Boot 4.1 (o Spring Data registra aviso recomendando VIA_DTO); uma atualização poderia mudá-lo em silêncio. Fixar com `spring.data.web.pageable.serialization-mode` ou `@EnableSpringDataWebSupport(pageSerializationMode = …)`. O front aceita os dois formatos; o mock acompanha em `mock/paginacao.js`.
+2. **Erros de validação estruturados por campo.** Hoje o front deduz o campo pelo texto da mensagem (seção 1). Proposta compatível (campo opcional no `ApiError`):
    ```json
    {
      "timestamp": "2026-10-26T10:00:00",
@@ -156,48 +169,31 @@ Por prioridade para o frontend (cada item que mude schema exige migration nova; 
      ]
    }
    ```
-   - `GlobalExceptionHandler.handleValidation`: montar `errors` a partir de `getFieldErrors()` (`FieldError::getField`, `FieldError::getDefaultMessage`); manter `message` como está.
-   - 409 de unicidade (`MembroService.validarUnicidade` e futuros): `ConflictException` com o campo (ex.: `new ConflictException("email", "Já existe um membro com este e-mail")`) e o handler devolvendo `errors: [{ campo: "email", ... }]`.
-   - Demais erros: `errors` ausente ou `[]`.
-3. **Reset de senha utilizável**: URL base do frontend configurável (`FRONTEND_URL`) no link; envio real de e-mail (ou manter log e documentar para a demo). Hoje o link do log é relativo (`/reset-password?token=…`): na demo, abrir `http://localhost:5173` + o caminho do log.
-3b. **Recuperação de senha — achados do módulo Autenticação (2026-10-26)**:
-   1. ~~**BCrypt × `@Size(max = 72)`**~~ → **corrigido (fix(auth))**. Confirmado em teste: o `BCryptPasswordEncoder` lança `IllegalArgumentException` acima de 72 **bytes** (37 × "é" = 74 bytes), o que virava 500. Agora `@CabeNoBcrypt` (`validation/`) valida bytes UTF-8 no `ResetPasswordRequest` e no `LoginRequest` → 400 `"A nova senha é longa demais: o limite é de 72 bytes (letras acentuadas e símbolos ocupam 2 ou mais)"` (no login, `"A senha é longa demais…"`). `UsuarioService.criarSeNaoExistir` e `ADMIN_PASSWORD` (`CargaInicialRunner`) também recusam. O `@Size(6, 72)` continua, então uma senha ASCII com 73+ caracteres recebe as duas mensagens.
-   2. ~~**Reset não encerra sessões**~~ → **corrigido** (`feat(api)` de Minha conta): V8 `usuarios.senha_alterada_em` (TIMESTAMPTZ, truncado em segundos), gravado pelo reset, pela troca logada e pela carga inicial; o `JwtAuthenticationFilter` recusa token com `iat` anterior (401 `"Sua senha foi alterada. Entre novamente."`). Backfill com o instante da migration: tokens emitidos antes dela caem uma vez.
-   3. ~~**`forgot-password` não normaliza o e-mail**~~ → **corrigido**: `util/NormalizadorEmail` (trim + minúsculas) usado no login, no forgot-password e no `UsuarioService`. Observação: espaços nas pontas nunca chegam ao serviço, porque o `@Email` já recusa (400); o front continua enviando sem espaços.
-   4. **Enumeração por tempo e sem limite de tentativas** — **backlog do TCC**. Com e-mail existente e ativo o backend invalida tokens, grava um novo e "envia" o e-mail; sem ele, responde direto — a diferença de tempo pode revelar o cadastro (com SMTP real, ainda mais). Não há rate limit em `/auth/login` nem em `/auth/forgot-password`. Sugestão: envio assíncrono (`@Async`/fila) + limite por IP/e-mail (ex.: Bucket4j).
-   5. ~~**Tokens anteriores continuam válidos**~~ → **corrigido**: `PasswordResetTokenRepository.invalidarPendentes` marca `usado = true` nos tokens pendentes do usuário antes de gerar o novo (sem migration: reaproveita a coluna `usado`).
-   6. ~~**Usuário inativo recebe link**~~ → **corrigido**: `forgotPassword` filtra `ativo` (mesma resposta 200 e mesma mensagem), e `resetPassword` recusa token de usuário desativado depois do pedido (400 de token inválido).
-4. **Filtros de data com um só limite** em `/events` e `/financial` (hoje um só parâmetro é ignorado em silêncio) e validação `dataInicio <= dataFim` nas listagens. Hoje um período invertido na lista devolve página vazia, sem erro. ~~No `summary`~~ → **feito**: `summary`, `summary/series` e `summary/categories` recusam período invertido (400). O front de Eventos e o do Financeiro exigem as duas datas, em ordem, antes de consultar.
-5. **Financeiro**: ~~filtros `tipo`/`categoriaId`~~, ~~série mensal~~, ~~totais por categoria~~ → **feitos**. Faltam: filtro `membroId`; `GET/PUT/DELETE` de categoria; exportação.
-6. **Dashboard**: ~~quem acessa~~, ~~PASTOR e o financeiro~~, ~~série para gráficos~~, ~~novos membros~~, ~~contagem por status~~ → **feitos**. Faltam: aniversariantes da semana, se a igreja quiser (hoje só do mês); `criadoEm` em `MembroResponse` (a ficha não mostra a data de cadastro), se for útil; filtro "cadastrados desde" em `GET /members` para um "Ver todos" dos novos membros.
-7. ~~**Usuários**: CRUD `/users` (A), ativar/desativar, trocar perfil~~ → **feito** (rotas U1–U7). Link do convite com `&convite=1` (texto de boas-vindas na tela, `LoggingMailSenderTest`). Backlog: o texto real do e-mail de convite (hoje o `LoggingMailSender` só registra o link).
-8. **Meu perfil**: ~~`GET /me`, `PUT /me/password`~~ → **feitos**. **Backlog do TCC**: vínculo usuário ↔ membro (`usuarios.membro_id`, FK única para `membros`, em nova migration) e o membro editar a própria ficha (`PUT /me` com os campos que ele pode mudar — ex.: telefone e endereço, nunca status ou CPF). Também backlog: limite de tentativas da senha atual em `PUT /me/password` (junto com o rate limit do item 3b.4).
-9. ~~**Nome do usuário**~~ → **feito**: claim `nome` no JWT e `GET /me`.
-10. **Membros** — backlog do TCC. (O filtro por status saiu daqui: feito no commit `feat(api)` de 2026-10-27, `GET /members?status=` com o mesmo `buscarPorNomeEStatus` do lookup.)
-    - Busca por e-mail e CPF (o pedido da tela previa nome/e-mail/CPF; a tela só busca por nome).
-    - Busca sem acento (`unaccent`); unicidade de e-mail case-insensitive (`lower(email)`).
-    - RN14 Fase 2 (confirmação administrativa para excluir membro com histórico): endpoint ou parâmetro a definir; no front entra como etapa nova em `hooks/useExclusaoMembro.js`.
-11. **Eventos** — achados do módulo Eventos (2026-10-27):
-    1. ~~**Fuso da JVM**~~ → **corrigido (`fix(eventos)`)**: `APP_TIMEZONE` (`app.time.zone`, `TimeProperties`) + bean `Clock` (`ClockConfig`) injetado no `EventoService`; o Dockerfile usa o mesmo valor em `-Duser.timezone` e o compose o repassa. Observação: a imagem já fixava `TZ`/`-Duser.timezone=America/Sao_Paulo`, então no container a RN09 já estava certa; o erro aparecia fora do Docker (`./mvnw`, IDE ou nuvem em UTC sem o Dockerfile). Depois, no `refactor(api)`, o `Clock` chegou ao `DashboardService` ("hoje", aniversariantes — o mês agora é parâmetro da consulta, não `CURRENT_DATE` — e resumo do mês), ao `AuthService` (validade do link de redefinição) e ao `DadosDemonstracaoService`, sem mudar comportamento; testes em `DashboardServiceTest`, `AuthServiceTest` e `DadosDemonstracaoServiceTest`.
-    2. ~~**RN09 devolvia 400**~~ → **corrigido (`fix(eventos)`)**: `ConflictException` → 409. Front e mock atualizados.
-    3. ~~**`@PageableDefault(sort = "data")` sem desempate**~~ → **corrigido (`fix(eventos)`)**: padrão `data`, `horario`, `id`.
-    4. ~~**Sem teste do `EventoService`**~~ → **corrigido (`fix(eventos)`)**: `EventoServiceTest` (Clock fixo: futuro editável por S, já iniciado bloqueado para S e liberado para A, limite exato do início, fuso de São Paulo × UTC, RN09 olha o evento gravado) e `EventoControllerSecurityTest` (consulta por todos, escrita por A/S, exclusão só A, 409, ordenação padrão).
-    5. **RN09 só olha o evento gravado — decisão (2026-10-27): mantido.** O Secretário **pode cadastrar evento com início no passado** (cadastro atrasado, implantação do sistema com a agenda já em andamento), e o `EventoRequest` não recusa data/hora passada. Ele também pode mover um evento futuro para uma data passada. O efeito colateral é que, depois de gravado, esse evento já está encerrado e o Secretário não consegue mais corrigi-lo (só o Administrador). Comportamento coberto por teste (`EventoServiceTest.olhaOEventoGravadoENaoOsValoresNovos`); o front valida igual ao backend (aceita). A janela de correção para o Secretário está no backlog do TCC (seção 6, "Backlog do TCC (eventos)").
-    6. **Hora de término e busca por título** → backlog do TCC (seção 6, "Backlog do TCC (eventos)").
-12. **Sessão**: `POST /auth/refresh` (opcional para o TCC). O front não tenta renovar; o ponto de extensão é `tratarErroResposta` em `services/http/httpClient.js`.
+   `GlobalExceptionHandler.handleValidation` monta `errors` com `getFieldErrors()`; os 409 de unicidade passam o campo na `ConflictException`. No front, `criarMapeadorDeErros` passa a ler `errors` primeiro.
+3. **E-mail de verdade.** `LoggingMailSender` só registra no log o caminho relativo (`/reset-password?token=…`, `&convite=1` no convite). Falta URL base do frontend configurável (`FRONTEND_URL`) e um `MailSender` real (SMTP), com o texto do e-mail de convite e de redefinição.
+4. **Enumeração por tempo e força bruta.** Com e-mail existente, o `forgot-password` grava token e "envia" e-mail; sem ele, responde direto: a diferença de tempo pode revelar o cadastro. Não há limite de tentativas em `/auth/login`, `/auth/forgot-password` nem na senha atual de `PUT /me/password`. Sugestão: envio assíncrono (`@Async`/fila) + rate limit por IP/e-mail (ex.: Bucket4j).
+5. **Sessão sem refresh.** Não existe `POST /auth/refresh` (previsto no 07-API.md); o token vale 24 h e fica em `sessionStorage`. O ideal é cookie `httpOnly` + refresh token; no front, o ponto de extensão é `tratarErroResposta` em `services/http/httpClient.js`.
+6. **Filtros de data com um só limite** em `GET /events` e `GET /financial`: um só parâmetro é ignorado em silêncio, e período invertido devolve página vazia (as agregações já recusam com 400). O front exige as duas datas, em ordem, antes de consultar.
+7. **Membros.** Busca por e-mail e CPF (a tela só busca por nome); busca sem acento (`unaccent`); unicidade de e-mail sem diferenciar maiúsculas (`lower(email)`; o front já grava minúsculo); unicidade checada antes de gravar perde para a constraint em cadastros simultâneos (409 genérico); `criadoEm` em `MembroResponse` e filtro "cadastrados desde" (para um "Ver todos" dos novos membros).
+8. **Eventos.** Hora de término; busca por título; janela de correção para o Secretário em evento cadastrado no passado (RN09 olha o evento gravado — decisão mantida em 2026-10-27, ver seção 4, item 4).
+9. **Financeiro.** Filtro `membroId` na lista; `GET/PUT/DELETE /financial-categories/{id}`, lista de categorias ordenada no servidor e unicidade sem diferenciar maiúsculas/espaços; exportação PDF/CSV (hoje, impressão do navegador); RN05 Fase 2 (conciliação: bloquear exclusão de lançamento conciliado).
+10. **Painel.** Aniversariantes da semana, se a igreja quiser (hoje, do mês, com "Hoje" marcado).
+11. **Usuários × membros.** `Usuario` não tem vínculo com `Membro`: falta `usuarios.membro_id` (FK única, nova migration) e `PUT /me` para o membro editar a própria ficha (telefone e endereço; nunca status ou CPF).
 
 ## 6. Checklist por módulo
 
+Histórico de cada módulo. Referências do tipo "pendência N" ou "seção 5, item N" escritas antes de 2026-11-03 usam a numeração antiga da seção 5; a lista atual é a da seção 5, e o backlog, a da seção 7.
+
 ### Fundação (concluída em 2026-10-26)
-- [x] Rota inicial por perfil (MEMBRO → eventos; T → financeiro; A/P → dashboard; S → membros): `rotaInicialDoPerfil` em `constants/rotas.js`, usada por `RedirecionamentoInicial`, `GuestRoute` (`destinoAposLogin`) e 404.
+- [x] Rota inicial por perfil (na Fundação: MEMBRO → eventos, T → financeiro, A/P → dashboard, S → membros; **desde o Dashboard, Painel para todos**): `rotaInicialDoPerfil` em `constants/rotas.js`, usada por `RedirecionamentoInicial`, `GuestRoute` (`destinoAposLogin`) e 404.
 - [x] Menu (`constants/navegacao.js`) filtrado por permissão (`itensMenuDoPerfil`) + breadcrumb (`trilhaDoCaminho` + `components/ui/Breadcrumb`).
-- [x] Rotas `/dashboard`, `/eventos`, `/financeiro` protegidas por `RequirePermission`, com `EmConstrucaoPage` até cada módulo existir.
+- [x] Rotas `/dashboard`, `/eventos`, `/financeiro` protegidas por `RequirePermission`, com `EmConstrucaoPage` até cada módulo existir (removida na revisão final, sem uso).
 - [x] `React.lazy` nas páginas (`routes/AppRoutes.jsx`) com `Suspense` → `CarregandoPagina`.
 - [x] Utils compartilhados: `utils/datas.js` (`formatarData`, `dataBrParaIso`, `formatarHorario`, `formatarDataHora` — por texto, sem "voltar um dia") e `utils/moeda.js` (`formatarMoeda` BRL, `arredondarValor`, `lerValorBr`).
 - [x] Corrigir o split de erro 400 em `", "`: mapeador genérico `schemas/errosServidor.js` (provisório, depende do texto — pendência 2); `membroSchema` também reconhece as mensagens de `@Size`.
 - [x] Paginação: `montarParametrosPagina` + `useConsultaPaginada` (genérico; `useMembros` usa).
-- [x] RBAC: matriz completa (seção 4), `<PodeAcessar>`, testes da matriz, do menu, da rota inicial e das rotas por perfil.
-- [x] Cliente HTTP: interceptores extraídos (`anexarToken`, `tratarErroResposta`) e testados (Bearer, 401, 403, 400, 409, tempo esgotado, rede). Sem refresh (pendência 12).
+- [x] RBAC: matriz completa (seção 4), `<PodeAcessar>` (removido na revisão final: as telas usam `usePermissao().pode`), testes da matriz, do menu, da rota inicial e das rotas por perfil.
+- [x] Cliente HTTP: interceptores extraídos (`anexarToken`, `tratarErroResposta`) e testados (Bearer, 401, 403, 400, 409, tempo esgotado, rede). Sem refresh (seção 5, item 5).
 - [x] Componentes: `Card`, `Table` (tabela/cartões; `MembrosLista` migrada), `Breadcrumb`, `CarregandoPagina`. Os demais (Button, campos, Modal, ConfirmDialog, Pagination, Alert, Toast, Skeleton, EmptyState) já existiam.
 - [x] Testes de componente: `jsdom` + `@testing-library/react`; arquivos `*.test.jsx` com `// @vitest-environment jsdom` e `test-utils/componentes.jsx` (`renderizarComPerfil`).
 - [x] Mock: estrutura para novos handlers (`handlers/<modulo>.js` exporta suas rotas; validação de corpo por rota) e `/auth/**` inexistente → 404. As coleções (eventos, categorias, movimentações) entram com cada módulo, junto dos handlers.
@@ -205,7 +201,7 @@ Por prioridade para o frontend (cada item que mude schema exige migration nova; 
 
 ### Autenticação (concluída em 2026-10-26)
 - [x] Contrato conferido no `AuthController`/DTOs/`AuthService`: login, forgot-password, reset-password; **sem** `/auth/refresh` (sessão segue a Fundação: expiração por timer, aba e 401).
-- [x] Login: validação no cliente (e-mail, senha `@NotBlank`), guarda de envio duplo (`hooks/useEnvioUnico.js`, por ref) + botão em carregamento, 401 com mensagem fixa "E-mail ou senha inválidos" sem marcar campo (`loginSchema.mensagemErroLogin`), e-mail em minúsculas, link "Esqueci minha senha". Pós-login: rota de origem, senão `rotaInicialDoPerfil` (Painel para A/P; S/T/M não têm acesso ao `/dashboard` no backend).
+- [x] Login: validação no cliente (e-mail, senha `@NotBlank`), guarda de envio duplo (`hooks/useEnvioUnico.js`, por ref) + botão em carregamento, 401 com mensagem fixa "E-mail ou senha inválidos" sem marcar campo (`loginSchema.mensagemErroLogin`), e-mail em minúsculas, link "Esqueci minha senha". Pós-login: rota de origem (só caminho interno; desde a revisão final, nunca com `\`), senão `rotaInicialDoPerfil` (hoje o Painel para todos).
 - [x] Tela "Esqueci minha senha" (`/esqueci-senha`, dentro de `AuthLayout` + `GuestRoute`): mensagem neutra **fixa do front** para qualquer desfecho (200, 4xx, 5xx, rede, tempo esgotado) — `hooks/useRecuperacaoSenha.useEsqueciSenha`.
 - [x] Tela "Redefinir senha" (`/reset-password?token=`, dentro de `AuthLayout` **sem** `GuestRoute`, para quem está logado não perder o token num redirecionamento): nova senha + confirmação (6–72 caracteres, `@NotBlank`, ≤ 72 bytes), token ausente/inválido/expirado → mensagem e link "Pedir um novo link".
 - [x] Schemas: `schemas/senhaSchema.js` (validações, mensagens, `isTokenInvalido`, `mapearErroRedefinicao`) e `MENSAGEM_CREDENCIAIS_INVALIDAS` em `loginSchema.js`.
@@ -214,10 +210,6 @@ Por prioridade para o frontend (cada item que mude schema exige migration nova; 
 - [x] Comentário de `authService.js` sobre maiúsculas atualizado.
 - [x] Testes: componentes (`LoginForm`, `EsqueciSenhaForm`, `RedefinirSenhaForm` — sucesso, credenciais erradas, envio duplo, logout, mensagem neutra em 5 desfechos, token inválido/ausente, 400 de senha), `senhaSchema.test.js` e fluxo forgot → reset → login no `servidorSimulado.test.js`. `test-utils/transporte.js` troca só o adaptador do axios (interceptores e `ApiError` reais).
 - [x] Pendências novas do backend: seção 5, item 3b. Itens 1, 3, 5 e 6 corrigidos no backend (commit `fix(auth)`, testes em `AuthServiceTest`, `AuthControllerTest`, `SenhaBcryptTest`, `UsuarioServiceTest` e `RecuperacaoSenhaIntegrationTest`).
-
-### Backlog do TCC (segurança da autenticação)
-- [ ] Encerrar as sessões abertas ao redefinir a senha (seção 5, item 3b.2): migration com `senha_alterada_em` em `usuarios` + recusa no `JwtAuthenticationFilter` de token com `iat` anterior.
-- [ ] Mitigar enumeração por tempo e força bruta (seção 5, item 3b.4): envio de e-mail assíncrono no forgot-password e rate limit em `/auth/login` e `/auth/forgot-password`.
 
 ### Membros (concluído em 2026-10-27)
 - [x] Contrato conferido no `MembroController`/`MembroRequest`/`MembroService` (seção 2, linhas 4–8); permissões conferidas (seção 4, item 6).
@@ -250,11 +242,6 @@ Por prioridade para o frontend (cada item que mude schema exige migration nova; 
 - [x] Backend (`fix(eventos)`, antes do commit do front): fuso configurável + `Clock`, RN09 → 409, consulta para qualquer autenticado, ordenação padrão `data`/`horario`/`id`, `EventoServiceTest` e `EventoControllerSecurityTest`. Conferido na API real em container: T consulta (200) e não cadastra (403), PUT de S em evento encerrado → 409, JVM com `-Duser.timezone=$APP_TIMEZONE`.
 - [ ] Rodar o roteiro manual com o backend real (`DEMO_DATA_ENABLED=true`).
 
-### Backlog do TCC (eventos)
-- [ ] **Hora de término** do evento: migration com `horario_fim` (ou `duracao_minutos`) em `eventos`, campo no `EventoRequest`/`EventoResponse` e no formulário. Com ela, decidir se a RN09 passa a considerar o fim (hoje um culto em andamento já está "encerrado" e o Secretário não consegue corrigir nem o local).
-- [ ] **Janela de correção para o Secretário**: hoje um evento cadastrado com início no passado (decisão da seção 5, item 11.5) nasce encerrado, e só o Administrador corrige. Proposta: a RN09 libera o Secretário durante um prazo após o **cadastro** (ex.: 24 h), o que exige migration com `criado_em` em `eventos`, o prazo configurável e a mesma regra em `EventoService.jaEncerrado` e em `situacaoEdicaoEvento` (front). Definir o prazo com a igreja.
-- [ ] **Busca por título** (e talvez local) no `GET /events` (`?titulo=`, contendo e sem diferenciar maiúsculas, como o `nome` de membros); no front, campo de busca na lista com a espera de 400 ms e o termo na URL.
-
 ### Financeiro (concluído em 2026-10-28)
 - [x] Contrato conferido no código e na API real (container, `DEMO_DATA_ENABLED=true`): `GET /financial` sem 500; `valor` volta como número JSON (`720.00`); `summary` ok; 400 para valor negativo/zero/3 casas/11 dígitos e categoria nula; 400 tipo ≠ categoria; 404 categoria/membro; 409 categoria duplicada; T não exclui (403).
 - [x] RN06/RN07 (`@DecimalMin 0.01` + `CHECK valor > 0`) e RN10 (`@NotNull categoriaId` + `categoria_id NOT NULL`) **já validadas no backend**; faltava teste → commit `test(financeiro)` só com `MovimentacaoFinanceiraRequestTest` (valor nulo, zero, negativo, 3 casas, 11 dígitos e categoria ausente).
@@ -269,7 +256,7 @@ Por prioridade para o frontend (cada item que mude schema exige migration nova; 
 - [x] Mock: `handlers/financeiro.js` + 6 categorias e 11 lançamentos × 2 meses do `DadosDemonstracaoService`; RN14 do mock agora consulta as movimentações.
 - [ ] Rodar o roteiro manual com o backend real (`DEMO_DATA_ENABLED=true`).
 
-Pendências novas do backend (Financeiro): filtro `membroId` em `GET /financial` (`tipo`/`categoriaId` feitos); `summary` com os mesmos filtros (hoje a lista filtrada por categoria não mostra totais); série por mês/dia e totais por categoria; exportação (PDF/CSV); desempate no `@PageableDefault(sort = "data")` (`data`, `id`); validar `dataInicio <= dataFim` também no `summary`; `GET /financial-categories` sem ordem (front ordena) e unicidade sensível a maiúsculas/espaços; editar/excluir categoria; RN05 Fase 2 (conciliação: bloquear exclusão) não implementada.
+Pendências do Financeiro que ficaram abertas: seção 5, item 9 (as demais — `summary` com filtros, série, totais por categoria, desempate, período invertido no `summary` — foram feitas no Dashboard).
 
 ### Dashboard (concluído em 2026-10-28)
 - [x] Contrato conferido no `DashboardController`/`DashboardService`/`DashboardResponse` e na API real (branch na porta 8081, dados de demonstração): os 5 perfis recebem 200 com os blocos certos; série, categorias, período invertido (400) e S na série (403) conferidos.
@@ -282,7 +269,7 @@ Pendências novas do backend (Financeiro): filtro `membroId` em `GET /financial`
 - [x] Mock: `handlers/dashboard.js` + agregações em `handlers/financeiro.js`; `servidorSimulado.test.js` cobre as rotas novas.
 - [x] Testes: `DashboardPage.test.jsx` (5 perfis, null do backend, atalhos, consultas feitas, falha do `/dashboard`, da série e do resumo isoladas, erro de renderização preso no bloco), `FinanceiroPage.test.jsx` (agregações e período com mais de 2000 lançamentos), `fluxoDeCaixa.test.js`, `consultaFinanceiro.test.js`, `permissoes.test.js`, `navegacao.test.js`, `AppRoutes.test.jsx`, `redirecionamento.test.js`.
 - [x] **Novos membros e contagens por status** (`feat(api)` próprio, antes do das agregações): migration V7 (`criado_em`, sem backfill: os membros já existentes ficam `NULL` e nunca aparecem como novos), auditoria do JPA com o `Clock` (nunca a hora da JVM; não muda na edição, `updatable = false`), `/dashboard` com `membrosAfastados`, `membrosVisitantes`, `novosMembros` (≤ 10) e `totalNovosMembros` (últimos 30 dias, A P S). A carga de demonstração deixa só os 3 últimos membros com data (os demais `NULL`, como "anteriores ao sistema"). Testes: `NovosMembrosIntegrationTest` (Clock fixo em 2099: cadastro grava a hora do Clock, edição não muda, janela de 30 dias, `NULL` fora, contagens somam o total, T recebe null), `DashboardServiceTest`, `DashboardControllerSecurityTest` e `DadosDemonstracaoServiceTest`. No Painel: bloco Membros com total/ativos/afastados/visitantes (cada um leva à lista filtrada) e bloco "Novos membros" (data e status, leva à ficha). Mock: `criadoEm` no banco simulado (fora do `MembroResponse`), preenchido no cadastro e mantido na edição.
-- [x] Fora (pendência 6): aniversariantes da semana.
+- [x] Fora (seção 5, item 10): aniversariantes da semana.
 - [ ] Rodar o roteiro manual com o backend real (`DEMO_DATA_ENABLED=true`) e os 5 perfis.
 
 ### Usuários e Minha conta (concluído em 2026-10-29)
@@ -296,12 +283,85 @@ Pendências novas do backend (Financeiro): filtro `membroId` em `GET /financial`
 - [x] Tela do link: `/reset-password?token=…&convite=1` mostra "Bem-vindo ao ChurchHub! Defina sua senha para começar.", botão "Definir senha" e a mensagem de convite vencido; o indicador só muda o texto (o corpo enviado é o mesmo). "E-mails simulados" distingue convite de redefinição e aparece também em `/usuarios` no modo simulado.
 - [x] Mock: `handlers/usuarios.js`, `handlers/conta.js` e a autenticação simulada com desativação, senha e perfil; `servidorSimulado.test.js` cobre tudo.
 - [x] Testes: `UsuariosPage.test.jsx`, `MinhaContaPage.test.jsx`, `AuthProvider.test.jsx` (nome do `/me`, aviso de acesso alterado, token novo após a troca), `RedefinirSenhaForm.test.jsx` (convite), `usuarioSchema.test.js`, `consultaUsuarios.test.js`, `contaSchema.test.js`, `httpClient.test.js`, `permissoes.test.js`, `navegacao.test.js`, `AppRoutes.test.jsx`.
-- [ ] Backlog do TCC: vínculo usuário ↔ membro e o membro editar a própria ficha (pendência 8); texto real do e-mail de convite; limite de tentativas da senha atual.
+- [x] Backlog do TCC registrado na seção 7: vínculo usuário ↔ membro e o membro editar a própria ficha; texto real do e-mail de convite; limite de tentativas da senha atual.
 
-### Revisão final
-- [ ] `permissoes.js` × todos os `@PreAuthorize` (linha a linha) e `permissoes.test.js`.
-- [ ] `servidorSimulado.test.js` cobrindo todas as rotas novas.
-- [ ] Rodar todos os fluxos com backend real (`DEMO_DATA_ENABLED=true`) com os 5 perfis.
-- [ ] `npm test`, `npm run lint`, `npm run build`.
-- [ ] Atualizar `frontend/README.md` (contrato consumido) e este arquivo.
-- [ ] Produção: `VITE_API_BASE_URL` absoluto, `CORS_ALLOWED_ORIGINS` com o domínio da Vercel, `VITE_API_TIMEOUT_MS=90000`.
+### Revisão final (2026-11-03, branch `chore/revisao-final`)
+- [x] `permissoes.js` × todos os `@PreAuthorize` (7 controllers, linha a linha) e `permissoes.test.js`; rotas, menu, botões e links do Painel percorridos para os 5 perfis (matriz na seção 4). Nenhuma divergência.
+- [x] Contrato: os 34 endpoints têm chamada nos services e rota no mock; campos das respostas do mock conferidos com os 16 DTOs `*Response`; `servidorSimulado.test.js` passa por todas as rotas.
+- [x] Testes: data fixa em todos (`test-utils/relogio.js` em `setupFiles`, `fixarAgora` por teste) — um teste do fluxo de caixa falhava no começo do mês; `LoginForm.test.jsx` com o servidor simulado respondendo por rota (o transporte falso devolvia o corpo do login para tudo e o Painel quebrava no console); suíte sem saída de erro. Novos: teclado do Modal e do menu do celular, envio duplo no formulário de membro, contraste dos tokens, token fora da URL, redirecionamento com `\`.
+- [x] Segurança: `destinoAposLogin` recusa `\`; token de `/reset-password` sai da URL (replace) depois de lido; `vercel.json` com CSP, `X-Frame-Options`, `X-Content-Type-Options` e `Referrer-Policy`. Nenhum `console`, nenhum segredo versionado.
+- [x] Acessibilidade: `--color-ink-subtle` (texto secundário) e o dourado do topo com ≥ 4,5:1; borda de campo ≥ 3:1 (`--color-line-control`); menu do celular com `role="dialog"`.
+- [x] Código: `ListaSkeleton` único (Usuários deixou o spinner de página inteira), constantes repetidas em `constants/consultas.js`, `useEnvioUnico` em todos os formulários, `EmConstrucaoPage` e `PodeAcessar` removidos.
+- [x] Dependências: `npm audit fix` sem versão major (follow-redirects). Upgrades major no backlog (seção 7, item T1).
+- [x] `npm test` (640 testes, 50 arquivos), `npm run lint` e `npm run build` sem avisos.
+- [x] `frontend/README.md` (como rodar, modo simulado, variáveis, contas por perfil, deploy) e README da raiz.
+- [ ] Rodar todos os fluxos com o backend real (`DEMO_DATA_ENABLED=true`) e os 5 perfis — **não feito nesta revisão** (só testes automatizados e modo simulado); fazer no ensaio da apresentação.
+- [ ] Produção: `VITE_API_BASE_URL` absoluto, `CORS_ALLOWED_ORIGINS` com o domínio da Vercel, `VITE_API_TIMEOUT_MS=90000` e `connect-src` da CSP restrito à origem da API (`frontend/README.md`, "Deploy").
+
+## 7. Fase 2 e backlog do TCC
+
+Lista única para planejar o TCC, consolidada na revisão final (2026-11-03). Prioridade sugerida: **Alta** = antes de qualquer uso com dados reais ou bloqueia outros itens; **Média** = melhora clara para a igreja ou para a manutenção; **Baixa** = conveniência. "Back" e "Front" dizem onde está o trabalho; o número entre parênteses aponta para a pendência da seção 5.
+
+### Fase 2 (prevista na especificação)
+
+| Regra | O que é | Onde entra |
+|---|---|---|
+| Perfil **Líder** + módulo de **Ministérios** | Quinto perfil de gestão, ligado aos ministérios; hoje `NomePerfil` não tem Líder e `POST/PUT /users` recusa com 400 | Back: enum, migration, `@PreAuthorize` dos novos controllers. Front: `PERFIS`, `permissoes.js` + teste, `OPCOES_PERFIL` de usuários, módulo novo |
+| **RN14 Fase 2** | Excluir membro com histórico financeiro mediante confirmação administrativa | Back: endpoint ou parâmetro a definir. Front: etapa nova em `hooks/useExclusaoMembro.js` / `schemas/exclusaoMembro.js` |
+| **RN05 Fase 2** | Conciliação financeira: lançamento conciliado não pode ser excluído | Back: migration + regra no `MovimentacaoFinanceiraService`. Front: `ExcluirMovimentacaoDialog` (já comentado) |
+
+### Backlog do TCC, por tema
+
+**Técnico — primeira tarefa do TCC**
+
+| # | Item | Prioridade | Justificativa |
+|---|---|---|---|
+| T1 | **Atualizar as dependências com versão major**: `react-router-dom` 6 → 7, `vite` 5 → 6.4.4+ (com `@vitejs/plugin-react` compatível), `vitest` 2 → 3+ (e `jsdom`), plugins do ESLint | **Alta** | O `npm audit` aponta 15 alertas que só somem com versão major: react-router (2 moderados; o redirecionamento com `\` já é barrado em `destinoAposLogin` e o outro alerta é de SSR, que o app não usa), vite/esbuild (servidor de desenvolvimento), vitest/tinypool (crítico no executor de testes) e eslint/minimatch. Nada disso entra no bundle publicado, por isso não foi feito antes da apresentação (decisão de 2026-11-03: sem upgrade major no fim do PI). Os testes e o app já usam as flags `v7_startTransition` e `v7_relativeSplatPath`, o que facilita o router 7. Fazer em commit próprio, um pacote por vez, com `npm test`, `lint` e `build` a cada passo |
+| T2 | Erros de validação estruturados por campo (5.2) | Média | Hoje o front deduz o campo pelo texto da mensagem; qualquer mudança de texto no backend tira o erro do lado do campo |
+| T3 | Fixar o formato da página do Spring (5.1) | Média | Evita mudança silenciosa numa atualização do Spring Boot |
+| T4 | Filtros de data com um só limite e período invertido nas listas (5.6) | Baixa | O front já impede; é para quem usar a API direto |
+| T5 | Exports desnecessários (~40 constantes e funções exportadas e usadas só no próprio arquivo) | Baixa | Limpeza; o ESLint não acusa |
+
+**Segurança**
+
+| # | Item | Prioridade |
+|---|---|---|
+| S1 | Rate limit em `/auth/login`, `/auth/forgot-password` e na senha atual de `PUT /me/password` + envio de e-mail assíncrono contra enumeração por tempo (5.4) | **Alta** |
+| S2 | Refresh token e sessão em cookie `httpOnly` em vez de `sessionStorage` (5.5) | Média |
+| S3 | Hospedar as fontes no próprio app (sem Google Fonts: privacidade/LGPD e CSP sem domínio de terceiro) e restringir o `connect-src` da CSP à origem da API | Baixa |
+
+**Membros**
+
+| # | Item | Prioridade |
+|---|---|---|
+| M1 | Busca por e-mail e CPF; busca sem acento (`unaccent`) (5.7) | Média |
+| M2 | Unicidade de e-mail sem diferenciar maiúsculas (`lower(email)`) e mensagem certa em cadastros simultâneos (5.7) | Média |
+| M3 | RN14 Fase 2 (tabela acima) | Média |
+| M4 | Data de cadastro na ficha, "Ver todos" dos novos membros, aniversariantes da semana no Painel (5.7, 5.10) | Baixa |
+
+**Eventos**
+
+| # | Item | Prioridade |
+|---|---|---|
+| E1 | Hora de término (migration `horario_fim` ou `duracao_minutos`) e decidir se a RN09 passa a considerar o fim — hoje um culto em andamento já está "encerrado" para o Secretário (5.8) | Média |
+| E2 | Janela de correção para o Secretário em evento cadastrado no passado (prazo após o cadastro, ex.: 24 h; migration `eventos.criado_em`; mesma regra em `EventoService.jaEncerrado` e `situacaoEdicaoEvento`) (5.8) | Média |
+| E3 | Busca por título (`?titulo=`) com campo de busca na lista e termo na URL (5.8) | Baixa |
+
+**Financeiro**
+
+| # | Item | Prioridade |
+|---|---|---|
+| F1 | Exportação do relatório em PDF/CSV (hoje, impressão do navegador) (5.9) | Média |
+| F2 | Editar, excluir e buscar categoria; lista ordenada e unicidade sem maiúsculas/espaços (5.9) | Média |
+| F3 | RN05 Fase 2: conciliação (tabela acima) | Média |
+| F4 | Filtro por membro na lista de movimentações (`membroId`) (5.9) | Baixa |
+
+**Usuários**
+
+| # | Item | Prioridade |
+|---|---|---|
+| U1 | **E-mail de verdade**: `MailSender` com SMTP, `FRONTEND_URL` no link e o texto dos e-mails de convite e de redefinição (5.3). Sem isso, convite e "Esqueci minha senha" só funcionam lendo o log da API | **Alta** |
+| U2 | Vínculo usuário ↔ membro (`usuarios.membro_id`) e o membro editar a própria ficha em Minha conta (`PUT /me`: telefone e endereço) (5.11) | Média |
+| U3 | Perfil Líder (Fase 2, tabela acima) | Média |
+
+**Ordem sugerida:** T1 → S1 e U1 (antes de qualquer igreja usar com dados reais) → T2/T3 → itens de Média por tema, conforme o que a igreja pedir → Baixa.

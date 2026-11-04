@@ -7,11 +7,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ChurchHub: church management system (members, events, finances, dashboard, password reset). Monorepo with two independent apps:
 
 - `backend/` — Spring Boot 4.1, Java 21, PostgreSQL 17, Flyway, Spring Security + JWT (jjwt), springdoc OpenAPI, Lombok. Package root `br.com.churchhub.api`.
-- `frontend/` — React 18 + Vite 5, plain JavaScript (no TypeScript), react-router-dom 6, axios, CSS Modules, Vitest. No UI library. Deployed on Vercel (`vercel.json` has SPA rewrites).
+- `frontend/` — React 18 + Vite 5, plain JavaScript (no TypeScript), react-router-dom 6, axios, CSS Modules, Vitest. No UI library. Deployed on Vercel (`vercel.json` has SPA rewrites and security headers, including a CSP).
 
 Code, identifiers, messages and docs are in Brazilian Portuguese — keep new code consistent (e.g. `nome`, `buscarPorId`, `MembroService`). Comments reference requirement IDs from the project spec (`RN14`, `RNF23`, `06-Database.md`, `07-API.md`); those spec docs are not in the repo.
 
-`frontend/README.md` is the most detailed doc (API contract, demo accounts, architecture decisions) — read it before non-trivial frontend or integration work.
+`frontend/README.md` (how to run, env vars, demo accounts per profile, deploy, architecture decisions) and `docs/frontend-integracao.md` (endpoint-by-endpoint contract, permission matrix, mock divergences, open backend items and the prioritized TCC backlog) are the detailed docs — read them before non-trivial frontend or integration work.
 
 ## Commands
 
@@ -38,7 +38,7 @@ Swagger UI is public, as is `/actuator/health`. Set `DEMO_DATA_ENABLED=true` to 
 cp .env.example .env
 npm install
 npm run dev                     # :5173, proxies /api to DEV_PROXY_TARGET (default :8080)
-npm test                        # vitest run (node env, src/**/*.test.js only)
+npm test                        # vitest run (src/**/*.test.{js,jsx}; node env, *.test.jsx opt into jsdom; Date fixed at 2026-10-20 by test-utils/relogio.js, fixarAgora() per test)
 npx vitest run src/utils/cpf.test.js   # single file
 npx vitest run -t "nome do teste"      # by test name
 npm run lint                    # ESLint (forbids console)
