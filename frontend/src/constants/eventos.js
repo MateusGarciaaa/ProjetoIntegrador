@@ -14,11 +14,6 @@ export const FUSO_HORARIO_SERVIDOR = 'America/Sao_Paulo';
 
 export const TAMANHO_PAGINA_EVENTOS = 10;
 
-/**
- * O calendário traz as 6 semanas da grade numa só página: 2000 é o máximo do Spring
- * (TAMANHO_MAXIMO_PAGINA em services/http/pagina.js); acima disso ele reduz sem erro.
- */
-export const TAMANHO_PAGINA_CALENDARIO = 2000;
 
 /** Campos que a lista deixa ordenar; a URL só aceita estes, o resto volta ao padrão. */
 export const CAMPOS_ORDENAVEIS_EVENTOS = Object.freeze(['data', 'titulo']);

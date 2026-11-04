@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
-import { TAMANHO_PAGINA_CALENDARIO, TAMANHO_PAGINA_EVENTOS } from '../constants/eventos';
+import { TAMANHO_MAXIMO_PAGINA } from '../constants/consultas';
+import { TAMANHO_PAGINA_EVENTOS } from '../constants/eventos';
 import { criteriosOrdenacaoEventos } from '../schemas/consultaEventos';
 import { eventosService } from '../services/events/eventosService';
 import { intervaloDaGrade } from '../utils/calendario';
@@ -35,7 +36,7 @@ export function useEventosDoMes(mes) {
       dataInicio: inicio,
       dataFim: fim,
       pagina: 0,
-      tamanho: TAMANHO_PAGINA_CALENDARIO,
+      tamanho: TAMANHO_MAXIMO_PAGINA, // as 6 semanas da grade numa página só
       ordenacao: criteriosOrdenacaoEventos({ campo: 'data', direcao: 'asc' }),
     };
   }, [mes]);

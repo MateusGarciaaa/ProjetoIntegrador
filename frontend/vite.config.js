@@ -33,6 +33,8 @@ export default defineConfig(({ mode }) => {
       // Padrão: node (funções puras). Testes de componente (*.test.jsx) declaram no topo:
       //   // @vitest-environment jsdom
       include: ['src/**/*.test.{js,jsx}'],
+      // Data fixa em todos os testes (nenhum depende do dia real); fixarAgora() muda por teste.
+      setupFiles: ['src/test-utils/relogio.js'],
     },
   };
 });

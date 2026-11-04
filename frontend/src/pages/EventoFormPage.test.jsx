@@ -6,8 +6,9 @@ import { agoraDoServidor, MENSAGEM_RN09_BACKEND, MOTIVO_EVENTO_ENCERRADO } from 
 import { criarEventosIniciais } from '../services/mock/dadosIniciais';
 import { abrirApp, abrirAppComServidor } from '../test-utils/app';
 import { corpoApi, instalarTransporte, resposta } from '../test-utils/transporte';
+import { AGORA_DOS_TESTES } from '../test-utils/relogio';
 
-const EVENTOS = criarEventosIniciais(agoraDoServidor().data);
+const EVENTOS = criarEventosIniciais(agoraDoServidor(new Date(AGORA_DOS_TESTES)).data);
 const ENCERRADO = EVENTOS.find((e) => e.titulo === 'Culto de ação de graças');
 const FUTURO = EVENTOS.find((e) => e.titulo === 'Conferência de famílias');
 

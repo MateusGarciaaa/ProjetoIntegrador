@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { ATRASO_BUSCA_MS } from '../../constants/membros';
+import { ATRASO_BUSCA_MS } from '../../constants/consultas';
 import { OPCOES_STATUS } from '../../constants/statusMembro';
 import { useDebouncedValue } from '../../hooks/useDebouncedValue';
 import { SelectField } from '../ui/FormField';

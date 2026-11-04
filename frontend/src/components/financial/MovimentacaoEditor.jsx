@@ -1,6 +1,7 @@
 import { useId, useState } from 'react';
 import { PERMISSOES } from '../../constants/permissoes';
 import { useCategorias } from '../../hooks/useCategorias';
+import { useEnvioUnico } from '../../hooks/useEnvioUnico';
 import { useMovimentacaoForm } from '../../hooks/useMovimentacaoForm';
 import { usePermissao } from '../../hooks/usePermissao';
 import { isMovimentacaoInexistente, mapearErroDoServidor } from '../../schemas/movimentacaoSchema';
@@ -25,7 +26,7 @@ export function MovimentacaoEditor({ movimentacao, hoje, onSalva, onCancelar, on
     movimentacao,
     { hoje, categorias },
   );
-  const [enviando, setEnviando] = useState(false);
+  const { enviando, executar } = useEnvioUnico();
   const [erroGeral, setErroGeral] = useState(null);
   const [criandoCategoria, setCriandoCategoria] = useState(false);
 
@@ -42,7 +43,6 @@ export function MovimentacaoEditor({ movimentacao, hoje, onSalva, onCancelar, on
 
   async function enviar(evento) {
     evento.preventDefault();
-    if (enviando) return;
     setErroGeral(null);
 
     const { payload, primeiroInvalido } = prepararEnvio();
@@ -51,23 +51,23 @@ export function MovimentacaoEditor({ movimentacao, hoje, onSalva, onCancelar, on
       return;
     }
 
-    setEnviando(true);
-    try {
-      const salva = editando ? await financeiroService.atualizar(movimentacao.id, payload) : await financeiroService.cadastrar(payload);
-      onSalva(salva);
-    } catch (erro) {
-      setEnviando(false);
-      if (erro.isFimDeSessao?.()) return;
-      if (editando && isMovimentacaoInexistente(erro)) {
-        onRemovida();
-        return;
+    await executar(async () => {
+      try {
+        const salva = editando ? await financeiroService.atualizar(movimentacao.id, payload) : await financeiroService.cadastrar(payload);
+        onSalva(salva);
+      } catch (erro) {
+        if (erro.isFimDeSessao?.()) return;
+        if (editando && isMovimentacaoInexistente(erro)) {
+          onRemovida();
+          return;
+        }
+        const { camposErro, erroGeral: mensagemGeral } = mapearErroDoServidor(erro);
+        aplicarErrosDoServidor(camposErro);
+        setErroGeral(mensagemGeral);
+        const campoComErro = Object.keys(camposErro)[0];
+        if (campoComErro) focarCampo(campoComErro);
       }
-      const { camposErro, erroGeral: mensagemGeral } = mapearErroDoServidor(erro);
-      aplicarErrosDoServidor(camposErro);
-      setErroGeral(mensagemGeral);
-      const campoComErro = Object.keys(camposErro)[0];
-      if (campoComErro) focarCampo(campoComErro);
-    }
+    });
   }
 
   return (

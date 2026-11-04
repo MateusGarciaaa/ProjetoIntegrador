@@ -7,7 +7,6 @@ import { criarMapeadorDeErros } from './errosServidor';
 /** Os campos têm os nomes do MovimentacaoFinanceiraRequest (membro guarda { id, nome, status? }), na ordem da tela. */
 export const CAMPOS_MOVIMENTACAO = Object.freeze(['tipo', 'valor', 'data', 'categoriaId', 'descricao', 'membro']);
 
-export const TAMANHO_DATA_MASCARADA = 10;
 
 /** Valor com vírgula decimal: "1234", "1234,5" ou com pontos de milhar ("1.234,56", como valorParaCampo formata). */
 const PADRAO_VALOR_BR = /^(?:\d+|\d{1,3}(?:\.\d{3})+)(?:,(\d*))?$/;

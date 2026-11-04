@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
-import { EventosSkeleton } from '../components/events/EventosSkeleton';
 import { ExcluirMovimentacaoDialog } from '../components/financial/ExcluirMovimentacaoDialog';
 import { MolduraFinanceiro } from '../components/financial/MolduraFinanceiro';
 import { MovimentacoesFiltros } from '../components/financial/MovimentacoesFiltros';
 import { MovimentacoesLista } from '../components/financial/MovimentacoesLista';
 import { Button, ButtonLink } from '../components/ui/Button';
 import { EmptyState } from '../components/ui/EmptyState';
+import { ListaSkeleton } from '../components/ui/ListaSkeleton';
 import { Pagination } from '../components/ui/Pagination';
 import { infoTipoMovimentacao } from '../constants/financeiro';
 import { PERMISSOES } from '../constants/permissoes';
@@ -65,7 +65,7 @@ function Resultado({ estado, consulta, botaoNovo, acoes, lista }) {
     );
   }
 
-  if (!pagina) return <EventosSkeleton rotulo="Carregando movimentações…" />;
+  if (!pagina) return <ListaSkeleton rotulo="Carregando movimentações…" />;
 
   if (pagina.totalElements === 0 && temFiltroDeLista(consulta)) {
     return (

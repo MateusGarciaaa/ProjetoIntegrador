@@ -8,8 +8,9 @@ import { CONTAS_DEMO, SENHA_DEMO } from '../services/mock/contasDemo';
 import { criarServidorSimulado } from '../services/mock/servidorSimulado';
 import { abrirApp } from '../test-utils/app';
 import { corpoApi, instalarTransporte, resposta, transporteDoServidor } from '../test-utils/transporte';
+import { AGORA_DOS_TESTES } from '../test-utils/relogio';
 
-const MES = periodoPadrao(agoraDoServidor().data);
+const MES = periodoPadrao(agoraDoServidor(new Date(AGORA_DOS_TESTES)).data);
 const TITULOS = Object.freeze({
   financeiro: `Financeiro — ${descreverPeriodo(MES)}`,
   membros: 'Membros',

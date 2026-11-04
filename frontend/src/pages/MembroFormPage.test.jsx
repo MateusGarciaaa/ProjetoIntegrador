@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { fireEvent, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 import { PERFIS } from '../constants/perfis';
 import { criarMembrosIniciais } from '../services/mock/dadosIniciais';
@@ -137,6 +137,31 @@ describe('cadastro de membro', () => {
     });
     expect(await screen.findByRole('heading', { name: 'Paulo Henrique' })).toBeTruthy();
     expect(localizacao.atual.pathname).toMatch(/^\/membros\/[0-9a-f-]+$/);
+  });
+
+  it('envio duplo: dois envios no mesmo instante fazem um só POST', async () => {
+    abrir('/membros/novo');
+    await preencherNovo();
+    // Segura o POST até o teste liberar; as demais rotas respondem na hora.
+    const responder = transporte.adapter.getMockImplementation();
+    let liberar;
+    transporte.adapter.mockImplementation((config) =>
+      config.method === 'post' ? new Promise((resolve) => (liberar = () => resolve(responder(config)))) : responder(config),
+    );
+
+    const formulario = screen.getByRole('button', { name: 'Cadastrar membro' }).closest('form');
+    // Os dois no mesmo act: o React só desenha o botão em carregamento depois dos dois envios,
+    // então um `if (enviando)` (estado) deixaria passar o segundo; a ref do useEnvioUnico, não.
+    act(() => {
+      formulario.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+      formulario.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+    });
+    await waitFor(() => expect(chamadas('post')).toHaveLength(1));
+    fireEvent.submit(formulario);
+
+    liberar();
+    expect(await screen.findByText('Membro cadastrado.')).toBeTruthy();
+    expect(chamadas('post')).toHaveLength(1);
   });
 });
 

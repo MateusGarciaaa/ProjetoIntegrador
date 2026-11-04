@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
-import { fireEvent, render, screen } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { MemoryRouter, useLocation } from 'react-router-dom';
 import { afterEach, describe, expect, it } from 'vitest';
 import { RedefinirSenhaPage } from '../../pages/RedefinirSenhaPage';
 import { MENSAGEM_TOKEN_INVALIDO } from '../../schemas/senhaSchema';
@@ -124,5 +124,36 @@ describe('link de convite (&convite=1)', () => {
   it('sem o indicador (ou com outro valor), a tela continua sendo a de redefinição', () => {
     abrir(`/reset-password?token=${TOKEN}&convite=talvez`);
     expect(screen.getByRole('heading', { name: 'Redefinir senha' })).toBeTruthy();
+  });
+});
+
+describe('o token sai da URL', () => {
+  function abrirComLocalizacao(url) {
+    const localizacao = { atual: null };
+    function Sonda() {
+      localizacao.atual = useLocation();
+      return null;
+    }
+    render(
+      <MemoryRouter initialEntries={[url]} future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+        <RedefinirSenhaPage />
+        <Sonda />
+      </MemoryRouter>,
+    );
+    return localizacao;
+  }
+
+  it('depois de lido, o token some da barra de endereço (replace), o convite fica e o envio ainda usa o token', async () => {
+    transporte = instalarTransporte(resposta(204));
+    const localizacao = abrirComLocalizacao(`/reset-password?token=${TOKEN}&convite=1`);
+
+    await waitFor(() => expect(localizacao.atual.search).toBe('?convite=1'));
+    expect(screen.getByRole('heading', { name: 'Bem-vindo ao ChurchHub!' })).toBeTruthy();
+    fireEvent.change(screen.getByLabelText('Nova senha'), { target: { value: 'novaSenha1' } });
+    fireEvent.change(screen.getByLabelText('Confirme a nova senha'), { target: { value: 'novaSenha1' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Definir senha' }));
+
+    expect(await screen.findByText('Senha definida. Entre com o seu e-mail e a nova senha.')).toBeTruthy();
+    expect(transporte.corpoEnviado()).toEqual({ token: TOKEN, newPassword: 'novaSenha1' });
   });
 });

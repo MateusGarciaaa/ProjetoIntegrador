@@ -4,7 +4,7 @@ import { formatarData } from '../../utils/datas';
 import { Button } from '../ui/Button';
 import { EmptyState } from '../ui/EmptyState';
 import { Pagination } from '../ui/Pagination';
-import { EventosSkeleton } from './EventosSkeleton';
+import { ListaSkeleton } from '../ui/ListaSkeleton';
 import { EventosLista } from './EventosLista';
 import styles from './EventosResultado.module.css';
 
@@ -29,7 +29,7 @@ export function EventosResultado({ pagina, erro, carregando, consulta, botaoNovo
     );
   }
 
-  if (!pagina) return <EventosSkeleton />;
+  if (!pagina) return <ListaSkeleton rotulo="Carregando eventos…" />;
 
   if (pagina.totalElements === 0 && temPeriodo(consulta)) {
     return (

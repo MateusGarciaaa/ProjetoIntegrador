@@ -5,8 +5,6 @@ export const LIMITES_USUARIO = Object.freeze({ nome: 150, email: 150 });
 
 export const TAMANHO_PAGINA_USUARIOS = 10;
 
-/** Espera depois da digitação antes de buscar por nome (a mesma da lista de membros). */
-export const ATRASO_BUSCA_USUARIOS_MS = 400;
 
 /**
  * Perfis que o administrador pode atribuir (RN01: exatamente um). São os do enum NomePerfil;

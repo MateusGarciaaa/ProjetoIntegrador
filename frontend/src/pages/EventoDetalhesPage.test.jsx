@@ -5,9 +5,10 @@ import { PERFIS } from '../constants/perfis';
 import { agoraDoServidor, MOTIVO_EVENTO_ENCERRADO } from '../schemas/regrasEvento';
 import { criarEventosIniciais } from '../services/mock/dadosIniciais';
 import { abrirAppComServidor } from '../test-utils/app';
+import { AGORA_DOS_TESTES } from '../test-utils/relogio';
 import { formatarDataPorExtenso } from '../utils/datas';
 
-const EVENTOS = criarEventosIniciais(agoraDoServidor().data);
+const EVENTOS = criarEventosIniciais(agoraDoServidor(new Date(AGORA_DOS_TESTES)).data);
 const ENCERRADO = EVENTOS.find((e) => e.titulo === 'Culto de ação de graças');
 const ORACAO = EVENTOS.find((e) => e.titulo === 'Reunião de oração');
 

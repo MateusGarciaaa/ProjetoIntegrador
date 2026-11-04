@@ -1,5 +1,6 @@
 import { infoTipoMovimentacao, LIMITES_MOVIMENTACAO } from '../../constants/financeiro';
-import { categoriasDoTipo, TAMANHO_DATA_MASCARADA } from '../../schemas/movimentacaoSchema';
+import { TAMANHO_DATA_DIGITADA } from '../../constants/consultas';
+import { categoriasDoTipo } from '../../schemas/movimentacaoSchema';
 import { Alert } from '../ui/Alert';
 import { Button } from '../ui/Button';
 import { SelectField, TextField } from '../ui/FormField';
@@ -80,7 +81,7 @@ export function MovimentacaoForm({
           inputMode="numeric"
           autoComplete="off"
           placeholder="DD/MM/AAAA"
-          maxLength={TAMANHO_DATA_MASCARADA}
+          maxLength={TAMANHO_DATA_DIGITADA}
         />
         <div className={styles.inteiro}>
           <div className={styles.categoria}>

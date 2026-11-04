@@ -5,10 +5,11 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { AuthProvider } from '../../contexts/AuthProvider';
 import { AppRoutes } from '../../routes/AppRoutes';
 import '../../test-utils/componentes';
-import { tokenCom } from '../../test-utils/tokens';
-import { corpoApi, instalarTransporte, resposta } from '../../test-utils/transporte';
+import { SENHA_DEMO } from '../../services/mock/contasDemo';
+import { criarServidorSimulado } from '../../services/mock/servidorSimulado';
+import { corpoApi, instalarTransporte, resposta, transporteDoServidor } from '../../test-utils/transporte';
 
-const SENHA = 'demo123';
+const SENHA = SENHA_DEMO;
 let transporte;
 
 afterEach(() => {
@@ -16,10 +17,12 @@ afterEach(() => {
   window.sessionStorage.clear();
 });
 
-function respostaDeLogin(perfil) {
-  const exp = Math.floor(Date.now() / 1000) + 3600;
-  const token = tokenCom({ sub: `${perfil.toLowerCase()}@churchhub.local`, perfil: `ROLE_${perfil}`, exp });
-  return resposta(200, { token, type: 'Bearer', expiresIn: 3600 });
+/**
+ * O servidor simulado responde cada rota pelo contrato do backend: o login com as contas de
+ * demonstração e, depois dele, as consultas da tela de destino (Painel, Eventos, /me).
+ */
+function servidor() {
+  return transporteDoServidor(criarServidorSimulado({ validadeTokenSegundos: 3600 }));
 }
 
 function abrir(caminho) {
@@ -40,7 +43,7 @@ async function preencherEEnviar(email, senha) {
 
 describe('login', () => {
   it('com sucesso, volta para a rota que o usuário tentou acessar', async () => {
-    transporte = instalarTransporte(respostaDeLogin('MEMBRO'));
+    transporte = instalarTransporte(servidor());
     abrir('/eventos');
 
     await preencherEEnviar('  Membro@ChurchHub.local ', SENHA);
@@ -54,7 +57,7 @@ describe('login', () => {
   });
 
   it('sem rota de origem, o Administrador vai para o Painel', async () => {
-    transporte = instalarTransporte(respostaDeLogin('ADMINISTRADOR'));
+    transporte = instalarTransporte(servidor());
     abrir('/login');
 
     await preencherEEnviar('administrador@churchhub.local', SENHA);
@@ -75,7 +78,7 @@ describe('login', () => {
   });
 
   it('valida no cliente e não chama a API com e-mail inválido ou senha vazia', async () => {
-    transporte = instalarTransporte(respostaDeLogin('MEMBRO'));
+    transporte = instalarTransporte(servidor());
     abrir('/login');
 
     await preencherEEnviar('nao-e-email', '   ');
@@ -87,7 +90,11 @@ describe('login', () => {
 
   it('bloqueia o envio duplo enquanto a primeira tentativa está em andamento', async () => {
     let concluir;
-    transporte = instalarTransporte((config) => new Promise((resolve) => (concluir = () => resolve(respostaDeLogin('MEMBRO')(config)))));
+    const responder = servidor();
+    // Segura só o login até o teste liberar; as demais rotas respondem na hora.
+    transporte = instalarTransporte((config) =>
+      config.url === '/auth/login' ? new Promise((resolve) => (concluir = () => resolve(responder(config)))) : responder(config),
+    );
     abrir('/login');
 
     await preencherEEnviar('membro@churchhub.local', SENHA);
@@ -104,7 +111,7 @@ describe('login', () => {
   });
 
   it('"Sair" limpa a sessão e o próximo login não volta para a tela anterior', async () => {
-    transporte = instalarTransporte(respostaDeLogin('MEMBRO'));
+    transporte = instalarTransporte(servidor());
     abrir('/eventos');
     await preencherEEnviar('membro@churchhub.local', SENHA);
     await screen.findByRole('heading', { name: 'Eventos' });

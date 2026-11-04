@@ -1,22 +1,63 @@
 # ChurchHub — Frontend
 
-Interface web do ChurchHub (login, recuperação de senha e cadastro de membros), escrita para consumir o backend em `../backend` **exatamente como ele é**. O backend é a fonte da verdade: nomes de campo, perfis, mensagens de erro e regras de busca foram extraídos do código Java, não de suposições.
+Interface web do ChurchHub: login e recuperação de senha, Painel, Membros, Eventos (calendário e lista), Financeiro (movimentações, fluxo de caixa e relatório), Usuários e Minha conta. Foi escrita para consumir o backend em `../backend` **exatamente como ele é**: nomes de campo, perfis, mensagens de erro e regras foram extraídos do código Java, não de suposições.
 
-Stack: React 18, Vite 5, JavaScript, react-router-dom 6, axios, CSS Modules e Vitest. Sem biblioteca de UI.
+Stack: React 18, Vite 5, JavaScript, react-router-dom 6, axios, CSS Modules e Vitest. Sem biblioteca de UI nem de gráficos.
+
+O contrato completo (endpoint por endpoint), as divergências entre o backend real e o simulado, as pendências do backend e o backlog do TCC estão em [`docs/frontend-integracao.md`](../docs/frontend-integracao.md).
 
 ## Como rodar
 
-Requer Node 18+.
+Requer Node 18+ (para o backend real: Docker, ou Java 21 + Docker só para o banco).
+
+### Modo simulado (sem backend)
 
 ```bash
-cp .env.example .env
+cd frontend
+cp .env.example .env        # e troque para VITE_USE_MOCK_API=true
 npm install
-npm run dev          # http://localhost:5173
+npm run dev                 # http://localhost:5173
 ```
 
-**Sem backend (modo demonstração):** no `.env`, defina `VITE_USE_MOCK_API=true`. O app passa a conversar com um backend simulado em memória, que imita o real (veja abaixo). Recarregar a página restaura os dados iniciais.
+O app passa a conversar com um backend simulado em memória, que imita o real: mesmas rotas, perfis, validações, mensagens, paginação e regras de negócio (RN09, RN12, RN14, convite de usuário…). Os e-mails que o backend "enviaria" (redefinição de senha e convites) aparecem no bloco **E-mails simulados**, na tela "Esqueci minha senha" e na tela de Usuários. Recarregar a página volta aos dados iniciais.
 
-**Com o backend real:** mantenha `VITE_USE_MOCK_API=false`, suba o banco (`docker compose up -d` na pasta `backend`) e o Spring Boot na porta 8080. O servidor do Vite encaminha `/api` para `DEV_PROXY_TARGET`, então o navegador só fala com `localhost:5173` e o CORS não interfere em desenvolvimento. Para ter usuários para entrar, suba o backend com `DEMO_DATA_ENABLED=true` (mesmas contas do modo simulado) ou defina `ADMIN_EMAIL`/`ADMIN_PASSWORD` no `.env` do backend.
+### Com o backend real
+
+1. Backend (pasta `backend/`):
+
+   ```bash
+   cp .env.example .env
+   # no .env: JWT_SECRET (32+ caracteres, ex.: openssl rand -base64 48) e DEMO_DATA_ENABLED=true
+   docker compose --profile app up -d --build   # banco + API em http://localhost:8080
+   ```
+
+   Alternativa para desenvolver no backend: `docker compose up -d` (só o banco) e `./mvnw spring-boot:run`.
+
+2. Frontend (pasta `frontend/`): `cp .env.example .env` (deixe `VITE_USE_MOCK_API=false`), `npm install` e `npm run dev`. O Vite encaminha `/api` para `DEV_PROXY_TARGET` (padrão `http://localhost:8080`), então o navegador só fala com `localhost:5173` e o CORS não interfere em desenvolvimento.
+
+Sem `DEMO_DATA_ENABLED=true`, não há contas de demonstração: defina `ADMIN_EMAIL`/`ADMIN_PASSWORD` no `.env` do backend para criar o primeiro administrador.
+
+**E-mails no backend real.** O backend ainda não envia e-mail: o `LoggingMailSender` registra o link no log da API. Para abrir um convite ou uma redefinição, procure a linha e cole o caminho depois de `http://localhost:5173`:
+
+```bash
+docker compose logs api | grep "\[DEV\]"
+# [DEV] Convite para joana@churchhub.local: /reset-password?token=…&convite=1
+```
+
+### Recriar o banco com os dados de demonstração limpos
+
+> **Apaga todos os dados do banco local** (membros, eventos, lançamentos, usuários criados).
+
+```bash
+cd backend
+docker compose --profile app down -v            # para tudo e apaga o volume do banco
+docker compose --profile app up -d --build      # sobe de novo; o Flyway recria as tabelas
+docker compose logs api | grep "Demonstração"   # "Demonstração carregada: 5 conta(s), 25 membros, 7 eventos, 22 movimentações."
+```
+
+A carga só roda com o banco vazio (sem membros) e usa a data do dia: eventos, lançamentos do mês e os 3 "novos membros" ficam em volta de hoje. Por isso, recrie no dia da apresentação.
+
+### Scripts
 
 | Script | O que faz |
 |---|---|
@@ -28,141 +69,126 @@ npm run dev          # http://localhost:5173
 
 ## Variáveis de ambiente
 
+Lidas só em `src/config/env.js`.
+
 | Variável | Padrão | Para quê |
 |---|---|---|
-| `VITE_API_BASE_URL` | `/api/v1` | Base da API, já com o prefixo `/api/v1` dos controllers. Com proxy use `/api/v1`; sem proxy, `http://localhost:8080/api/v1` (exige CORS funcionando no backend). |
+| `VITE_API_BASE_URL` | `/api/v1` | Base da API, já com o prefixo `/api/v1`. Com o proxy do Vite, `/api/v1`; em produção, a URL absoluta (`https://SUA-API/api/v1`). |
 | `VITE_USE_MOCK_API` | `false` | `true` liga o backend simulado. |
-| `VITE_MOCK_TOKEN_EXPIRES_IN` | `86400` | Só no modo simulado: validade do token em segundos. Use `60` para ver o logout automático em ação. |
-| `VITE_API_TIMEOUT_MS` | `15000` | Espera máxima por resposta da API. Em hospedagem gratuita, que "dorme", use `90000`. |
-| `VITE_SHOW_DEMO_ACCOUNTS` | `false` | `true` mostra os botões das contas de demonstração também com o backend real (que precisa estar com `DEMO_DATA_ENABLED=true`). |
+| `VITE_MOCK_TOKEN_EXPIRES_IN` | `86400` | Só no modo simulado: validade do token em segundos. Use `60` para ver o logout automático. |
+| `VITE_API_TIMEOUT_MS` | `15000` | Espera máxima por resposta. Em hospedagem gratuita, que "dorme", use `90000`. |
+| `VITE_SHOW_DEMO_ACCOUNTS` | `false` | `true` mostra na tela de login os botões das contas de demonstração também com o backend real. No modo simulado aparecem sempre. |
 | `DEV_PROXY_TARGET` | `http://localhost:8080` | Só para o `npm run dev`; não vai para o navegador. |
 
-Variáveis `VITE_*` são gravadas no código durante o build: ao mudar alguma em produção, é preciso gerar um novo deploy. Em produção, aponte `VITE_API_BASE_URL` para a URL absoluta da API e libere a origem do frontend em `CORS_ALLOWED_ORIGINS` no backend.
+Variáveis `VITE_*` são gravadas no código durante o build: ao mudar alguma em produção, faça um novo deploy.
 
 ## Contas de demonstração
 
-Todas com a senha **`demo123`**. Existem no modo simulado e também no backend real quando ele sobe com `DEMO_DATA_ENABLED=true`. Na tela de login, o bloco "Modo demonstração" preenche cada uma com um clique.
+Todas com a senha **`demo123`**, no modo simulado e no backend real com `DEMO_DATA_ENABLED=true`. Na tela de login, o bloco "Modo demonstração" preenche cada uma com um clique. Todos os perfis começam no **Painel**.
 
-| Perfil | E-mail | O que vê em Membros |
+| Perfil | E-mail | O que pode fazer |
 |---|---|---|
-| Administrador | `administrador@churchhub.local` | Lista, vê detalhes, cadastra, edita e exclui |
-| Secretário | `secretario@churchhub.local` | Lista, vê detalhes, cadastra e edita |
-| Pastor | `pastor@churchhub.local` | Só consulta (lista e detalhes) |
-| Tesoureiro | `tesoureiro@churchhub.local` | Sem acesso à ficha (só a busca enxuta `/members/lookup`, para o Financeiro) |
-| Membro | `membro@churchhub.local` | Página "Sem acesso" |
+| Administrador | `administrador@churchhub.local` | Tudo: Painel completo; membros (inclusive excluir); eventos (inclusive editar encerrados e excluir); financeiro (inclusive excluir); **Usuários** (convidar, editar perfil, ativar/desativar, reenviar convite) |
+| Pastor | `pastor@churchhub.local` | Painel completo; consulta membros, eventos e financeiro (lista, fluxo de caixa, relatório), sem alterar nada |
+| Secretário | `secretario@churchhub.local` | Painel sem financeiro; cadastra e edita membros (não exclui); cadastra e edita eventos ainda não encerrados (RN09) |
+| Tesoureiro | `tesoureiro@churchhub.local` | Painel sem membros; consulta eventos; lança e edita movimentações e cria categorias (não exclui); não vê a ficha dos membros, só a busca por nome no lançamento |
+| Membro | `membro@churchhub.local` | Painel com os próximos eventos; consulta a agenda |
 
-São 25 membros de exemplo, todos com CPF de dígito verificador válido. Ana Beatriz Carvalho, André Luiz Fontana, João Pedro Zanella e Mateus Oliveira Cruz têm dízimo lançado (no real, pelo `DadosDemonstracaoService`; no simulado, marcados no banco em memória): excluí-los dá o 409 da RN14.
+Todos têm **Minha conta** (dados e troca de senha). A matriz completa, permissão por permissão, está em `src/constants/permissoes.js` e na seção 4 de `docs/frontend-integracao.md`.
 
-## Contrato consumido
+Dados: 25 membros (CPF com dígito verificador válido; os 3 últimos aparecem em "Novos membros"), 7 eventos em volta de hoje (um já encerrado, "Culto de ação de graças") e 6 categorias com 11 lançamentos por mês (mês passado e mês atual). Ana Beatriz Carvalho, André Luiz Fontana, João Pedro Zanella e Mateus Oliveira Cruz têm dízimo lançado: excluí-los dá o 409 da RN14.
 
-Extraído de `AuthController`, `MembroController`, DTOs, `JwtService`, `SecurityConfig`, `GlobalExceptionHandler`, `MembroService` e migrations.
+## Deploy
 
-**Autenticação.** `POST /api/v1/auth/login` com `{ email, password }` (`@NotBlank @Email` / `@NotBlank`). Responde `{ token, type: "Bearer", expiresIn }`, com `expiresIn` em **segundos** (86400). Credenciais erradas ou usuário inativo: 401 `"E-mail ou senha inválidos"`. O e-mail do login não diferencia maiúsculas. Só `/api/v1/auth/**`, o Swagger e `/actuator/health` são públicos. Não existe `/auth/refresh`.
+O frontend é estático (`npm run build` → `dist/`) e está preparado para a **Vercel**; a API roda o `backend/Dockerfile` em qualquer serviço que aceite Docker (ex.: Render) com um PostgreSQL 17 (ex.: Neon).
 
-**Recuperação de senha.** `POST /auth/forgot-password` com `{ email }` responde sempre 200 com a mesma mensagem; a tela `/esqueci-senha` mostra a sua própria mensagem neutra em qualquer desfecho (inclusive erro), para não revelar se o e-mail tem cadastro, e envia o e-mail em minúsculas (o backend também normaliza). Só usuário ativo recebe link, e cada pedido novo invalida os links anteriores. O backend gera um link `/reset-password?token=<UUID>` válido por 30 minutos e de uso único — hoje só registrado no log do Spring (`LoggingMailSender`); no modo simulado, ele aparece no bloco "E-mails simulados" da própria tela. `POST /auth/reset-password` com `{ token, newPassword }` (6 a 72 caracteres e no máximo 72 bytes; o login também recusa senha acima de 72 bytes com 400) responde 204, ou 400 `"Token de redefinição inválido ou expirado"`; a tela `/reset-password` lê o `?token=`, pede a confirmação da senha, também limita a 72 bytes (limite do BCrypt) e, com token inválido, oferece pedir um novo link.
+**Frontend (Vercel).** Novo projeto a partir do repositório, com **Root Directory `frontend`** (a Vercel detecta o Vite: build `npm run build`, saída `dist`). Variáveis:
 
-**JWT.** Claims `sub` (e-mail), `perfil` (com prefixo, ex.: `ROLE_ADMINISTRADOR`), `nome`, `iat` e `exp`. O backend relê o usuário a cada requisição: desativado → 401; senha trocada depois do `iat` → 401 `"Sua senha foi alterada. Entre novamente."`; perfil diferente da claim → 401 `"Seu acesso foi alterado. Entre novamente."`. O login mostra esses motivos. Ao abrir o app, o `AuthProvider` relê `GET /me` e o topo usa o nome e o e-mail atuais do servidor (o perfil vem sempre do token).
+| Variável | Valor |
+|---|---|
+| `VITE_API_BASE_URL` | `https://SUA-API/api/v1` |
+| `VITE_API_TIMEOUT_MS` | `90000` (a API gratuita leva ~1 min para acordar) |
+| `VITE_USE_MOCK_API` | `false` |
+| `VITE_SHOW_DEMO_ACCOUNTS` | `true` só em ambiente de apresentação |
 
-**Usuários e Minha conta.** `/usuarios` (só ADMINISTRADOR; `GET/POST /users`, `GET/PUT /users/{id}`, `POST /users/{id}/deactivate`, `/activate` e `/invite`): lista com filtros de nome, perfil e situação, cadastro sem senha (o backend envia um convite de 72 h, o mesmo link `/reset-password?token=…` com `&convite=1`, que só troca o texto da tela para as boas-vindas), edição de nome e perfil (o e-mail não muda), ativar/desativar com confirmação e reenviar convite. O backend recusa (409) desativar a própria conta, tirar o próprio perfil de Administrador e deixar o sistema sem Administrador ativo. `/minha-conta` (todos; `GET /me`, `PUT /me/password`): dados e troca de senha, que devolve um token novo usado pela sessão atual (as outras sessões caem).
+O `vercel.json` já traz:
+- o redirecionamento de todas as rotas para o `index.html` (F5 em `/membros` não dá 404);
+- cabeçalhos de segurança: `Content-Security-Policy` (scripts só da própria origem, Google Fonts, `data:` nas imagens do CSS, `connect-src 'self' https:`, `frame-ancestors 'none'`), `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff` e `Referrer-Policy: no-referrer`. Com o endereço da API definido, troque `https:` do `connect-src` pela origem dela (ex.: `https://churchhub-api.onrender.com`) para restringir ainda mais.
 
-**Membros** (`/api/v1/members`):
+**API.** Variáveis do backend em produção: `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USERNAME`, `DB_PASSWORD`, `DB_SSL_MODE=require` (bancos na nuvem), `JWT_SECRET` (32+ caracteres; sem ele a API não sobe), `CORS_ALLOWED_ORIGINS` com o domínio de produção da Vercel (`https://nome.vercel.app`, sem barra no final), `APP_TIMEZONE=America/Sao_Paulo` e `DEMO_DATA_ENABLED=true` só para apresentação (com dados reais, `false` + `ADMIN_EMAIL`/`ADMIN_PASSWORD`). Health check: `/actuator/health/liveness` (não consulta o banco). No Neon, use a conexão direta, sem o pooler: o Flyway usa travas de sessão.
 
-| Método e rota | Perfis (`@PreAuthorize`) | Resposta |
-|---|---|---|
-| `GET /members?nome=&status=&page=&size=&sort=` | ADMINISTRADOR, PASTOR, SECRETARIO | 200, `Page<MembroResponse>`; 400 se `status` for inválido |
-| `GET /members/lookup?nome=&status=&page=&size=` | ADMINISTRADOR, PASTOR, SECRETARIO, TESOUREIRO | 200, `Page<{ id, nome, status }>` (máx. 20 por página, sempre por nome) |
-| `GET /members/{id}` | ADMINISTRADOR, PASTOR, SECRETARIO | 200 ou 404 |
-| `POST /members` | ADMINISTRADOR, SECRETARIO | 201, 400 ou 409 |
-| `PUT /members/{id}` | ADMINISTRADOR, SECRETARIO | 200, 400, 404 ou 409 |
-| `DELETE /members/{id}` | ADMINISTRADOR | 204, 404 ou 409 (RN14: tem movimentação financeira) |
+**Plano B para a apresentação.** Um segundo projeto na Vercel com `VITE_USE_MOCK_API=true` funciona sem API e sem banco (tudo no navegador, mesmas contas e dados).
 
-A listagem usa `page` a partir de 0, `size=10` e `sort` repetido com desempate (ex.: `sort=status,desc&sort=nome,asc&sort=id,asc`; o axios envia chaves repetidas, como o Spring lê). A busca é **só por nome**, contendo o texto e sem diferenciar maiúsculas (`findByNomeContainingIgnoreCase`); diferencia acentos. O filtro por status vai para o servidor (`?status=ATIVO|AFASTADO|VISITANTE`).
+**Recomeçar os dados na nuvem.** No editor SQL do banco: `TRUNCATE movimentacoes_financeiras, categorias_financeiras, eventos, membros, password_reset_tokens, usuarios CASCADE;` (nunca `perfis` nem `flyway_schema_history`) e reinicie a API: a carga recria tudo.
 
-**Telas de membros.** `/membros` (lista: busca com espera de 400 ms, filtro por status, ordenação pelo cabeçalho — ou "Ordenar por" no celular —, paginação; tudo refletido na URL, ex.: `?busca=ana&status=ATIVO&pagina=2&ordem=email,desc`), `/membros/:id` (detalhes, via `GET /members/{id}`), `/membros/novo` e `/membros/:id/editar` (o mesmo formulário; a edição sempre relê o membro). Datas são digitadas como DD/MM/AAAA e enviadas como AAAA-MM-DD. Exclusão sempre pelo `ConfirmDialog` com o nome do membro; o 409 da RN14 vira uma explicação com o atalho "Alterar status" (a etapa de confirmação administrativa da Fase 2 entra em `hooks/useExclusaoMembro.js`).
+## Contrato consumido (resumo)
 
-**Campos** (`MembroRequest`/`MembroResponse`, mesmos nomes em todo o frontend): `id`, `nome`, `cpf`, `email`, `telefone`, `endereco`, `dataNascimento`, `dataBatismo`, `dataConversao` (`AAAA-MM-DD`) e `status` (`ATIVO`, `AFASTADO`, `VISITANTE`; nulo vira `ATIVO`). Obrigatórios: `nome`, `cpf` (`\d{11}`) e `email`. Colunas: nome 150, cpf 11, email 150, telefone 20, endereço 255. CPF e e-mail são únicos (o e-mail é checado primeiro). O frontend envia CPF e telefone só com dígitos, e-mail em minúsculas e campos vazios como `null`.
+- Todas as rotas em `/api/v1`; só `/auth/**`, Swagger e `/actuator/health` são públicos. O interceptor só anexa `Authorization: Bearer` fora de `/auth/`.
+- JWT com `sub` (e-mail), `perfil` (`ROLE_<PERFIL>`), `nome`, `iat`, `exp`; 86400 s; sem refresh. O backend relê o usuário a cada requisição: desativado, senha trocada depois do `iat` ou perfil diferente da claim → 401 (os dois últimos com o motivo, que o login mostra).
+- Página do Spring no formato DIRECT (`{ content, totalElements, totalPages, number, size, … }`); `normalizarPagina` também aceita o VIA_DTO. `page` base 0, `size` até 2000, `sort` repetido com desempate.
+- Erro: `{ timestamp, status, error, message, path }`, sem lista por campo; 400 de validação junta as mensagens com `", "`. 400 = entrada inválida (inclusive `{id}` não-UUID e `sort` inválido) ou regra de negócio; 401 = sessão; 403 = perfil sem permissão; 404; 409 = conflito (unicidade, RN09, RN14, último Administrador ativo).
+- Datas `AAAA-MM-DD`, horário `HH:mm:ss` na resposta (`HH:mm` no envio), dinheiro como número com 2 casas. O frontend envia CPF e telefone só com dígitos, e-mail em minúsculas e campos vazios como `null`.
 
-**Eventos** (`/api/v1/events`):
-
-| Método e rota | Perfis (`@PreAuthorize`) | Resposta |
-|---|---|---|
-| `GET /events?dataInicio=&dataFim=&page=&size=&sort=` | qualquer usuário autenticado (`isAuthenticated()`) | 200, `Page<EventoResponse>`; período só vale com as **duas** datas (inclusivo); data mal formada → 400; ordem padrão `data`, `horario`, `id` |
-| `GET /events/{id}` | qualquer usuário autenticado | 200 ou 404 `"Evento não encontrado"` |
-| `POST /events` | ADMINISTRADOR, SECRETARIO | 201 ou 400 |
-| `PUT /events/{id}` | ADMINISTRADOR, SECRETARIO | 200, 400 (validação), **409** (RN09: evento já encerrado e quem edita não é ADMINISTRADOR), 404 |
-| `DELETE /events/{id}` | ADMINISTRADOR | 204 ou 404 |
-
-A agenda é de todos os perfis (o TESOUREIRO também consulta); só ADMINISTRADOR e SECRETARIO cadastram e editam, e só o ADMINISTRADOR exclui. "Encerrado" (RN09) é o critério do `EventoService`: data + horário de **início** antes de agora, no `Clock` da API no fuso `APP_TIMEZONE` (padrão `America/Sao_Paulo`); não há status nem hora de término. O frontend aplica o mesmo critério no mesmo fuso (`schemas/regrasEvento.js`) só para desabilitar "Editar" com o motivo; quem decide é o backend.
-
-**Telas de eventos.** `/eventos` abre no calendário do mês (grade de domingo a sábado, sem biblioteca: `utils/calendario.js`; no celular, agenda por dia) ou na lista (período De/Até, ordenação por data ou título, paginação de 10). Visão, mês, período, página e ordem ficam na URL (ex.: `?mes=2026-11`, `?visao=lista&de=2026-11-01&ate=2026-11-30&pagina=2`). `/eventos/:id` (detalhes), `/eventos/novo` (`?data=AAAA-MM-DD` pré-preenche, vindo do "+" do calendário) e `/eventos/:id/editar` usam o mesmo formulário. **Campos** (`EventoRequest`/`EventoResponse`): `titulo` (obrigatório, 150), `descricao` (1000), `data` (obrigatória, RN08, `AAAA-MM-DD`), `horario` (obrigatório; resposta `"HH:mm:ss"`, o front envia `"HH:mm"`), `local` (255). Data e horário são digitados como DD/MM/AAAA e HH:MM (24 h) e enviados exatamente assim, sem passar por `Date`: o que se digita é o que aparece depois.
-
-**Erros.** Corpo `{ timestamp, status, error, message, path }`, sem lista por campo. Em 400 de validação, as mensagens vêm juntas em `message`, separadas por `", "`. Mensagens fixas: 401 `"Sessão inválida ou expirada. Faça login novamente."` (token ausente, vencido ou adulterado), 403 (do `@PreAuthorize`) `"Você não possui permissão para acessar este recurso."`, 404 `"Membro não encontrado"`, 409 `"Já existe um membro com este e-mail"` / `"Já existe um membro com este CPF"` / membro com movimentações financeiras (RN14), 500 `"Ocorreu um erro interno no servidor."`. Entradas inválidas (JSON malformado, `{id}` que não é UUID, `sort` com campo inexistente, texto maior que a coluna) voltam como 400, nunca 500.
+Inventário completo dos 34 endpoints: seção 2 de `docs/frontend-integracao.md`.
 
 ## Decisões de arquitetura
 
 **Camadas com dependência em um só sentido.** `pages` → `components` → `hooks` → `services` → `utils`/`constants`. Componentes nunca chamam axios; serviços nunca importam React. Toda regra de formulário mora em `schemas/` (funções puras, testadas sem navegador).
 
-**Um único formato de erro.** Tudo que sai de `services/` é um `ApiError` com `tipo`, `status` e `message` já prontos para a tela. É aqui que 401 ("sua sessão acabou") se separa de 403 com corpo ("seu perfil não pode"). Por segurança, um 403 sem corpo, que esta API não produz mas um proxy poderia, também encerra a sessão.
+**Um único formato de erro.** Tudo que sai de `services/` é um `ApiError` com `tipo`, `status` e `message` prontos para a tela. É aqui que 401 ("sua sessão acabou") se separa de 403 com corpo ("seu perfil não pode"). Um 403 sem corpo, que esta API não produz mas um proxy poderia, também encerra a sessão.
 
-**Sessão controlada no cliente.** Além de reagir ao 401 do backend, o frontend guarda `expiresAt` (o menor entre `agora + expiresIn` e a claim `exp`, com 5 s de folga), agenda o logout automático, confere de novo ao voltar para a aba e recusa enviar uma requisição com sessão vencida. 401 fora do login, ou 403 sem corpo, também encerram a sessão. Na rota de login, 401 vira mensagem no formulário. A sessão fica em `sessionStorage` (some ao fechar o navegador); ao ser restaurada, o perfil é sempre relido do token, nunca do que foi salvo. O ideal, que depende do backend, seria cookie `httpOnly` com refresh token.
+**Sessão controlada no cliente.** Além de reagir ao 401, o frontend guarda `expiresAt` (o menor entre `agora + expiresIn` e a claim `exp`, com 5 s de folga), agenda o logout automático, confere de novo ao voltar para a aba e recusa enviar requisição com sessão vencida. A sessão fica em `sessionStorage` (some ao fechar o navegador; a senha nunca é guardada); ao ser restaurada, o perfil é sempre relido do token. O `AuthProvider` relê `GET /me` ao abrir o app e a cada token novo (nome atual no topo). O ideal, que depende do backend, seria cookie `httpOnly` com refresh token.
 
-**Nada de `Authorization` em rotas públicas.** O interceptor só anexa o token fora de `/auth/`: rotas públicas não precisam dele.
+**Backend simulado como adaptador do axios.** O modo simulado troca apenas o transporte (`httpClient.defaults.adapter`): serviços, interceptores, normalização de página e conversão de erro são os mesmos nos dois modos. O servidor simulado segue a ordem do Spring (autenticação → `{id}` → `@Valid` → `@PreAuthorize` → serviço) e tem sua própria cópia dos perfis por rota, independente da matriz do frontend. É carregado por import dinâmico (nem é baixado com o modo desligado). Ao mudar o backend, mude o mock junto (`servidorSimulado.test.js` confere a fidelidade).
 
-**Backend simulado como adaptador do axios.** Em vez de duplicar os serviços em versões reais e falsas, o modo simulado troca apenas o transporte (`httpClient.defaults.adapter`). Os mesmos serviços, interceptores, normalização de página e conversão de erro rodam nos dois modos, e o resto do app não sabe qual está em uso. O servidor simulado segue a ordem do Spring (autenticação → conversão do `{id}` → `@Valid` → `@PreAuthorize` → serviço), responde 401 para token ausente ou vencido e 400 para entradas inválidas (inclusive `sort`), e tem sua própria cópia dos perfis por rota, independente da matriz do frontend. Ele é carregado por import dinâmico: fica num arquivo separado que nem é baixado quando o modo simulado está desligado.
+**Permissões só escondem, não autorizam.** `constants/permissoes.js` espelha os `@PreAuthorize` de todos os controllers linha a linha, e `permissoes.test.js` transcreve a mesma tabela: se o backend mudar, o teste obriga a revisar. `usePermissao().pode(...)` esconde botões e blocos; `RequirePermission` protege rotas (mostra "Sem acesso", sem deslogar); o menu (`itensMenuDoPerfil`) só lista áreas permitidas.
 
-**Página normalizada.** O backend (Spring Boot 4.1, sem configuração própria) serializa o `PageImpl` no modo padrão DIRECT: `{ content, pageable, totalElements, totalPages, last, size, number, sort, numberOfElements, first, empty }` (conferido na API real em 2026-10-26). O backend simulado responde exatamente nesse formato. `normalizarPagina` entrega sempre `{ content, number, size, totalElements, totalPages }` e também aceita o VIA_DTO (`{ content, page: { ... } }`), caso o backend venha a fixá-lo. `montarParametrosPagina` monta a query (`page`, `size` limitado a 2000, `sort` e filtros, descartando os vazios) e `useConsultaPaginada` busca a página, cancelando a anterior.
+**Painel (RN12).** `GET /dashboard` é aberto a qualquer perfil e devolve `null` nos blocos que o perfil não vê. Um bloco só aparece com `pode(...)` **e** o dado não nulo. Cada bloco tem o próprio carregando, erro e "Tentar novamente", e um `LimiteDeErro`. Os blocos financeiros usam as agregações `/financial/summary/**` (somadas no banco), as mesmas do fluxo de caixa e do relatório: o navegador nunca soma lançamentos.
 
-**Erro ao lado do campo, por enquanto pelo texto.** O backend não diz a que campo pertence cada erro. `schemas/errosServidor.js` (`criarMapeadorDeErros`) deduz o campo pela mensagem exata do DTO (400) ou por palavra-chave (409: e-mail, CPF). É provisório: se o backend mudar o texto, o erro só passa para o topo do formulário. O formato estruturado proposto está em `docs/frontend-integracao.md`.
+**Erro ao lado do campo, pelo texto.** O backend não diz a que campo pertence cada erro; `schemas/errosServidor.js` deduz pela mensagem exata do DTO (400) ou por palavra-chave (409). Se o texto mudar, o erro só passa para o topo do formulário. O formato estruturado proposto está nas pendências do backend.
 
-**Permissões só escondem, não autorizam.** `constants/permissoes.js` espelha os `@PreAuthorize` de todos os controllers linha a linha, e um teste transcreve a mesma tabela: se o backend mudar, o teste obriga a revisar. `usePermissao().pode(...)` e `<PodeAcessar permissao senao>` escondem botões e blocos; `RequirePermission` protege rotas (mostra "Sem acesso", sem deslogar); o menu (`itensMenuDoPerfil`) só lista áreas permitidas; e todos os perfis começam no Painel (`rotaInicialDoPerfil`).
+**Datas e dinheiro.** `LocalDate`/`LocalTime` são formatados fatiando a string, nunca com `new Date("AAAA-MM-DD")` (que no Brasil mostraria o dia anterior). "Hoje" e "agora" são calculados no fuso do servidor (`America/Sao_Paulo`), não no do navegador. Dinheiro em centavos inteiros (`utils/moeda.js`), enviado com 2 casas.
 
-**Painel (RN12).** `GET /dashboard` é aberto a qualquer perfil logado e devolve `null` nos blocos que o perfil não vê (contagens por status, aniversariantes e novos membros dos últimos 30 dias: A, P, S; resumo financeiro: A, P, T; próximos eventos: todos). A página só mostra um bloco quando `pode(...)` (`dashboard.membros`, `dashboard.financeiro`) **e** o dado veio não nulo: nada de card vazio ou "R$ 0,00" para quem não tem acesso. Cada bloco (`components/dashboard/BlocoDoPainel`) tem o próprio carregando, erro e "Tentar novamente", e um limite de erro de renderização (`LimiteDeErro`). Membros (total, ativos, afastados, visitantes), novos membros, eventos e aniversariantes vêm do `/dashboard`; os blocos financeiros fazem consultas próprias aos endpoints de agregação (`GET /financial/summary`, `/summary/series?agrupamento=DIA|MES` e `/summary/categories`, somados no banco com os filtros `tipo`/`categoriaId`), que também alimentam o fluxo de caixa e o relatório do Financeiro: o navegador não soma lançamentos.
+**Envio único.** Todo formulário que envia à API usa `useEnvioUnico` (guarda por ref, não por estado): dois cliques no mesmo instante fazem uma só requisição.
 
-**Datas como texto.** `LocalDate`, `LocalTime` e `LocalDateTime` chegam sem fuso. `utils/datas.js` os formata fatiando a string, nunca com `new Date("AAAA-MM-DD")` (que no Brasil mostraria o dia anterior). Moeda: `utils/moeda.js` (`Intl.NumberFormat` BRL, arredondamento para 2 casas antes de enviar).
+**Segurança no navegador.** Nenhum `console` (o ESLint proíbe), nenhum segredo no código (só `.env.example` é versionado), redirecionamento pós-login só para caminhos internos (sem `//` nem `\`), token de `/reset-password` tirado da URL depois de lido, cabeçalhos HTTP no `vercel.json`.
 
-**Acessibilidade.** Rótulos ligados aos campos, `aria-invalid` e `aria-describedby` nos erros, foco no primeiro campo inválido, foco preso nas modais e no menu do celular, Esc fecha, o foco volta a quem abriu, link "Pular para o conteúdo", foco visível e `prefers-reduced-motion` respeitado. Botões em carregamento usam `aria-disabled` em vez de `disabled`, porque um botão desabilitado joga o foco para fora da modal.
+**Acessibilidade.** Rótulos ligados aos campos, `aria-invalid`/`aria-describedby` nos erros, foco no primeiro campo inválido, foco preso nas modais e no menu do celular (que vira `role="dialog"`), Esc fecha, o foco volta a quem abriu, "Pular para o conteúdo", foco visível, `prefers-reduced-motion`, gráficos com tabela equivalente, valores com sinal escrito além da cor. Contraste conferido por teste (`styles/contraste.test.js`): texto ≥ 4,5:1 e borda de campo ≥ 3:1. Botões em carregamento usam `aria-disabled`, porque um botão desabilitado joga o foco para fora da modal.
+
+**Responsividade.** Menu lateral fixo a partir de 960 px e painel recolhível abaixo disso; abaixo de 720 px, as tabelas viram cartões (com "Ordenar por") e o calendário vira agenda por dia.
 
 ## Estrutura
 
 ```
 src/
   config/        leitura única das variáveis de ambiente
-  constants/     perfis, permissões, status, rotas, limites de campo, menu
+  constants/     perfis, permissões, rotas, menu, consultas (tamanhos e esperas), limites e rótulos por módulo
   contexts/      AuthProvider (sessão) e ToastProvider (notificações)
-  hooks/         useAuth, usePermissao, useConsultaPaginada, useMembros, useMembroForm, useFocusTrap...
-  schemas/       validação, máscaras, montagem do payload e mapeamento de erros do servidor para campos
+  hooks/         useAuth, usePermissao, useEnvioUnico, useConsultaPaginada, use<Módulo>, use<Módulo>Form, useFocusTrap...
+  schemas/       validação, máscaras, payload, estado na URL e mapeamento de erros do servidor para campos
   services/
     http/        cliente axios, ApiError, página (normalização e query)
-    auth/        sessão (regras puras + armazenamento) e login
-    members/     chamadas de /members
-    mock/        backend simulado (núcleo, handlers/<módulo> com as próprias rotas, página DIRECT, dados, JWT falso)
+    auth/ conta/ dashboard/ events/ financial/ members/ usuarios/   chamadas por recurso
+    mock/        backend simulado (núcleo, handlers/<módulo>, página DIRECT, dados, JWT falso, caixa de e-mail)
   routes/        rotas (páginas com React.lazy) e guards (visitante, autenticado, permissão)
-  layouts/       tela dividida do login e estrutura autenticada (menu por perfil, breadcrumb)
-  pages/         Login, Esqueci a senha, Redefinir senha, Membros e Eventos (lista/calendário, detalhes, formulário), Financeiro (movimentações, fluxo de caixa, relatório, formulário), Painel, Em construção, Sem acesso, 404
-  components/    ui (genéricos: Button, campos, Card, Table, Modal, ConfirmDialog, Pagination, Breadcrumb...), members, events, auth, brand
+  layouts/       tela do login e estrutura autenticada (menu por perfil, topo, breadcrumb)
+  pages/         uma por rota (Login, Esqueci/Redefinir senha, Painel, Membros, Eventos, Financeiro, Usuários, Minha conta, Sem acesso, 404)
+  components/    ui (Button, campos, Card, Table, Modal, ConfirmDialog, Pagination, ListaSkeleton...) e um diretório por módulo
   styles/        tokens (cores, tipos, espaçamentos) e estilos globais
-  utils/         CPF, telefone, datas (e agora no fuso do servidor), calendário, moeda, JWT, strings
-  test-utils/    apoio usado só pelos testes (tokens, render com perfil, app inteiro numa rota, transporte HTTP falso ou pelo servidor simulado)
+  utils/         CPF, telefone, datas, calendário, moeda, fluxo de caixa, JWT, ordenação, strings
+  test-utils/    apoio só dos testes (relógio fixo, app inteiro numa rota, transporte HTTP falso ou pelo servidor simulado)
 ```
 
 ## Testes
 
-`npm test` roda 623 testes em 48 arquivos: usuários (acesso só do Administrador, filtros na URL, cadastro com convite, 409 de e-mail no campo, edição, própria conta, desativar e reativar), Minha conta (dados do `/me`, troca de senha e token novo, senha atual errada no campo), sessão (nome do `/me` no topo, motivo do encerramento no login), tela do convite, Painel (o que cada um dos 5 perfis vê, contagens por status, novos membros, atalhos, falha de um bloco sem afetar os outros, erro de renderização preso no bloco), financeiro (lista, fluxo de caixa e relatório com as agregações do backend, inclusive acima de 2000 lançamentos), telas de eventos (lista, paginação, ordenação, período, alternância calendário/lista na URL, calendário e agenda, RN09 por perfil, formulário com data obrigatória, detalhes e exclusão), telas de membros (paginação, busca com espera, filtro por status, ordenação, estado na URL, vazio e carregando; formulário com validação, máscaras e 409 de e-mail/CPF no campo; detalhes; exclusão e RN14; botões por perfil), login (sucesso, credenciais erradas, envio duplo, logout), esqueci a senha (mensagem neutra em qualquer desfecho), redefinição (token inválido, regras da senha), validação e máscara de CPF, máscara de telefone, schema do formulário de membro, mapeamento de erros 400/409 para campos (uma mensagem por campo, a primeira), matriz de permissões de todos os controllers, menu, breadcrumb e rota inicial por perfil, formatadores de data/hora e moeda, leitura do perfil a partir do JWT, sessão e expiração, normalização e montagem da página, conversão de erros da API, cliente HTTP (Bearer, 401, 403, 400, 409, tempo esgotado e rede), redirecionamento seguro após login e fidelidade do backend simulado ao real.
+`npm test` roda 640 testes em 50 arquivos, sem nenhuma saída de erro no console. Cobrem: matriz de permissões de todos os controllers, menu, rotas e rota inicial por perfil; sessão (expiração, 401 com motivo, nome do `/me`, token novo após trocar a senha); login, esqueci a senha, redefinição e convite; as telas de cada módulo com o servidor simulado (listas, filtros e ordenação na URL, paginação, estados vazio/carregando/erro, formulários com validação, máscaras e erros 400/409 no campo, ações por perfil, RN09, RN12, RN14, gestão de usuários); fluxo de caixa e relatório pelas agregações; envio duplo; teclado do Modal e do menu do celular; contraste dos tokens; schemas e utils puros; e a fidelidade do backend simulado ao real.
 
-O ambiente padrão é `node` (funções puras, `*.test.js`). Testes de componente usam `*.test.jsx` com `// @vitest-environment jsdom` na primeira linha e `renderizarComPerfil` (`test-utils/componentes.jsx`), que simula o usuário logado e desmonta entre os testes. Exemplos: `PodeAcessar.test.jsx`, `Table.test.jsx` e `AppRoutes.test.jsx` (rotas por perfil). Para uma tela inteira com dados, `abrirAppComServidor(caminho, perfil)` (`test-utils/app.jsx`) abre o app logado e responde com o servidor simulado, expondo a URL atual (ex.: `MembrosPage.test.jsx`). Para testar uma tela com o HTTP de verdade, `instalarTransporte` (`test-utils/transporte.js`) troca só o adaptador do axios: serviços, interceptores e `ApiError` continuam os reais (ex.: `LoginForm.test.jsx`).
+- **Data fixa.** `test-utils/relogio.js` (em `setupFiles`) faz todo teste rodar em 20/10/2026, 12:00 de São Paulo, falsificando só o `Date` (timers reais). Para outro dia, `fixarAgora('2026-11-03T15:00:00Z')` no próprio teste. Constantes calculadas no topo do arquivo usam `AGORA_DOS_TESTES`.
+- **Ambiente.** Padrão `node` (`*.test.js`). Testes de componente usam `*.test.jsx` com `// @vitest-environment jsdom` na primeira linha.
+- **Tela inteira com dados.** `abrirAppComServidor(caminho, perfil)` (`test-utils/app.jsx`) abre o app logado respondendo com o servidor simulado e expõe a URL atual (ex.: `MembrosPage.test.jsx`).
+- **HTTP controlado.** `instalarTransporte` (`test-utils/transporte.js`) troca só o adaptador do axios; com `transporteDoServidor(criarServidorSimulado(...))` cada rota responde pelo contrato (ex.: `LoginForm.test.jsx`).
+- **Foco no jsdom.** O jsdom não calcula layout; `simularElementosVisiveis()` (`test-utils/layout.js`) permite testar o foco preso (ex.: `Modal.test.jsx`).
 
 ## Como crescer (TCC)
 
-Membros, Eventos, Financeiro, Painel, Usuários e Minha conta estão integrados e servem de exemplo. Para um módulo novo, o caminho é: criar o serviço em `services/<modulo>/` (com `montarParametrosPagina` + `normalizarPagina`), o schema em `schemas/` (com `criarMapeadorDeErros`), os componentes em `components/<modulo>/`, trocar o `EmConstrucaoPage` da rota em `routes/AppRoutes.jsx` pela página real e acrescentar `handlers/<modulo>.js` ao backend simulado (as rotas entram em `ROTAS` de `servidorSimulado.js`).
-
-## Integração com o backend
-
-Os problemas de integração apontados na primeira versão deste README foram corrigidos no backend: pacote do CORS fora do component scan, falta de usuário para login (agora há carga inicial por variável de ambiente), 403/500 no lugar de 401, erros de entrada virando 500, falta de `@Size` nos DTOs, e-mail do login diferenciando maiúsculas, pastas que não batiam com os pacotes, segredo JWT padrão e `printStackTrace`.
-
-Ficam para as próximas fases:
-
-1. **E-mail único de membro diferencia maiúsculas** no banco (`Ana@x.com` e `ana@x.com` passam). O frontend já grava em minúsculas; o ideal é um índice único em `lower(email)` numa nova migration.
-2. **Unicidade checada antes de gravar.** Dois cadastros simultâneos com o mesmo CPF: o segundo esbarra na constraint e recebe 409 genérico, em vez da mensagem específica.
-3. **Formato da página implícito.** Hoje é o DIRECT, padrão do Spring Boot 4.1 (o próprio Spring Data registra aviso recomendando VIA_DTO). Fixar com `@EnableSpringDataWebSupport(pageSerializationMode = ...)` evita mudança silenciosa numa atualização. O frontend aceita os dois formatos.
-4. **Busca por nome diferencia acentos** ("Jose" não encontra "José"); a extensão `unaccent` do PostgreSQL resolveria.
-5. **Sessão em `sessionStorage` sem refresh token.** O ideal é cookie `httpOnly` com refresh token (`POST /auth/refresh`, já previsto em 07-API.md).
+Para um módulo novo: permissões em `constants/permissoes.js` (espelhando o controller) e em `permissoes.test.js` → `services/<modulo>/` (com `montarParametrosPagina` + `normalizarPagina`) → `schemas/` (com `criarMapeadorDeErros`) → `components/<modulo>/` → página → rota protegida com `RequirePermission` em `routes/AppRoutes.jsx` → item em `constants/navegacao.js` → `handlers/<modulo>.js` no backend simulado (rotas em `ROTAS` de `servidorSimulado.js`). O backlog priorizado (segurança, membros, eventos, financeiro, usuários e dependências) está em `docs/frontend-integracao.md`, seção 7.

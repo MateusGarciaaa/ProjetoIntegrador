@@ -1,5 +1,6 @@
 import { useId, useState } from 'react';
 import { LIMITE_NOME_CATEGORIA, OPCOES_TIPO_MOVIMENTACAO } from '../../constants/financeiro';
+import { useEnvioUnico } from '../../hooks/useEnvioUnico';
 import { mapearErroCategoria, montarPayloadCategoria, validarCategoria, valoresIniciaisCategoria } from '../../schemas/categoriaSchema';
 import { categoriasService } from '../../services/financial/categoriasService';
 import { Alert } from '../ui/Alert';
@@ -20,7 +21,7 @@ export function NovaCategoriaDialog({ tipoInicial, existentes, onCriada, onFecha
   const [valores, setValores] = useState(() => valoresIniciaisCategoria({ tipo: tipoInicial }));
   const [erros, setErros] = useState({});
   const [erroGeral, setErroGeral] = useState(null);
-  const [enviando, setEnviando] = useState(false);
+  const { enviando, executar } = useEnvioUnico();
 
   function alterar(campo, valor) {
     setValores((atuais) => ({ ...atuais, [campo]: valor }));
@@ -30,7 +31,6 @@ export function NovaCategoriaDialog({ tipoInicial, existentes, onCriada, onFecha
   async function enviar(evento) {
     evento.preventDefault();
     evento.stopPropagation(); // a modal fica dentro do formulário da movimentação na árvore do React
-    if (enviando) return;
     setErroGeral(null);
     const encontrados = validarCategoria(valores, { existentes });
     setErros(encontrados);
@@ -40,16 +40,16 @@ export function NovaCategoriaDialog({ tipoInicial, existentes, onCriada, onFecha
       return;
     }
 
-    setEnviando(true);
-    try {
-      onCriada(await categoriasService.cadastrar(montarPayloadCategoria(valores)));
-    } catch (erro) {
-      setEnviando(false);
-      if (erro.isFimDeSessao?.()) return;
-      const { camposErro, erroGeral: mensagem } = mapearErroCategoria(erro);
-      setErros(camposErro);
-      setErroGeral(mensagem);
-    }
+    await executar(async () => {
+      try {
+        onCriada(await categoriasService.cadastrar(montarPayloadCategoria(valores)));
+      } catch (erro) {
+        if (erro.isFimDeSessao?.()) return;
+        const { camposErro, erroGeral: mensagem } = mapearErroCategoria(erro);
+        setErros(camposErro);
+        setErroGeral(mensagem);
+      }
+    });
   }
 
   return (

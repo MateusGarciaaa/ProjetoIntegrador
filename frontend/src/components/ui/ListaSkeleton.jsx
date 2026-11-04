@@ -1,12 +1,16 @@
-import { Skeleton } from '../ui/Skeleton';
-import styles from './MembrosSkeleton.module.css';
+import { Skeleton } from './Skeleton';
+import styles from './ListaSkeleton.module.css';
 
 const LARGURAS = ['72%', '64%', '80%', '58%', '69%', '75%'];
 
-export function MembrosSkeleton() {
+/**
+ * Linhas "fantasma" de uma lista enquanto a primeira página carrega (membros, eventos,
+ * movimentações, usuários). O rótulo é anunciado pelo leitor de tela (ex.: "Carregando membros…").
+ */
+export function ListaSkeleton({ rotulo }) {
   return (
     <div className={styles.lista} role="status">
-      <span className="sr-only">Carregando membros…</span>
+      <span className="sr-only">{rotulo}</span>
       {LARGURAS.map((largura) => (
         <div key={largura} className={styles.linha}>
           <Skeleton largura={largura} />

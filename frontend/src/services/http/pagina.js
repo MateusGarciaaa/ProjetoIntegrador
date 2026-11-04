@@ -1,7 +1,5 @@
+import { TAMANHO_MAXIMO_PAGINA } from '../../constants/consultas';
 import { ApiError, MENSAGENS_ERRO, TIPOS_ERRO } from './apiError';
-
-/** Spring Data limita o size a 2000 (spring.data.web.pageable.max-page-size); acima disso, reduz em silêncio. */
-export const TAMANHO_MAXIMO_PAGINA = 2000;
 
 function inteiroOu(valor, padrao) {
   return Number.isInteger(valor) && valor >= 0 ? valor : padrao;
