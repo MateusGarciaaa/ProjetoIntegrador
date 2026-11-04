@@ -39,6 +39,10 @@ export function AppLayout() {
     if (evento.key === 'Escape' && menuAberto) setMenuAberto(false);
   }
 
+  // No celular e no tablet, o menu aberto é uma janela sobre a página (foco preso, Esc fecha);
+  // no desktop é a navegação fixa da página, sem papel de diálogo.
+  const comoDialogo = !desktop && menuAberto ? { role: 'dialog', 'aria-modal': true } : {};
+
   return (
     <div className={styles.estrutura}>
       <a className={styles.pularLink} href="#conteudo-principal">
@@ -52,6 +56,7 @@ export function AppLayout() {
         ref={menuRef}
         className={cx(styles.menu, menuAberto && styles.menuAberto)}
         aria-label="Menu principal"
+        {...comoDialogo}
         onKeyDown={aoPressionarTecla}
       >
         <div className={styles.menuTopo}>

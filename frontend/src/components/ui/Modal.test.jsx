@@ -1,25 +1,13 @@
 // @vitest-environment jsdom
 import { fireEvent, render, screen } from '@testing-library/react';
 import { useState } from 'react';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import '../../test-utils/componentes';
+import { simularElementosVisiveis } from '../../test-utils/layout';
 import { Button } from './Button';
 import { Modal } from './Modal';
 
-// O jsdom não calcula layout: offsetParent é sempre null e o useFocusTrap acharia que nada está
-// visível. Aqui todo elemento ligado ao documento conta como visível, como no navegador.
-const descritorOriginal = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'offsetParent');
-beforeAll(() => {
-  Object.defineProperty(HTMLElement.prototype, 'offsetParent', {
-    configurable: true,
-    get() {
-      return this.isConnected ? this.parentNode : null;
-    },
-  });
-});
-afterAll(() => {
-  Object.defineProperty(HTMLElement.prototype, 'offsetParent', descritorOriginal);
-});
+simularElementosVisiveis();
 
 function Tela() {
   const [aberto, setAberto] = useState(false);

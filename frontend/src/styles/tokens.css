@@ -26,19 +26,21 @@
   /* Cores base */
   --color-ink: #1c2b27;
   --color-ink-muted: #52615c;
-  --color-ink-subtle: #75827d;
+  --color-ink-subtle: #5f6c67; /* ≥ 4,5:1 (AA) sobre surface, canvas, sunken e primary-soft */
   --color-canvas: #f3f4f1;
   --color-surface: #ffffff;
   --color-surface-sunken: #f8f9f7;
   --color-line: #dfe3de;
-  --color-line-strong: #c4cbc5;
+  --color-line-strong: #c4cbc5; /* divisórias; não usar como borda de campo */
+  --color-line-control: #828c87; /* borda de campo: ≥ 3:1 sobre surface, sunken e canvas (WCAG 1.4.11) */
 
   --color-primary: #1f4d43;
   --color-primary-hover: #173c34;
   --color-primary-soft: #e4eeea;
   --color-on-primary: #ffffff;
 
-  --color-accent: #b0873a;
+  --color-accent: #b0873a; /* decorativo: 3,3:1, não usar em texto */
+  --color-accent-text: #85631f; /* dourado para texto: ≥ 5:1 sobre surface e canvas */
   --color-accent-light: #d9b56a;
   --color-focus: #8d6a26;
 
