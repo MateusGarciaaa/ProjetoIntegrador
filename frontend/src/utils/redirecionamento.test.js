@@ -13,7 +13,7 @@ describe('destinoAposLogin', () => {
   });
 
   it('ignora destinos externos, o próprio login e valores inválidos', () => {
-    ['//evil.com', 'https://evil.com', '/login', undefined, 42].forEach((origem) =>
+    ['//evil.com', '/\\evil.com', '/\\/evil.com', '/membros\\..\\x', 'https://evil.com', '/login', undefined, 42].forEach((origem) =>
       expect(destinoAposLogin(origem, PERFIS.SECRETARIO)).toBe('/dashboard'),
     );
   });
