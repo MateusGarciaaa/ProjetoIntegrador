@@ -1,4 +1,5 @@
 import { useId, useState } from 'react';
+import { useEnvioUnico } from '../../hooks/useEnvioUnico';
 import { useMembroForm } from '../../hooks/useMembroForm';
 import { mapearErroDoServidor } from '../../schemas/membroSchema';
 import { TIPOS_ERRO } from '../../services/http/apiError';
@@ -16,7 +17,7 @@ export function MembroEditor({ membro, onSalvo, onCancelar, onMembroRemovido }) 
   const editando = Boolean(membro);
   const idFormulario = useId();
   const { valores, erros, alterar, sairDoCampo, prepararEnvio, aplicarErrosDoServidor } = useMembroForm(membro);
-  const [enviando, setEnviando] = useState(false);
+  const { enviando, executar } = useEnvioUnico();
   const [erroGeral, setErroGeral] = useState(null);
 
   function focarCampo(campo) {
@@ -25,7 +26,6 @@ export function MembroEditor({ membro, onSalvo, onCancelar, onMembroRemovido }) 
 
   async function enviar(evento) {
     evento.preventDefault();
-    if (enviando) return;
     setErroGeral(null);
 
     const { payload, primeiroInvalido } = prepararEnvio();
@@ -34,23 +34,23 @@ export function MembroEditor({ membro, onSalvo, onCancelar, onMembroRemovido }) 
       return;
     }
 
-    setEnviando(true);
-    try {
-      const salvo = editando ? await membrosService.atualizar(membro.id, payload) : await membrosService.cadastrar(payload);
-      onSalvo(salvo);
-    } catch (erro) {
-      setEnviando(false);
-      if (erro.isFimDeSessao?.()) return;
-      if (editando && erro.tipo === TIPOS_ERRO.NAO_ENCONTRADO) {
-        onMembroRemovido();
-        return;
+    await executar(async () => {
+      try {
+        const salvo = editando ? await membrosService.atualizar(membro.id, payload) : await membrosService.cadastrar(payload);
+        onSalvo(salvo);
+      } catch (erro) {
+        if (erro.isFimDeSessao?.()) return;
+        if (editando && erro.tipo === TIPOS_ERRO.NAO_ENCONTRADO) {
+          onMembroRemovido();
+          return;
+        }
+        const { camposErro, erroGeral: mensagemGeral } = mapearErroDoServidor(erro);
+        aplicarErrosDoServidor(camposErro);
+        setErroGeral(mensagemGeral);
+        const campoComErro = Object.keys(camposErro)[0];
+        if (campoComErro) focarCampo(campoComErro);
       }
-      const { camposErro, erroGeral: mensagemGeral } = mapearErroDoServidor(erro);
-      aplicarErrosDoServidor(camposErro);
-      setErroGeral(mensagemGeral);
-      const campoComErro = Object.keys(camposErro)[0];
-      if (campoComErro) focarCampo(campoComErro);
-    }
+    });
   }
 
   return (
